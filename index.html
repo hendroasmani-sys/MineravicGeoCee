@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="description" content="Mineravix v5 — AI Geo Insight Engine untuk analisis potensi WIUP dan Batubara Indonesia. Platform GIS berbasis AI oleh PT. Citra Eksplor Energi (GEOCEE).">
 <meta name="theme-color" content="#1A3A5C">
-<title>MINERAVIX v5.1 — AI Geo Insight Engine + Layer Kehutanan | GEOCEE</title>
+<title>MINERAVIX v5.2 — AI Geo Insight Engine + Hexbin Score | GEOCEE</title>
 <style id="font-defs">
 /* System font stack — zero network request, instant render */
 :root {
@@ -277,12 +277,17 @@ html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color
 /* Upload inline button di layer row */
 .lup-btn{background:none;border:1px solid var(--bd2);border-radius:var(--rsm);cursor:pointer;font-size:12px;padding:2px 6px;color:var(--t2);transition:background .15s;margin-left:4px;line-height:1;flex-shrink:0}
 .lup-btn:hover{background:var(--blue-lt);border-color:var(--blue);color:var(--blue)}
+
+/* HEXBIN tooltip */
+.hx-tip{position:absolute;z-index:1000;background:rgba(15,39,68,.92);color:#E2EAF4;border-radius:7px;padding:9px 13px;font-size:11px;pointer-events:none;backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,.1);min-width:140px;line-height:1.7;font-family:var(--fm);}
+.hx-tip-score{font-size:22px;font-weight:600;line-height:1.1;margin-bottom:2px;}
+.hx-tip-lbl{font-size:9px;color:#7AA3CC;text-transform:uppercase;letter-spacing:.08em;}
 </style>
 </head>
 <body>
 <div id="splash">
   <div class="sp-logo">MINERAVIX</div>
-  <div class="sp-sub">AI Geo Insight Engine · V5.1 · Layer Kehutanan</div>
+  <div class="sp-sub">AI Geo Insight Engine · V5.2 · Hexbin Score</div>
   <div class="sp-bar"><div class="sp-fill" id="spf"></div></div>
   <div class="sp-msg" id="spm">Memuat sistem...</div>
 </div>
@@ -290,7 +295,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color
   <div id="topbar">
     <div class="tb-logo">M</div>
     <div><span class="tb-name">MINERAVIX</span><span class="tb-sep">·</span><span class="tb-sub">GEOCEE</span></div>
-    <div class="tb-tier">v5.1</div>
+    <div class="tb-tier">v5.2</div>
     <div class="tb-space"></div>
     <button class="tb-btn" id="btn-chat" onclick="toggleChat()">⚡ AI Chat</button>
     <button class="tb-btn" onclick="showHelp()" style="margin-left:6px">? Bantuan</button>
@@ -416,6 +421,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color
         <button class="mb on" id="btn-id"  onclick="setTool('id')">🖱 Identify</button>
         <button class="mb"    id="btn-rad" onclick="setTool('rad')">⭕ Radius 5km</button>
         <button class="mb"    id="btn-hm"  onclick="tglHM()">🔥 Heatmap</button>
+        <button class="mb"    id="btn-hx"  onclick="tglHexbin()">⬡ Hexbin</button>
         <button class="mb"    id="btn-rv"  onclick="resetV()">⟳ Reset View</button>
         <button class="mb"    id="btn-geo" onclick="gotoMyLoc()" title="Lokasi saya">📍</button>
         <span id="tlbl"></span>
@@ -442,6 +448,14 @@ html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color
         </div>
         <div class="lg-bar"></div>
         <div class="lg-bl"><span>0</span><span>50</span><span>100</span></div>
+        <div id="lg-hexbin" style="display:none;margin-top:6px">
+          <div class="divider" style="margin:5px 0"></div>
+          <div class="lg-t">⬡ Hexbin Score</div>
+          <div class="lg-r"><div class="lg-d" style="background:#15803D;border-radius:3px"></div>≥75 Tinggi</div>
+          <div class="lg-r"><div class="lg-d" style="background:#65A30D;border-radius:3px"></div>50–74 Sedang</div>
+          <div class="lg-r"><div class="lg-d" style="background:#D97706;border-radius:3px"></div>30–49 Rendah</div>
+          <div class="lg-r"><div class="lg-d" style="background:#DC2626;border-radius:3px"></div>&lt;30 Sangat Rendah</div>
+        </div>
       </div>
       <div id="bs">
         <button class="bs-x" onclick="closeBS()" aria-label="Tutup detail">✕</button>
@@ -2660,11 +2674,294 @@ async function expMapPDF(){
     doc.text('MINERAVIX v5 · GEOCEE · Data bersifat informatif · Hal. 2',PW2/2,PH2-3.5,{align:'center'});
   }
 
-  // Simpan PDF
-  const fname='mineravix_peta_'+stmp()+'.pdf';
-  doc.save(fname);
-  toast('Layout Peta PDF berhasil: '+fname,'ok');
+/* ═══════════════════════════════════════════════
+   HEXBIN AI SCORE — v5.2
+   Grid hexagon berbasis lat/lon tanpa library H3.
+   Algoritma: flat-top hexagon grid, agregasi
+   rata-rata AI Score per sel dari layer WIUP,
+   Mineral, dan Batubara yang sudah discoring.
+   ═══════════════════════════════════════════════ */
+let hexbinOn=false,LY_HX=null,_hxTip=null;
+
+// Ukuran hex dalam derajat (approx ~80km di ekuator)
+// Bisa diubah: 1.0=kasar, 0.5=sedang, 0.25=halus
+const HX_SIZE=0.8;
+
+function _hxKey(col,row){return col+'_'+row;}
+
+function _latLonToHex(lat,lon){
+  // Flat-top hex grid
+  const h=HX_SIZE, w=HX_SIZE*Math.sqrt(3);
+  const col=Math.round(lon/w);
+  const row=Math.round((lat-(col%2)*h*0.5)/h);
+  return{col,row};
 }
-</script>
+
+function _hexCenter(col,row){
+  const h=HX_SIZE, w=HX_SIZE*Math.sqrt(3);
+  const lon=col*w;
+  const lat=row*h+(col%2)*h*0.5;
+  return{lat,lon};
+}
+
+function _hexCorners(cLat,cLon){
+  // 6 sudut flat-top hexagon
+  const r=HX_SIZE*0.97; // sedikit shrink agar ada gap visual
+  const corners=[];
+  for(let i=0;i<6;i++){
+    const angleDeg=60*i; // flat-top: mulai dari 0°
+    const angleRad=Math.PI/180*angleDeg;
+    // Koreksi aspek rasio lon vs lat
+    const lonOff=r*Math.cos(angleRad)*Math.sqrt(3)/2;
+    const latOff=r*Math.sin(angleRad)*0.85;
+    corners.push([cLat+latOff, cLon+lonOff]);
+  }
+  return corners;
+}
+
+function buildHexbin(){
+  // Kumpulkan semua fitur yang punya _score dari layer aktif
+  const cells={}; // key -> {scores:[], count:0, lats:[], lons:[]}
+
+  const targetLayers=['wiup','mineral','batubara'];
+  let total=0;
+
+  targetLayers.forEach(nm=>{
+    if(!LY[nm])return;
+    LY[nm].eachLayer(l=>{
+      if(!l.feature||!l.feature.properties)return;
+      const p=l.feature.properties;
+      const sc=p._score!=null?p._score:null;
+      if(sc===null)return;
+
+      // Dapatkan titik centroid dari layer
+      let lat=null,lon=null;
+      try{
+        const gj=l.toGeoJSON();
+        const cent=turf.centroid(gj);
+        lon=cent.geometry.coordinates[0];
+        lat=cent.geometry.coordinates[1];
+      }catch(e){
+        // fallback: coba dari latlng Leaflet
+        try{
+          const ll=l.getLatLng?l.getLatLng():l.getBounds().getCenter();
+          lat=ll.lat;lon=ll.lng;
+        }catch(e2){return;}
+      }
+      if(lat===null||lon===null)return;
+      if(lat<-12||lat>8||lon<94||lon>142)return; // batas Indonesia
+
+      const{col,row}=_latLonToHex(lat,lon);
+      const k=_hxKey(col,row);
+      if(!cells[k])cells[k]={scores:[],col,row,lats:[],lons:[]};
+      cells[k].scores.push(sc);
+      cells[k].lats.push(lat);
+      cells[k].lons.push(lon);
+      total++;
+    });
+  });
+
+  return{cells,total};
+}
+
+function scColorHex(s){
+  // Gradasi lebih halus untuk hexbin
+  if(s>=75)return{fill:'#15803D',stroke:'#14532D',opacity:0.82};
+  if(s>=60)return{fill:'#16A34A',stroke:'#15803D',opacity:0.78};
+  if(s>=50)return{fill:'#65A30D',stroke:'#4D7C0F',opacity:0.75};
+  if(s>=40)return{fill:'#D97706',stroke:'#B45309',opacity:0.78};
+  if(s>=30)return{fill:'#EA580C',stroke:'#C2410C',opacity:0.80};
+  return{fill:'#DC2626',stroke:'#991B1B',opacity:0.82};
+}
+
+function renderHexbin(cells){
+  // Buat GeoJSON FeatureCollection dari cells
+  const features=[];
+  for(const k of Object.keys(cells)){
+    const c=cells[k];
+    const avg=Math.round(c.scores.reduce((a,b)=>a+b,0)/c.scores.length);
+    const{lat,lon}=_hexCenter(c.col,c.row);
+    const corners=_hexCorners(lat,lon);
+    // GeoJSON polygon — tutup ring dengan ulang titik pertama
+    const ring=corners.map(([la,lo])=>[lo,la]);
+    ring.push(ring[0]);
+    features.push({
+      type:'Feature',
+      properties:{
+        avgScore:avg,
+        count:c.scores.length,
+        minScore:Math.min(...c.scores),
+        maxScore:Math.max(...c.scores),
+        col:c.col,row:c.row
+      },
+      geometry:{type:'Polygon',coordinates:[ring]}
+    });
+  }
+  return{type:'FeatureCollection',features};
+}
+
+function tglHexbin(){
+  hexbinOn=!hexbinOn;
+  $('btn-hx').classList.toggle('on',hexbinOn);
+
+  if(!hexbinOn){
+    // Matikan hexbin
+    if(LY_HX){map.removeLayer(LY_HX);LY_HX=null;}
+    _removeHxTip();
+    const lgHx=$('lg-hexbin');if(lgHx)lgHx.style.display='none';
+    toast('Hexbin dinonaktifkan','info');
+    return;
+  }
+
+  // Pastikan ada data yang sudah discoring
+  toast('Membangun Hexbin AI Score...','info');
+
+  // Jalankan scoring dulu jika belum
+  let hasScore=false;
+  ['wiup','mineral','batubara'].forEach(nm=>{
+    if(!LY[nm])return;
+    LY[nm].eachLayer(l=>{
+      if(l.feature&&l.feature.properties&&l.feature.properties._score!=null)hasScore=true;
+    });
+  });
+
+  if(!hasScore){
+    // Auto-score dulu
+    let n=0;
+    ['wiup','mineral','batubara'].forEach(nm=>{
+      if(!LY[nm])return;
+      LY[nm].eachLayer(l=>{
+        if(l.feature&&l.feature.properties){
+          l.feature.properties._score=computeScore(l.feature.properties);n++;
+        }
+      });
+    });
+    if(n===0){
+      toast('Belum ada layer data. Upload WIUP atau Mineral terlebih dahulu.','warn');
+      hexbinOn=false;$('btn-hx').classList.remove('on');
+      return;
+    }
+    toast('Auto-scoring '+n+' fitur...','info');
+  }
+
+  // Build hexbin async — tidak blokir UI
+  setTimeout(()=>{
+    try{
+      const{cells,total}=buildHexbin();
+      const nCells=Object.keys(cells).length;
+
+      if(nCells===0){
+        toast('Tidak ada data untuk hexbin. Coba zoom out atau load lebih banyak layer.','warn');
+        hexbinOn=false;$('btn-hx').classList.remove('on');
+        return;
+      }
+
+      const fc=renderHexbin(cells);
+
+      // Hapus hexbin lama
+      if(LY_HX){map.removeLayer(LY_HX);}
+
+      LY_HX=L.geoJSON(fc,{
+        renderer:L.canvas(),
+        style:f=>{
+          const c=scColorHex(f.properties.avgScore);
+          return{color:c.stroke,weight:1,fillColor:c.fill,fillOpacity:c.opacity,opacity:0.9};
+        },
+        onEachFeature:(f,l)=>{
+          l.on('mouseover',function(e){
+            _showHxTip(e,f.properties);
+            l.setStyle({weight:2.5,fillOpacity:0.95});
+          });
+          l.on('mousemove',function(e){
+            _moveHxTip(e);
+          });
+          l.on('mouseout',function(){
+            _removeHxTip();
+            if(LY_HX)LY_HX.resetStyle(l);
+          });
+          l.on('click',function(){
+            const p=f.properties;
+            const sc=p.avgScore;
+            const lbl=sc>=70?'🟢 Potensi TINGGI':sc>=45?'🟡 Potensi SEDANG':'🔴 Potensi RENDAH';
+            toast(lbl+' — Avg Score: '+sc+' ('+p.count+' fitur)','info');
+          });
+        }
+      }).addTo(map);
+
+      // Bawa ke depan di atas basemap tapi di bawah layer data
+      LY_HX.bringToFront();
+
+      // Tampilkan legenda hexbin
+      const lgHx=$('lg-hexbin');if(lgHx)lgHx.style.display='block';
+
+      toast('Hexbin aktif: '+nCells+' sel · '+total+' fitur di-agregasi','ok');
+    }catch(err){
+      toast('Hexbin error: '+err.message,'err');
+      hexbinOn=false;$('btn-hx').classList.remove('on');
+    }
+  },80);
+}
+
+function _showHxTip(e,p){
+  _removeHxTip();
+  const sc=p.avgScore;
+  const c=scColorHex(sc);
+  const lbl=sc>=70?'HIGH POTENTIAL':sc>=45?'MODERATE':'LOW POTENTIAL';
+  const tip=document.createElement('div');
+  tip.className='hx-tip';
+  tip.id='_hxtip';
+  tip.innerHTML=
+    '<div class="hx-tip-lbl">HEXBIN AI SCORE</div>'+
+    '<div class="hx-tip-score" style="color:'+c.fill+'">'+sc+'</div>'+
+    '<div style="font-size:10px;color:'+c.fill+';font-weight:600;margin-bottom:5px">'+lbl+'</div>'+
+    '<div>Fitur: <b>'+p.count+'</b></div>'+
+    '<div>Min: <b>'+p.minScore+'</b> · Max: <b>'+p.maxScore+'</b></div>';
+  tip.style.cssText='position:fixed;z-index:9000;pointer-events:none;display:block;';
+  document.body.appendChild(tip);
+  _hxTip=tip;
+  _moveHxTip(e);
+}
+
+function _moveHxTip(e){
+  if(!_hxTip)return;
+  const oe=e.originalEvent||e;
+  let x=oe.clientX+16,y=oe.clientY-10;
+  const tw=160,th=110;
+  if(x+tw>window.innerWidth-10)x=oe.clientX-tw-10;
+  if(y+th>window.innerHeight-10)y=oe.clientY-th-10;
+  _hxTip.style.left=x+'px';
+  _hxTip.style.top=y+'px';
+}
+
+function _removeHxTip(){
+  if(_hxTip){_hxTip.remove();_hxTip=null;}
+}
+
+// Update hexbin otomatis saat scoring dijalankan ulang
+const _origRunScore=runScore;
+function runScore(heat){
+  _origRunScore(heat);
+  if(hexbinOn){
+    // Refresh hexbin setelah score update
+    if(LY_HX){map.removeLayer(LY_HX);LY_HX=null;}
+    setTimeout(()=>{
+      try{
+        const{cells,total}=buildHexbin();
+        if(!Object.keys(cells).length)return;
+        const fc=renderHexbin(cells);
+        LY_HX=L.geoJSON(fc,{
+          renderer:L.canvas(),
+          style:f=>{const c=scColorHex(f.properties.avgScore);return{color:c.stroke,weight:1,fillColor:c.fill,fillOpacity:c.opacity,opacity:0.9};},
+          onEachFeature:(f,l)=>{
+            l.on('mouseover',function(e){_showHxTip(e,f.properties);l.setStyle({weight:2.5,fillOpacity:0.95});});
+            l.on('mousemove',function(e){_moveHxTip(e);});
+            l.on('mouseout',function(){_removeHxTip();if(LY_HX)LY_HX.resetStyle(l);});
+          }
+        }).addTo(map);
+      }catch(x){}
+    },200);
+  }
+}
+
 </body>
 </html>
