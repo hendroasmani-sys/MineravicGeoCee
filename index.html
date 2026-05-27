@@ -542,6 +542,8 @@ const $=id=>document.getElementById(id);
 let map,LY={},results=[],tool='id',rCirc=null,hmOn=false,chatOpen=false,srchMark=null;
 let curP=null,curL=null,sessStart=new Date(),lastLat=null,lastLon=null,lastDms='';
 let W={k:40,g:35,a:25},sTimer=null,sAC=null;
+// Hexbin globals — dideklarasikan di sini agar tersedia di seluruh script
+let hexbinOn=false,LY_HX=null,_hxTip=null;
 
 function setSp(p,m){$('spf').style.width=p+'%';$('spm').textContent=m}
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -1197,6 +1199,25 @@ function runScore(heat){
   });
   if(heat){hmOn=true;$('btn-hm').classList.add('on');}
   toast('Scoring selesai: '+n+' fitur','ok');
+  // Hexbin auto-refresh jika aktif
+  if(hexbinOn){
+    if(LY_HX){try{map.removeLayer(LY_HX);}catch(x){}LY_HX=null;}
+    setTimeout(function(){
+      try{
+        var hxd=buildHexbin();if(!Object.keys(hxd.cells).length)return;
+        var fc=renderHexbin(hxd.cells);
+        LY_HX=L.geoJSON(fc,{
+          renderer:L.canvas(),
+          style:function(f){var c=scColorHex(f.properties.avgScore);return{color:c.stroke,weight:1,fillColor:c.fill,fillOpacity:c.opacity,opacity:0.9};},
+          onEachFeature:function(f,l){
+            l.on('mouseover',function(e){_showHxTip(e,f.properties);l.setStyle({weight:2.5,fillOpacity:0.95});});
+            l.on('mousemove',function(e){_moveHxTip(e);});
+            l.on('mouseout',function(){_removeHxTip();if(LY_HX)LY_HX.resetStyle(l);});
+          }
+        }).addTo(map);
+      }catch(x){console.warn('Hexbin refresh error:',x);}
+    },300);
+  }
 }
 function scLabel(s){return s>=75?'🟢 Potensi TINGGI — Layak prioritas utama':s>=50?'🟡 Potensi SEDANG — Perlu kajian lanjut':'🔴 Potensi RENDAH — Tidak disarankan';}
 function showSP(sc,p){
@@ -2681,7 +2702,7 @@ async function expMapPDF(){
    rata-rata AI Score per sel dari layer WIUP,
    Mineral, dan Batubara yang sudah discoring.
    ═══════════════════════════════════════════════ */
-let hexbinOn=false,LY_HX=null,_hxTip=null;
+// hexbinOn, LY_HX, _hxTip sudah dideklarasikan di variabel global atas
 
 // Ukuran hex dalam derajat (approx ~80km di ekuator)
 // Bisa diubah: 1.0=kasar, 0.5=sedang, 0.25=halus
@@ -2937,31 +2958,7 @@ function _removeHxTip(){
   if(_hxTip){_hxTip.remove();_hxTip=null;}
 }
 
-// Update hexbin otomatis saat scoring dijalankan ulang
-const _origRunScore=runScore;
-function runScore(heat){
-  _origRunScore(heat);
-  if(hexbinOn){
-    // Refresh hexbin setelah score update
-    if(LY_HX){map.removeLayer(LY_HX);LY_HX=null;}
-    setTimeout(()=>{
-      try{
-        const{cells,total}=buildHexbin();
-        if(!Object.keys(cells).length)return;
-        const fc=renderHexbin(cells);
-        LY_HX=L.geoJSON(fc,{
-          renderer:L.canvas(),
-          style:f=>{const c=scColorHex(f.properties.avgScore);return{color:c.stroke,weight:1,fillColor:c.fill,fillOpacity:c.opacity,opacity:0.9};},
-          onEachFeature:(f,l)=>{
-            l.on('mouseover',function(e){_showHxTip(e,f.properties);l.setStyle({weight:2.5,fillOpacity:0.95});});
-            l.on('mousemove',function(e){_moveHxTip(e);});
-            l.on('mouseout',function(){_removeHxTip();if(LY_HX)LY_HX.resetStyle(l);});
-          }
-        }).addTo(map);
-      }catch(x){}
-    },200);
-  }
-}
-
+// Hexbin auto-refresh sudah terintegrasi langsung di fungsi runScore di atas
+</script>
 </body>
 </html>
