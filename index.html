@@ -1,0 +1,2670 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Mineravix v5 — AI Geo Insight Engine untuk analisis potensi WIUP dan Batubara Indonesia. Platform GIS berbasis AI oleh PT. Citra Eksplor Energi (GEOCEE).">
+<meta name="theme-color" content="#1A3A5C">
+<title>MINERAVIX v5.1 — AI Geo Insight Engine + Layer Kehutanan | GEOCEE</title>
+<style id="font-defs">
+/* System font stack — zero network request, instant render */
+:root {
+  --fw: -apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;
+  --fm: 'Consolas','SF Mono','Monaco','Courier New',monospace;
+}
+</style>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{
+  --navy:#1A3A5C;--navy2:#0F2744;--blue:#2563EB;--blue-lt:#EFF6FF;--blue-bd:#BFDBFE;
+  --pg:#F4F7FB;--panel:#FFFFFF;--bd:#E2EAF4;--bd2:#CBD5E1;
+  --t1:#1A3A5C;--t2:#475569;--t3:#94A3B8;--t4:#CBD5E1;
+  --hi:#16A34A;--mi:#D97706;--lo:#DC2626;
+  --coal:#78350F;--mineral:#CA8A04;--wiup:#2563EB;--geo:#64748B;
+  --hutan-hl:#DC2626;--hutan-hp:#15803D;--hutan-hk:#7C3AED;
+  --hutan-hpt:#D97706;--hutan-hpk:#CA8A04;--hutan-apl:#94A3B8;
+  --fw:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;--fm:'Consolas','SF Mono','Courier New',monospace;
+  --sbw:288px;--toph:44px;--coh:26px;
+  --rsm:4px;--rmd:7px;--rlg:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color:var(--t1);background:var(--pg)}
+/* SPLASH */
+#splash{position:fixed;inset:0;background:var(--navy);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .35s ease}
+#splash.hide{opacity:0;pointer-events:none}
+.sp-logo{font-family:var(--fm);font-size:42px;font-weight:500;color:#fff;letter-spacing:-1px}
+.sp-sub{font-size:11px;color:#7AA3CC;letter-spacing:.3em;text-transform:uppercase;margin-top:6px}
+.sp-bar{width:240px;height:2px;background:rgba(255,255,255,.12);border-radius:2px;margin-top:28px;overflow:hidden}
+.sp-fill{height:100%;background:#2563EB;width:0;transition:width .3s;border-radius:2px}
+.sp-msg{font-size:11px;color:#7AA3CC;margin-top:10px;font-family:var(--fm);min-height:16px}
+.sp-err{color:#FCA5A5;font-size:12px;max-width:360px;text-align:center;line-height:1.8;margin-top:16px}
+.sp-err code{background:rgba(255,255,255,.08);padding:2px 6px;border-radius:3px;font-family:var(--fm)}
+/* APP */
+#app{display:none;height:100vh;flex-direction:column}
+#app.ready{display:flex}
+/* TOPBAR */
+#topbar{height:var(--toph);background:var(--navy);border-bottom:1px solid var(--navy2);display:flex;align-items:center;padding:0 14px;gap:10px;flex-shrink:0;z-index:300}
+.tb-logo{width:30px;height:30px;background:var(--blue);border-radius:var(--rsm);display:flex;align-items:center;justify-content:center;font-family:var(--fm);font-weight:500;font-size:14px;color:#fff;flex-shrink:0}
+.tb-name{font-size:14px;font-weight:600;color:#fff;letter-spacing:-.3px}
+.tb-sep{color:rgba(255,255,255,.25);margin:0 2px}
+.tb-sub{font-size:11px;color:#7AA3CC}
+.tb-tier{background:rgba(37,99,235,.25);border:1px solid rgba(37,99,235,.45);border-radius:99px;padding:2px 10px;font-size:10px;font-weight:500;color:#93C5FD;font-family:var(--fm);letter-spacing:.05em;margin-left:4px}
+.tb-space{flex:1}
+.tb-btn{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:var(--rsm);padding:5px 12px;font-size:11px;color:#E2EAF4;cursor:pointer;transition:background .15s;font-family:var(--fw);white-space:nowrap}
+.tb-btn:hover{background:rgba(255,255,255,.16)}
+.tb-btn.active{background:rgba(37,99,235,.3);border-color:rgba(37,99,235,.6);color:#93C5FD}
+/* BODY */
+#body-row{flex:1;display:flex;overflow:hidden;position:relative}
+/* SIDEBAR */
+#sidebar{width:var(--sbw);background:var(--panel);border-right:1px solid var(--bd);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;z-index:200}
+#sb-search{padding:10px;border-bottom:1px solid var(--bd);flex-shrink:0;position:relative}
+.srch-wrap{display:flex;align-items:center;gap:8px;background:var(--pg);border:1px solid var(--bd2);border-radius:var(--rmd);padding:0 10px;transition:border-color .15s}
+.srch-wrap:focus-within{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.srch-ico{font-size:13px;color:var(--t3);flex-shrink:0}
+#srch-inp{flex:1;border:none;background:transparent;padding:8px 0;font-size:12px;color:var(--t1);font-family:var(--fw);outline:none}
+#srch-inp::placeholder{color:var(--t3)}
+#srch-clr{background:none;border:none;cursor:pointer;color:var(--t3);font-size:14px;padding:2px;display:none}
+#srch-clr:hover{color:var(--t2)}
+#srch-res{position:absolute;left:10px;right:10px;top:calc(100% - 2px);background:var(--panel);border:1px solid var(--bd2);border-radius:var(--rmd);z-index:500;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.1);display:none}
+.sr-item{padding:9px 12px;cursor:pointer;border-bottom:.5px solid var(--bd);transition:background .1s}
+.sr-item:last-child{border-bottom:none}
+.sr-item:hover{background:var(--blue-lt)}
+.sr-name{font-size:12px;font-weight:500;color:var(--t1)}
+.sr-sub{font-size:10px;color:var(--t3);margin-top:1px;font-family:var(--fm)}
+.sr-empty{padding:12px;text-align:center;font-size:11px;color:var(--t3)}
+/* TABS */
+#sb-tabs{display:flex;border-bottom:1px solid var(--bd);flex-shrink:0;background:var(--pg)}
+.sb-tab{flex:1;padding:9px 0;text-align:center;font-size:11px;font-weight:500;color:var(--t3);border-bottom:2px solid transparent;cursor:pointer;transition:.15s}
+.sb-tab.on{color:var(--navy);border-bottom-color:var(--blue);background:var(--panel)}
+.sb-tab:hover:not(.on){color:var(--t2);background:var(--panel)}
+/* PANELS */
+.sb-panel{flex:1;overflow-y:auto;padding:10px;display:none}
+.sb-panel.on{display:block}
+.sb-panel::-webkit-scrollbar{width:4px}
+.sb-panel::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:2px}
+/* CARD */
+.sc{background:var(--pg);border:1px solid var(--bd);border-radius:var(--rmd);padding:10px 12px;margin-bottom:8px}
+.sc-title{font-size:10px;font-weight:600;color:var(--navy);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.sc-dot{width:5px;height:5px;border-radius:50%;background:var(--blue);flex-shrink:0}
+/* LAYERS */
+.lrow{display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer}
+.lrow:last-child{margin-bottom:0}
+.lck{accent-color:var(--blue);width:14px;height:14px;cursor:pointer;flex-shrink:0}
+.ldot{width:11px;height:11px;border-radius:3px;flex-shrink:0}
+.lname{font-size:12px;color:var(--t2);flex:1}
+.lcnt{background:var(--blue-lt);color:#1D4ED8;border-radius:99px;padding:1px 7px;font-size:10px;font-weight:500;font-family:var(--fm)}
+/* UPLOAD */
+.upz{border:1.5px dashed var(--blue-bd);border-radius:var(--rmd);padding:10px;text-align:center;cursor:pointer;transition:.15s;margin-bottom:6px;background:var(--blue-lt)}
+.upz:hover{border-color:var(--blue);background:#DBEAFE}
+.upz-ico{font-size:18px;margin-bottom:3px}
+.upz-txt{font-size:11px;color:#1D4ED8;font-weight:500}
+.upz-sub{font-size:10px;color:var(--t3);margin-top:2px}
+/* FORM */
+.sb-sel,.sb-inp{width:100%;background:var(--panel);border:1px solid var(--bd2);color:var(--t1);border-radius:var(--rsm);padding:6px 8px;font-family:var(--fw);font-size:12px;margin-bottom:6px;outline:none}
+.sb-sel:focus,.sb-inp:focus{border-color:var(--blue)}
+/* BUTTONS */
+.btn{width:100%;padding:8px 12px;border-radius:var(--rsm);border:none;cursor:pointer;font-family:var(--fw);font-size:12px;font-weight:500;transition:.15s;margin-bottom:6px;text-align:center}
+.btn-p{background:var(--blue);color:#fff}.btn-p:hover{background:#1D4ED8}
+.btn-s{background:var(--blue-lt);color:#1D4ED8;border:1px solid var(--blue-bd)}.btn-s:hover{background:#DBEAFE}
+.btn-g{background:transparent;color:var(--t2);border:1px solid var(--bd2)}.btn-g:hover{background:var(--pg)}
+.btn-d{background:#FEE2E2;color:#991B1B;border:1px solid #FECACA}.btn-d:hover{background:#FCA5A5}
+.btn-u{background:#FEF3C7;color:#78350F;border:1px solid #FDE68A}.btn-u:hover{background:#FDE68A}
+.btn-sm{width:auto;padding:5px 10px;font-size:11px;display:inline-block;margin:0}
+/* SCORE */
+.scbig{font-family:var(--fm);font-size:44px;font-weight:500;line-height:1;text-align:center;padding:8px 0 4px}
+.sclbl{font-size:10px;color:var(--t3);text-align:center;text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px}
+.scrow{margin-bottom:6px}
+.scrow-h{display:flex;justify-content:space-between;font-size:10px;color:var(--t3);margin-bottom:3px;font-family:var(--fm)}
+.sctrack{height:5px;background:var(--bd);border-radius:3px;overflow:hidden}
+.scfill{height:100%;border-radius:3px;transition:width .7s cubic-bezier(.25,1,.5,1)}
+.wrow{display:flex;gap:6px;margin-bottom:6px;align-items:center}
+.wrow label{font-size:11px;color:var(--t2);flex:1}
+.wrow input[type=range]{width:100%;accent-color:var(--blue)}
+.wval{font-size:11px;font-family:var(--fm);color:var(--blue);min-width:32px;text-align:right}
+/* RESULTS */
+.ri{background:var(--panel);border:1px solid var(--bd);border-radius:var(--rmd);padding:9px 11px;margin-bottom:6px;border-left:3px solid var(--blue);animation:fi .2s ease}
+@keyframes fi{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.ri-n{font-size:12px;font-weight:600;color:var(--t1);display:flex;justify-content:space-between;align-items:flex-start;gap:4px}
+.ri-s{font-family:var(--fm);font-size:12px;font-weight:600;flex-shrink:0}
+.ri-m{font-size:10px;color:var(--t3);margin-top:3px;font-family:var(--fm);line-height:1.5}
+.tag{display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:500}
+.tm{background:#FEE2E2;color:#991B1B}.tb2{background:#FEF3C7;color:#78350F}.tg{background:#F1F5F9;color:#475569}.tw{background:#EFF6FF;color:#1D4ED8}
+.empty{text-align:center;padding:24px 0;color:var(--t3);font-size:11px;line-height:2}
+/* FREEMIUM */
+.fw-box{background:#FFFBEB;border:1px solid #FDE68A;border-radius:var(--rmd);padding:12px;text-align:center;margin-top:8px}
+.fw-tit{font-size:12px;font-weight:600;color:#78350F;margin-bottom:4px}
+.fw-sub{font-size:11px;color:#92400E;margin-bottom:10px;line-height:1.6}
+/* SESSION */
+.skv{display:flex;justify-content:space-between;font-size:11px;padding:4px 0;border-bottom:.5px solid var(--bd)}
+.skv:last-child{border-bottom:none}
+.sk{color:var(--t3)}.sv{color:var(--t1);font-family:var(--fm);font-weight:500}
+/* MAP */
+#map-wrap{flex:1;display:flex;flex-direction:column;position:relative;overflow:hidden}
+#map{flex:1}
+/* TOOLBAR */
+#mtb{position:absolute;top:10px;left:10px;z-index:400;display:flex;gap:5px;align-items:center}
+.mb{background:rgba(255,255,255,.95);border:1px solid var(--bd2);border-radius:var(--rsm);padding:6px 12px;font-size:11px;font-weight:500;color:var(--t2);cursor:pointer;transition:.15s;backdrop-filter:blur(4px)}
+.mb:hover{background:#fff;border-color:var(--blue);color:var(--blue)}
+.mb.on{background:var(--blue-lt);border-color:var(--blue);color:var(--blue)}
+#tlbl{font-size:10px;color:var(--t3);font-family:var(--fm);margin-left:4px}
+/* LEGEND */
+#legend{position:absolute;right:10px;bottom:calc(var(--coh) + 10px);z-index:400;background:rgba(255,255,255,.95);border:1px solid var(--bd2);border-radius:var(--rmd);padding:9px 12px;min-width:130px;backdrop-filter:blur(4px)}
+.lg-t{font-size:9px;font-weight:600;color:var(--navy);text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px}
+.lg-r{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--t2);margin-bottom:5px}
+.lg-r:last-child{margin-bottom:0}
+.lg-d{width:11px;height:11px;border-radius:2px;flex-shrink:0}
+.lg-bar{height:4px;border-radius:2px;background:linear-gradient(90deg,var(--lo),var(--mi),var(--hi));margin:6px 0 2px}
+.lg-bl{display:flex;justify-content:space-between;font-size:9px;color:var(--t3);font-family:var(--fm)}
+/* BOTTOM SHEET */
+#bs{position:absolute;bottom:var(--coh);left:0;right:0;z-index:400;background:var(--panel);border-top:1.5px solid var(--bd);border-radius:10px 10px 0 0;padding:10px 16px 12px;transform:translateY(100%);transition:transform .28s cubic-bezier(.25,1,.5,1);max-height:220px;will-change:transform}
+#bs.open{transform:translateY(0)}
+.bs-hnd{width:32px;height:3px;background:var(--bd2);border-radius:2px;margin:0 auto 10px}
+.bs-in{display:flex;gap:14px;align-items:flex-start}
+.bs-l{flex:1;min-width:0}
+.bs-r{flex-shrink:0;text-align:right}
+.bs-tit{font-size:14px;font-weight:600;color:var(--t1);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bs-sn{font-family:var(--fm);font-size:36px;font-weight:500;line-height:1}
+.bs-sl{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.08em}
+.bs-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:8px 0 10px}
+.bs-f{background:var(--pg);border-radius:var(--rsm);padding:5px 7px}
+.bs-fl{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px}
+.bs-fv{font-size:12px;font-weight:500;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bs-acts{display:flex;gap:6px;flex-wrap:wrap}
+.bs-x{position:absolute;top:10px;right:14px;background:none;border:none;cursor:pointer;color:var(--t3);font-size:18px;line-height:1}
+.bs-x:hover{color:var(--lo)}
+/* COORD BAR */
+#cbar{height:var(--coh);background:var(--navy);border-top:1px solid var(--navy2);display:flex;align-items:center;padding:0 10px;gap:0;flex-shrink:0;z-index:500;overflow:hidden}
+.cseg{display:flex;align-items:center;gap:5px;padding:0 10px}
+.cseg:first-child{padding-left:4px}
+.clbl{font-size:9px;color:#7AA3CC;font-family:var(--fm);letter-spacing:.08em}
+.cval{font-size:10px;font-weight:500;color:#E2EAF4;font-family:var(--fm);letter-spacing:.03em;cursor:pointer;transition:color .15s}
+.cval:hover{color:#93C5FD}
+.cdiv{width:1px;height:14px;background:rgba(255,255,255,.1);flex-shrink:0}
+.cproj{margin-left:auto;font-size:9px;color:#475569;font-family:var(--fm);letter-spacing:.05em;white-space:nowrap}
+#clat,#clon{min-width:82px}
+#cdms{min-width:160px}
+#czoom,#cscale{min-width:50px}
+/* TOAST */
+#twrap{position:absolute;bottom:calc(var(--coh) + 10px);right:10px;z-index:600;display:flex;flex-direction:column;gap:6px;pointer-events:none}
+.toast{background:var(--navy);color:#E2EAF4;border-radius:var(--rmd);padding:9px 14px;font-size:12px;display:flex;align-items:center;gap:8px;animation:ti .2s ease;border:1px solid rgba(255,255,255,.08);max-width:320px;pointer-events:all}
+@keyframes ti{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.ti-ico{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0}
+.ti-ok{background:var(--hi);color:#fff}.ti-err{background:var(--lo);color:#fff}.ti-info{background:var(--blue);color:#fff}.ti-warn{background:var(--mi);color:#fff}
+/* CHAT */
+#chat{position:absolute;top:0;right:0;bottom:26px;width:380px;z-index:450;background:var(--panel);border-left:1px solid var(--bd);display:flex;flex-direction:column;transform:translateX(100%);transition:transform .28s cubic-bezier(.25,1,.5,1);will-change:transform}
+#chat.open{transform:translateX(0)}
+.ch-hdr{padding:12px 14px;border-bottom:1px solid var(--bd);flex-shrink:0;background:var(--pg)}
+.ch-tit{font-size:13px;font-weight:600;color:var(--navy)}
+.ch-sub{font-size:10px;color:var(--t3);margin-top:1px}
+.ch-msgs{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px}
+.ch-msgs::-webkit-scrollbar{width:3px}
+.ch-msgs::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
+.msg{max-width:78%;font-size:12px;line-height:1.6}
+.mai{align-self:flex-start;background:var(--pg);border:1px solid var(--bd);border-radius:10px 10px 10px 2px;padding:9px 12px;color:var(--t1)}
+.mu{align-self:flex-end;background:var(--blue);border-radius:10px 10px 2px 10px;padding:9px 12px;color:#fff}
+.mn{font-size:9px;font-weight:600;color:var(--t3);margin-bottom:3px;text-transform:uppercase;letter-spacing:.05em}
+.tdots{display:flex;gap:4px;align-items:center;padding:2px 0}
+.tdots span{width:6px;height:6px;border-radius:50%;background:var(--t4);animation:bl .9s infinite}
+.tdots span:nth-child(2){animation-delay:.2s}
+.tdots span:nth-child(3){animation-delay:.4s}
+@keyframes bl{0%,100%{opacity:.3;transform:translateY(0)}50%{opacity:1;transform:translateY(-3px)}}
+.ch-chips{padding:0 10px 8px;display:flex;flex-wrap:wrap;gap:5px;flex-shrink:0}
+.chip{background:var(--pg);border:1px solid var(--bd2);border-radius:99px;padding:4px 10px;font-size:10px;color:var(--t2);cursor:pointer;transition:.15s}
+.chip:hover{background:var(--blue-lt);border-color:var(--blue-bd);color:#1D4ED8}
+.ch-inp-row{padding:10px;padding-bottom:20px;border-top:1px solid var(--bd);flex-shrink:0;display:flex;gap:7px;align-items:flex-end;background:var(--pg)}
+#ch-inp{flex:1;background:var(--panel);border:1px solid var(--bd2);border-radius:var(--rsm);padding:8px 10px;color:var(--t1);font-family:var(--fw);font-size:12px;outline:none;resize:none;min-height:36px;max-height:80px;line-height:1.4}
+#ch-inp:focus{border-color:var(--blue)}
+#ch-snd{width:36px;height:36px;border-radius:var(--rsm);border:none;cursor:pointer;background:var(--blue);color:#fff;font-size:15px;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:background .15s}
+#ch-snd:hover{background:#1D4ED8}
+/* MISC */
+.divider{border:none;border-top:1px solid var(--bd);margin:8px 0}
+.lbl{font-size:10px;color:var(--t3);margin-bottom:4px}
+.rinfo{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:400;background:rgba(255,255,255,.95);border:1px solid var(--blue-bd);border-radius:var(--rmd);padding:5px 14px;font-size:11px;color:var(--blue);font-family:var(--fm);pointer-events:none;display:none}
+/* TOOLTIP HOVER */
+#map-tooltip{
+  position:absolute;pointer-events:none;z-index:450;top:0;left:0;
+  background:rgba(255,255,255,.97);border:1px solid #CBD5E1;
+  border-radius:7px;padding:8px 12px;
+  box-shadow:0 4px 16px rgba(26,58,92,.12);
+  max-width:240px;display:none;
+  will-change:transform;
+}
+.tt-name{font-size:12px;font-weight:600;color:var(--t1);margin-bottom:4px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px}
+.tt-company{font-size:11px;color:var(--blue);margin-bottom:4px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;font-weight:500}
+.tt-row{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--t3);
+  margin-bottom:2px;font-family:var(--fm)}
+.tt-row:last-child{margin-bottom:0}
+.tt-val{color:var(--t2);font-weight:500}
+.tt-score-row{display:flex;align-items:center;gap:6px;margin-top:6px;
+  padding-top:6px;border-top:1px solid #E2EAF4}
+.tt-score-num{font-family:var(--fm);font-size:18px;font-weight:500;line-height:1}
+.tt-score-bar-wrap{flex:1}
+.tt-score-bar{height:4px;background:#E2EAF4;border-radius:2px;overflow:hidden}
+.tt-score-fill{height:100%;border-radius:2px;transition:width .3s}
+.tt-score-lbl{font-size:9px;color:var(--t3);margin-top:2px;font-family:var(--fm)}
+
+
+/* DISCLAIMER MODAL */
+#disc-modal{position:fixed;inset:0;background:rgba(15,39,68,.55);z-index:9000;display:none;align-items:center;justify-content:center;padding:20px}
+#disc-modal.open{display:flex}
+.disc-box{background:#fff;border-radius:10px;padding:24px 28px;max-width:480px;width:100%;box-shadow:0 8px 32px rgba(15,39,68,.18);position:relative}
+.disc-hd{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.disc-ico{width:32px;height:32px;border-radius:50%;background:#FEF3C7;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.disc-title{font-size:15px;font-weight:600;color:#1A3A5C}
+.disc-body{font-size:12px;color:#475569;line-height:1.75;margin-bottom:16px}
+.disc-body strong{color:#1A3A5C}
+.disc-body ul{margin:8px 0 8px 16px}
+.disc-body li{margin-bottom:4px}
+.disc-footer{background:#F8FAFC;border:1px solid #E2EAF4;border-radius:6px;padding:10px 12px;font-size:11px;color:#64748B;line-height:1.6}
+.disc-close{position:absolute;top:12px;right:14px;background:none;border:none;cursor:pointer;color:#94A3B8;font-size:20px;line-height:1}
+.disc-close:hover{color:#DC2626}
+.disc-ok{width:100%;margin-top:14px;padding:9px;border:none;border-radius:6px;background:#2563EB;color:#fff;font-size:13px;font-weight:500;cursor:pointer}
+.disc-ok:hover{background:#1D4ED8}
+/* Disclaimer inline kecil */
+.disc-inline{font-size:10px;color:#94A3B8;line-height:1.5;padding:6px 8px;background:#F8FAFC;border-radius:4px;border:1px solid #E2EAF4;margin-top:6px}
+.disc-link{color:#2563EB;cursor:pointer;text-decoration:underline;font-size:10px}
+
+/* Search result popup */
+.srch-popup .leaflet-popup-content-wrapper{border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.15);padding:0}
+.srch-popup .leaflet-popup-content{margin:10px 14px;line-height:1.4}
+.srch-popup .leaflet-popup-tip{background:#fff}
+
+/* Upload inline button di layer row */
+.lup-btn{background:none;border:1px solid var(--bd2);border-radius:var(--rsm);cursor:pointer;font-size:12px;padding:2px 6px;color:var(--t2);transition:background .15s;margin-left:4px;line-height:1;flex-shrink:0}
+.lup-btn:hover{background:var(--blue-lt);border-color:var(--blue);color:var(--blue)}
+</style>
+</head>
+<body>
+<div id="splash">
+  <div class="sp-logo">MINERAVIX</div>
+  <div class="sp-sub">AI Geo Insight Engine · V5.1 · Layer Kehutanan</div>
+  <div class="sp-bar"><div class="sp-fill" id="spf"></div></div>
+  <div class="sp-msg" id="spm">Memuat sistem...</div>
+</div>
+<div id="app">
+  <div id="topbar">
+    <div class="tb-logo">M</div>
+    <div><span class="tb-name">MINERAVIX</span><span class="tb-sep">·</span><span class="tb-sub">GEOCEE</span></div>
+    <div class="tb-tier">v5.1</div>
+    <div class="tb-space"></div>
+    <button class="tb-btn" id="btn-chat" onclick="toggleChat()">⚡ AI Chat</button>
+    <button class="tb-btn" onclick="showHelp()" style="margin-left:6px">? Bantuan</button>
+  </div>
+  <div id="body-row">
+    <div id="sidebar">
+      <div id="sb-search">
+        <div class="srch-wrap">
+          <span class="srch-ico">🔍</span>
+          <input type="text" id="srch-inp" placeholder="Cari desa, kota, atau lat,lon..." autocomplete="off" oninput="onSI(this.value)" onkeydown="onSK(event)">
+          <button id="srch-clr" onclick="clrS()" aria-label="Hapus pencarian">✕</button>
+        </div>
+        <div id="srch-res"></div>
+      </div>
+      <div id="sb-tabs">
+        <div class="sb-tab on"  onclick="showTab('layer')">Layer</div>
+        <div class="sb-tab"     onclick="showTab('score')">Score</div>
+        <div class="sb-tab"     onclick="showTab('hasil')">Hasil</div>
+        <div class="sb-tab"     onclick="showTab('export')">Export</div>
+      </div>
+      <div class="sb-panel on" id="tab-layer">
+        <div class="sc">
+          <div class="sc-title"><div class="sc-dot"></div>Layer Aktif</div>
+          <!-- Mineral & BG — toggle only, tidak ada upload manual -->
+          <div class="lrow"><input type="checkbox" class="lck" id="ck-mineral" checked onchange="tglLayer('mineral')"><div class="ldot" style="background:var(--mineral)"></div><span class="lname">Zona Mineral</span><span class="lcnt" id="cnt-mineral">0</span></div>
+          <div class="lrow"><input type="checkbox" class="lck" id="ck-bg"      checked onchange="tglLayer('bg')"><div class="ldot" style="background:var(--geo)"></div><span class="lname">Background Geologi</span><span class="lcnt" id="cnt-bg">0</span></div>
+          <!-- WIUP — toggle + upload inline -->
+          <div class="lrow" style="align-items:center">
+            <input type="checkbox" class="lck" id="ck-wiup" onchange="tglLayer('wiup')">
+            <div class="ldot" style="background:var(--wiup)"></div>
+            <span class="lname">WIUP</span>
+            <span class="lcnt" id="cnt-wiup">0</span>
+            <button class="lup-btn" onclick="trigUp('wiup')" title="Upload WIUP.geojson" aria-label="Upload data WIUP">📂</button>
+          </div>
+          <!-- Potensi Batubara — toggle + upload inline -->
+          <div class="lrow" style="align-items:center">
+            <input type="checkbox" class="lck" id="ck-batubara" onchange="tglLayer('batubara')">
+            <div class="ldot" style="background:var(--coal)"></div>
+            <span class="lname">Potensi Batubara</span>
+            <span class="lcnt" id="cnt-batubara">0</span>
+            <button class="lup-btn" onclick="trigUp('batubara')" title="Upload GeoJSON Batubara" aria-label="Upload data Potensi Batubara">📂</button>
+          </div>
+          <!-- Kawasan Hutan -->
+          <div class="lrow" style="align-items:center">
+            <input type="checkbox" class="lck" id="ck-hutan" onchange="tglLayer('hutan')">
+            <div class="ldot" style="background:var(--hutan-hp)"></div>
+            <span class="lname">Kawasan Hutan</span>
+            <span class="lcnt" id="cnt-hutan">0</span>
+            <button class="lup-btn" onclick="trigUp('hutan')" title="Upload GeoJSON Kawasan Hutan">🌳</button>
+          </div>
+          <!-- File inputs tersembunyi -->
+          <input type="file" id="file-wiup"     accept=".geojson,.json" style="display:none" onchange="handleUp(event,'wiup')">
+          <input type="file" id="file-batubara" accept=".geojson,.json" style="display:none" onchange="handleUp(event,'batubara')">
+          <input type="file" id="file-hutan"    accept=".geojson,.json" style="display:none" onchange="handleUp(event,'hutan')">
+          <div id="up-msg" style="font-size:10px;color:var(--t3);font-family:var(--fm);min-height:14px;margin-top:4px"></div>
+          <div style="font-size:10px;color:var(--t3);margin-top:2px;line-height:1.5">Klik 📂 untuk upload data GeoJSON</div>
+        </div>
+        <div class="sc">
+          <div class="sc-title"><div class="sc-dot"></div>Filter</div>
+          <div class="lbl">Tipe Data</div>
+          <select class="sb-sel" id="flt-tipe" onchange="applyFilter()">
+            <option value="all">Semua Tipe</option><option value="Mineral">Mineral</option><option value="Geologi">Geologi</option><option value="Batubara">Batubara</option>
+          </select>
+          <div class="lbl">Wilayah</div>
+          <select class="sb-sel" id="flt-wil" onchange="applyFilter()">
+            <option value="all">Semua Wilayah</option><option value="Kalimantan">Kalimantan</option><option value="Sumatera">Sumatera</option><option value="Sulawesi">Sulawesi</option>
+          </select>
+          <button class="btn btn-g btn-sm" onclick="resetFilter()">Reset Filter</button>
+        </div>
+        <div class="sc">
+          <div class="sc-title"><div class="sc-dot"></div>Basemap</div>
+          <select class="sb-sel" id="sel-basemap" onchange="changeBM(this.value)">
+            <option value="light">🗺 Light / Terang (default)</option>
+            <option value="dark">🌙 Dark</option>
+            <option value="sat">🛰 Satelit / Google Earth</option>
+            <option value="topo">⛰ Topografi</option>
+          </select>
+        </div>
+      </div>
+      <div class="sb-panel" id="tab-score">
+        <div class="sc">
+          <div class="sc-title"><div class="sc-dot"></div>Bobot Scoring</div>
+          <div class="wrow"><label>Komoditas</label><input type="range" min="0" max="100" value="40" step="1" id="w-k" oninput="updW('k',this.value)"><span class="wval" id="wv-k">40%</span></div>
+          <div class="wrow"><label>Geologi</label><input type="range" min="0" max="100" value="35" step="1" id="w-g" oninput="updW('g',this.value)"><span class="wval" id="wv-g">35%</span></div>
+          <div class="wrow"><label>Aksesibilitas</label><input type="range" min="0" max="100" value="25" step="1" id="w-a" oninput="updW('a',this.value)"><span class="wval" id="wv-a">25%</span></div>
+          <button class="btn btn-p" onclick="runScore(false)">⚡ Jalankan AI Scoring</button>
+          <button class="btn btn-s" onclick="runScore(true)">🔥 Heatmap Semua Layer</button>
+        </div>
+        <div class="sc" id="sp" style="display:none">
+          <div class="sc-title"><div class="sc-dot"></div>Skor Area Terpilih</div>
+          <div class="scbig" id="scnum">—</div>
+          <div class="sclbl">TOTAL AI SCORE</div>
+          <div id="scbars"></div>
+          <div class="divider"></div>
+          <div style="font-size:11px;color:var(--t2);line-height:1.7;font-family:var(--fm);white-space:pre-line" id="screko"></div>
+        </div>
+        <div class="fw-box"><div class="fw-tit">🔒 Fitur Pro</div><div class="fw-sub">Scoring batch + heatmap export + PDF premium di paket Pro.</div><button class="btn btn-u" onclick="showUpg()">⭐ Lihat Paket Pro</button></div>
+        <div class="disc-inline">⚠ AI Score adalah estimasi berbasis parameter terbuka. Bukan rekomendasi investasi. <span class="disc-link" onclick="showDisc()">Baca disclaimer lengkap</span></div>
+      </div>
+      <div class="sb-panel" id="tab-hasil">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-size:11px;color:var(--t3)"><span id="tot-h">0</span> wilayah</span>
+          <button class="btn btn-d btn-sm" onclick="clrH()">🗑 Hapus</button>
+        </div>
+        <div id="hasil-list"><div class="empty">Klik polygon di peta<br>atau gunakan mode Radius</div></div>
+      </div>
+      <div class="sb-panel" id="tab-export">
+        <div class="sc">
+          <div class="sc-title"><div class="sc-dot"></div>Download</div>
+          <button class="btn btn-s" onclick="expCSV()">📄 Download CSV</button>
+          <button class="btn btn-p" onclick="expPDF()">🧾 Download Laporan PDF</button>
+          <button class="btn btn-p" style="background:var(--hi)" onclick="showMapExportModal()">🗺 Export Layout Peta PDF</button>
+          <button class="btn btn-p" style="background:#7C3AED" onclick="showPointReportModal()">📍 Export Point Analysis Report</button>
+          <button class="btn btn-g" onclick="expGJ()">🗺 Export GeoJSON</button>
+        </div>
+        <div class="sc"><div class="sc-title"><div class="sc-dot"></div>Ringkasan Sesi</div><div id="sess-info"></div></div>
+      </div>
+    </div>
+    <div id="map-wrap">
+      <div id="map"></div>
+      <div id="map-tooltip"></div>
+      <div id="mtb">
+        <button class="mb on" id="btn-id"  onclick="setTool('id')">🖱 Identify</button>
+        <button class="mb"    id="btn-rad" onclick="setTool('rad')">⭕ Radius 5km</button>
+        <button class="mb"    id="btn-hm"  onclick="tglHM()">🔥 Heatmap</button>
+        <button class="mb"    id="btn-rv"  onclick="resetV()">⟳ Reset View</button>
+        <button class="mb"    id="btn-geo" onclick="gotoMyLoc()" title="Lokasi saya">📍</button>
+        <span id="tlbl"></span>
+      </div>
+      <div class="rinfo" id="rinfo">⭕ Mode Radius 5km — klik titik di peta</div>
+      <div id="legend">
+        <div class="lg-t">Legenda</div>
+        <div class="lg-r"><div class="lg-d" style="background:#CA8A04"></div>Zona Mineral</div>
+        <div class="lg-r"><div class="lg-d" style="background:var(--geo)"></div>Background Geologi</div>
+        <div class="lg-r"><div class="lg-d" style="background:var(--wiup)"></div>WIUP (Polygon/Point)</div>
+        <div class="lg-r"><div class="lg-d" style="background:#EA580C;border-radius:50%"></div>Potensi Batubara (Point)</div>
+        <div class="divider" style="margin:5px 0"></div>
+        <div class="lg-t">Kawasan Hutan</div>
+        <div class="lg-r"><div class="lg-d" style="background:var(--hutan-hl)"></div>Hutan Lindung</div>
+        <div class="lg-r"><div class="lg-d" style="background:var(--hutan-hk)"></div>Hutan Konservasi/TN</div>
+        <div class="lg-r"><div class="lg-d" style="background:var(--hutan-hp)"></div>Hutan Produksi</div>
+        <div class="lg-r"><div class="lg-d" style="background:var(--hutan-hpt)"></div>Hutan Prod. Terbatas</div>
+        <div class="lg-r"><div class="lg-d" style="background:var(--hutan-hpk)"></div>Hutan Prod. Konversi</div>
+        <div class="lg-r"><div class="lg-d" style="background:var(--hutan-apl)"></div>APL / Lainnya</div>
+        <div class="divider" style="margin:5px 0"></div>
+        <div class="lg-t" style="display:flex;align-items:center;justify-content:space-between">
+          <span>AI Score</span>
+          <span onclick="showDisc()" title="Tentang AI Score" style="cursor:pointer;color:#94A3B8;font-size:11px;font-family:sans-serif;font-weight:600;width:15px;height:15px;border-radius:50%;border:1px solid #CBD5E1;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">i</span>
+        </div>
+        <div class="lg-bar"></div>
+        <div class="lg-bl"><span>0</span><span>50</span><span>100</span></div>
+      </div>
+      <div id="bs">
+        <button class="bs-x" onclick="closeBS()" aria-label="Tutup detail">✕</button>
+        <div class="bs-hnd"></div>
+        <div class="bs-in">
+          <div class="bs-l">
+            <div class="bs-tit" id="bs-name">—</div>
+            <div id="bs-tags" style="margin-bottom:6px"></div>
+            <div class="bs-grid" id="bs-grid"></div>
+            <div class="bs-acts">
+              <button class="btn btn-s btn-sm" onclick="addFromBS()">+ Tambah ke Hasil</button>
+              <button class="btn btn-g btn-sm" onclick="scoreFromBS()">⚡ Score</button>
+              <button class="btn btn-g btn-sm" onclick="chatFromBS()">💬 AI</button>
+            </div>
+          </div>
+          <div class="bs-r">
+            <div class="bs-sn" id="bs-sn">—</div>
+            <div class="bs-sl">AI Score</div>
+          </div>
+        </div>
+      </div>
+      <div id="cbar">
+        <div class="cseg"><span class="clbl">LAT</span><span class="cval" id="clat" title="Klik untuk copy" onclick="cpC('lat')">—</span></div>
+        <div class="cdiv"></div>
+        <div class="cseg"><span class="clbl">LON</span><span class="cval" id="clon" title="Klik untuk copy" onclick="cpC('lon')">—</span></div>
+        <div class="cdiv"></div>
+        <div class="cseg"><span class="clbl">DMS</span><span class="cval" id="cdms" title="Klik untuk copy" onclick="cpC('dms')">—</span></div>
+        <div class="cdiv"></div>
+        <div class="cseg"><span class="clbl">ZOOM</span><span class="cval" id="czoom">—</span></div>
+        <div class="cdiv"></div>
+        <div class="cseg"><span class="clbl">SKALA</span><span class="cval" id="cscale">—</span></div>
+        <span class="cproj">WGS 84 · EPSG:4326</span>
+      </div>
+      <div id="twrap"></div>
+    </div>
+    <div id="chat">
+      <div class="ch-hdr">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div><div class="ch-tit">🌏 GEOCEE AI</div><div class="ch-sub">Powered by Gemini 2.5 Flash · PT. Citra Eksplor Energi</div></div>
+          <button class="tb-btn" onclick="showApiKeyModal()" style="padding:4px 9px;margin-right:4px" title="API Key Settings">⚙️</button><button class="tb-btn" onclick="toggleChat()" style="padding:4px 9px" aria-label="Tutup chat">✕</button>
+        </div>
+      </div>
+      <div class="ch-msgs" id="ch-msgs">
+        <div class="msg mai"><div class="mn">GEOCEE AI</div>Halo! Saya <b>GEOCEE AI</b>, asisten analisis pertambangan Mineravix v5. Masukkan Gemini API Key Anda via tombol ⚙️ di atas, lalu tanya saya tentang WIUP, Batubara, geologi, atau regulasi IUP.</div>
+      </div>
+      <div class="ch-chips">
+        <div class="chip" onclick="sendChip(this)">Apa itu WIUP?</div>
+        <div class="chip" onclick="sendChip(this)">Potensi Batubara Kalsel?</div>
+        <div class="chip" onclick="sendChip(this)">Regulasi IUP terbaru</div>
+      </div>
+      <div class="ch-inp-row">
+        <textarea id="ch-inp" placeholder="Tanya tentang data tambang..." rows="1" onkeydown="chKey(event)"></textarea>
+        <button id="ch-snd" onclick="sendChat()" aria-label="Kirim pesan">➤</button>
+      </div>
+    </div>
+  
+<!-- DISCLAIMER MODAL -->
+<div id="disc-modal">
+  <div class="disc-box">
+    <button class="disc-close" onclick="closeDisc()" aria-label="Tutup disclaimer">✕</button>
+    <div class="disc-hd">
+      <div class="disc-ico">⚠️</div>
+      <div class="disc-title">Tentang AI Score Mineravix</div>
+    </div>
+    <div class="disc-body">
+      <strong>AI Score adalah alat bantu analisis, bukan rekomendasi investasi.</strong>
+      <ul>
+        <li>Skor dihitung otomatis berdasarkan parameter terbuka: komoditas, litologi, aksesibilitas wilayah, dan status IUP.</li>
+        <li>Data bersumber dari file GeoJSON yang diunggah pengguna — akurasi skor bergantung pada kualitas dan kemutakhiran data tersebut.</li>
+        <li>Skor <em>tidak</em> memperhitungkan kondisi pasar, harga komoditas saat ini, risiko geopolitik, kondisi lapangan aktual, atau faktor lingkungan.</li>
+        <li>Metodologi scoring dapat diubah sewaktu-waktu tanpa pemberitahuan sebelumnya.</li>
+      </ul>
+      <div class="disc-footer">
+        PT. Citra Eksplor Energi (GEOCEE) tidak bertanggung jawab atas keputusan investasi, bisnis, atau hukum yang didasarkan pada AI Score ini. Selalu lakukan due diligence teknis dan hukum yang memadai sebelum mengambil keputusan. Data bersifat <strong>informatif</strong> — bukan pendapat profesional di bidang geologi, investasi, atau hukum.
+      </div>
+    </div>
+    <button class="disc-ok" onclick="closeDisc()">Saya mengerti</button>
+  </div>
+</div>
+</div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+let map,LY={},results=[],tool='id',rCirc=null,hmOn=false,chatOpen=false,srchMark=null;
+let curP=null,curL=null,sessStart=new Date(),lastLat=null,lastLon=null,lastDms='';
+let W={k:40,g:35,a:25},sTimer=null,sAC=null;
+
+function setSp(p,m){$('spf').style.width=p+'%';$('spm').textContent=m}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+async function boot(){
+  try{
+    setSp(10,'Inisialisasi peta...');
+    if(location.protocol==='file:'){
+      const e=document.createElement('div');e.className='sp-err';
+      e.innerHTML='❌ <strong>Tidak bisa dibuka langsung sebagai file.</strong><br><br>'
+        +'Buka via server lokal — pilih salah satu:<br><br>'
+        +'<code>python -m http.server 8080</code><br>'
+        +'<code>npx serve .</code><br><br>'
+        +'Lalu buka: <code>http://localhost:8080</code>';
+      $('splash').appendChild(e);return;
+    }
+    setSp(25,'Inisialisasi peta...');
+    initMap();
+    setSp(50,'Memuat data layer...');
+    await loadDef();
+    setSp(85,'Menyiapkan antarmuka...');
+    updSess();
+    setSp(100,'Siap!');
+    await sleep(300);
+  }catch(fatalErr){
+    console.error('Boot error:',fatalErr);
+    setSp(100,'Siap (mode terbatas)');
+    // Tetap lanjut meski error — user bisa upload data manual
+    try{if(typeof L!=='undefined'&&!window._mapInit)initMap();}catch(x){}
+    await sleep(300);
+  }finally{
+    // SELALU hilangkan splash dan tampilkan app
+    $('splash').classList.add('hide');
+    await sleep(350);
+    $('splash').style.display='none';
+    $('app').classList.add('ready');
+    toast('Mineravix v4 · Upload data GeoJSON via tab Layer','info');
+  }
+}
+
+// BM tiles dibuat lazy di dalam initMap() agar Leaflet sudah ready
+let BM={};
+
+function initMap(){
+  if(map)return;
+  map=L.map('map',{
+    // preferCanvas dihapus — P14: tiap layer pakai L.canvas() instance sendiri
+    zoomControl:false,
+    worldCopyJump:false,
+    maxBoundsViscosity:0.8,
+    zoomSnap:0.5,
+    zoomDelta:0.5,
+    wheelPxPerZoomLevel:80,
+    updateWhenIdle:true,
+    updateWhenZooming:false,
+  }).setView([-2.5,117.5],5);
+  L.control.zoom({position:'bottomright'}).addTo(map);
+  // Inisialisasi basemap tiles di sini — Leaflet sudah pasti ready
+  const _topt={updateWhenIdle:true,updateWhenZooming:false,keepBuffer:4,maxNativeZoom:18,maxZoom:19};
+  BM.light = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{..._topt,subdomains:'abcd',attribution:'© CartoDB'});
+  BM.dark  = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {..._topt,subdomains:'abcd'});
+  BM.sat   = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{..._topt});
+  BM.topo  = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{..._topt,maxNativeZoom:17,maxZoom:17});
+  BM.light.addTo(map);
+  let _mmTick=false;
+  map.on('mousemove',e=>{
+    const{lat,lng}=e.latlng;lastLat=lat;lastLon=lng;
+    if(_mmTick)return;
+    _mmTick=true;
+    requestAnimationFrame(()=>{
+      $('clat').textContent=lastLat.toFixed(6);
+      $('clon').textContent=lastLon.toFixed(6);
+      lastDms=toDMS(lastLat,lastLon);$('cdms').textContent=lastDms;
+      $('czoom').textContent=map.getZoom();
+      $('cscale').textContent=getScale(lastLat,map.getZoom());
+      _mmTick=false;
+    });
+  });
+  map.on('mouseout',()=>{$('clat').textContent='—';$('clon').textContent='—';$('cdms').textContent='—';});
+  map.on('zoomend',()=>{
+    _ttMapRect=null;
+    const z=map.getZoom();
+    $('czoom').textContent=z;
+    if(lastLat!==null)$('cscale').textContent=getScale(lastLat,z);
+    // Debounce radius update — jangan langsung, tunggu zoom berhenti
+    if(window._zoomDebTimer)clearTimeout(window._zoomDebTimer);
+    window._zoomDebTimer=setTimeout(()=>{
+      const r=z<=5?4:z<=7?5:z<=9?6:z<=11?7:9;
+      requestAnimationFrame(()=>{
+        ['wiup','batubara','mineral'].forEach(nm=>{
+          if(!LY[nm])return;
+          LY[nm].eachLayer(l=>{
+            if(l.setRadius)try{l.setRadius(r);}catch(x){}
+              });
+        });
+      });
+    },150);
+  });
+  map.on('click',e=>{
+    hideTooltip();
+    if(tool!=='rad')return;
+    if(rCirc)map.removeLayer(rCirc);
+    rCirc=L.circle(e.latlng,{radius:5000,color:'#2563EB',weight:1.5,fillColor:'#2563EB',fillOpacity:0.06,dashArray:'6 4'}).addTo(map);
+    const pt=turf.point([e.latlng.lng,e.latlng.lat]),buf=turf.buffer(pt,5,{units:'kilometers'});
+    window._lastRadiusData={lat:e.latlng.lat,lon:e.latlng.lng,results:[]};
+    clrH();let n=0;
+    ['mineral','wiup','batubara'].forEach(nm=>{
+      if(!LY[nm])return;
+      LY[nm].eachLayer(l=>{try{if(turf.booleanIntersects(buf,l.toGeoJSON())){
+              // Simpan geometry sebelum addRes agar tersedia di export
+              try{const gj=l.toGeoJSON();if(gj&&gj.geometry)l.feature.properties._geometry=gj.geometry;}catch(gx){}
+              addRes(l.feature.properties);n++;}}catch(x){}});
+    });
+    showTab('hasil');toast('Radius 5km: '+n+' wilayah ditemukan',n>0?'ok':'warn');
+  });
+}
+
+function toDMS(lat,lon){
+  const fmt=(v,p,n)=>{const a=Math.abs(v),d=Math.floor(a),m=Math.floor((a-d)*60),s=Math.round(((a-d)*60-m)*60);return d+'°'+String(m).padStart(2,'0')+"'"+String(s).padStart(2,'0')+'"'+(v>=0?p:n);};
+  return fmt(lat,'N','S')+' '+fmt(lon,'E','W');
+}
+function getScale(lat,z){
+  const s=Math.round(156543.03*Math.cos(lat*Math.PI/180)/Math.pow(2,z));
+  return '1:'+s.toLocaleString('id-ID');
+}
+function cpC(t){
+  let v='';
+  if(t==='lat'&&lastLat!==null)v=lastLat.toFixed(6);
+  else if(t==='lon'&&lastLon!==null)v=lastLon.toFixed(6);
+  else if(t==='dms')v=lastDms;
+  if(!v||v==='—')return;
+  navigator.clipboard.writeText(v).then(()=>toast('Disalin: '+v,'info'));
+}
+
+async function loadDef(){
+  if(window._defLoaded)return; // idempotent — hanya load sekali
+  window._defLoaded=true;
+  // Timeout wrapper — pastikan tidak pernah hang lebih dari 8 detik
+  function fetchWithTimeout(url,ms){
+    return Promise.race([
+      fetch(url),
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms))
+    ]);
+  }
+  // Load BG dan MINERAL paralel, masing-masing max 8 detik
+  const [bgRes,minRes]=await Promise.allSettled([
+    fetchWithTimeout('output/webdata_BG.geojson',8000),
+    fetchWithTimeout('output/webdata_MINERAL.geojson',8000)
+  ]);
+  // BG layer
+  if(bgRes.status==='fulfilled'&&bgRes.value&&bgRes.value.ok){
+    try{
+      const d=await bgRes.value.json();
+      LY.bg=L.geoJSON(d,{
+        renderer:L.canvas(),
+        style:{color:'#CBD5E1',weight:.4,fillColor:'#E2EAF4',fillOpacity:.35},
+        interactive:false
+      }).addTo(map);
+      $('cnt-bg').textContent=d.features?d.features.length:0;
+    }catch(e){console.warn('BG layer skip:',e.message);}
+  }
+  // MINERAL layer
+  if(minRes.status==='fulfilled'&&minRes.value&&minRes.value.ok){
+    try{
+      const d=await minRes.value.json();
+      addLayer(d,'mineral');
+      if(LY.mineral&&LY.mineral.getBounds&&LY.mineral.getBounds().isValid())
+        map.fitBounds(LY.mineral.getBounds().pad(.05));
+    }catch(e){console.warn('Mineral layer skip:',e.message);}
+  }
+  // Coba auto-load Batubara dan WIUP jika ada di output/
+  const extraFiles=[
+    // WIUP variants
+    {url:'output/webdata_WIUP.geojson',              nm:'wiup'},
+    {url:'output/webdata_WIUP.json',                 nm:'wiup'},
+    {url:'output/WIUP.geojson',                      nm:'wiup'},
+    // Batubara variants — semua kemungkinan nama dari ArcGIS/ESDM
+    {url:'output/webdata_BATUBARA.geojson',           nm:'batubara'},
+    {url:'output/webdata_Batubara.geojson',           nm:'batubara'},
+    {url:'output/webdata_batubara.geojson',           nm:'batubara'},
+    {url:'output/PotensiBatubara_featuresToJson.geojson', nm:'batubara'},
+    {url:'output/PotensiBatubara_FeaturesToJSON.geojson', nm:'batubara'},
+    {url:'output/PotensiBatubara_featuresToJSON.geojson', nm:'batubara'},
+    {url:'output/PotensiBatubara.geojson',            nm:'batubara'},
+    {url:'output/Batubara.geojson',                   nm:'batubara'},
+    {url:'output/batubara.geojson',                   nm:'batubara'},
+    {url:'output/webdata_BATUBARA.json',              nm:'batubara'},
+    {url:'output/PotensiBatubara_featuresToJson.json',nm:'batubara'},
+  ];
+  for(const ef of extraFiles){
+    if(LY[ef.nm])continue; // sudah dimuat
+    try{
+      const r=await fetchWithTimeout(ef.url,1500);
+      if(r&&r.ok){
+        const d=await r.json();
+        if(d&&d.features&&d.features.length>0){
+          addLayer(d,ef.nm);
+          if(LY[ef.nm]&&LY[ef.nm].getBounds&&LY[ef.nm].getBounds().isValid())
+            map.fitBounds(LY[ef.nm].getBounds().pad(.05));
+          toast(ef.nm.toUpperCase()+' auto-loaded: '+d.features.length+' fitur','ok');
+        }
+      }
+    }catch(e){/* file tidak ada, skip */}
+  }
+}
+
+function addLayer(data,nm){
+  if(LY[nm]){try{map.removeLayer(LY[nm]);}catch(x){}}
+  const features=data.features||[];
+  const cnt=features.length;
+  $('cnt-'+nm).textContent=cnt;
+  if(cnt===0){toast(nm.toUpperCase()+': tidak ada fitur valid','warn');return;}
+
+  // Deteksi tipe geometry dominan dari sample 10 fitur pertama
+  const sample=features.slice(0,10).filter(f=>f.geometry&&f.geometry.type);
+  const isAllPoint=sample.length>0&&sample.every(f=>
+    f.geometry.type==='Point'||f.geometry.type==='MultiPoint');
+  // Point → SVG (tidak perlu batch, tidak ada full canvas redraw)
+  // Polygon/Line → Canvas (lebih efisien untuk banyak polygon)
+  const renderer=L.canvas(); // P14: satu canvas instance per layer
+
+  // Opsi L.geoJSON — sama persis dengan sebelumnya
+  const geoOpts={
+    renderer:renderer,
+    style:f=>{try{return fSty(f,nm);}catch(x){return{color:'#64748B',weight:1,fillOpacity:.4};}},
+    pointToLayer:(f,latlng)=>{
+      const sc=f.properties&&f.properties._score!=null?f.properties._score:null;
+      const pc=ptColor(nm);
+      const fill=sc!=null?scColor(sc):pc.fill;
+      const brd=sc!=null?scColor(sc):pc.stroke;
+      const z=map?map.getZoom():5;
+      const r=z<=5?4:z<=7?5:z<=9?6:z<=11?7:9;
+      return L.circleMarker(latlng,{
+        renderer:renderer,radius:r,color:brd,weight:2,fillColor:fill,fillOpacity:0.92
+      });
+    },
+    filter:f=>{
+      if(!f||!f.type)return false;
+      if(!f.geometry||!f.geometry.type||!f.geometry.coordinates)return false;
+      return true;
+    },
+    onEachFeature:(f,l)=>{
+      l.on('click',e=>{L.DomEvent.stopPropagation(e);openBS(f.properties||{},l);hideTooltip();});
+      l.on('mouseover',e=>{
+        try{
+          if(f.geometry&&(f.geometry.type==='Point'||f.geometry.type==='MultiPoint')){
+            const z=map?map.getZoom():5;
+            const rH=(z<=5?4:z<=7?5:z<=9?6:z<=11?7:9)+4;
+            l.setRadius(rH);l.setStyle({fillOpacity:1,weight:2.5,color:'#ffffff'});
+          }else if(LY[nm]){l.setStyle({weight:2,fillOpacity:.85});}
+        }catch(x){}
+        showTooltip(e,f.properties);
+      });
+      l.on('mousemove',e=>{moveTooltip(e);});
+      l.on('mouseout',()=>{
+        try{
+          if(f.geometry&&(f.geometry.type==='Point'||f.geometry.type==='MultiPoint')){
+            const z=map?map.getZoom():5;
+            const rB=z<=5?4:z<=7?5:z<=9?6:z<=11?7:9;
+            const pc=ptColor(nm);
+            const sc2=f.properties&&f.properties._score!=null?f.properties._score:null;
+            l.setRadius(rB);l.setStyle({fillOpacity:0.92,weight:2,color:sc2!=null?scColor(sc2):pc.stroke});
+          }else if(LY[nm]){LY[nm].resetStyle(l);}
+        }catch(x){}
+        hideTooltip();
+      });
+    }
+  };
+
+  // GRUP 1: Buat layer kosong, addTo map dulu agar visible
+  try{
+    LY[nm]=L.geoJSON(null,geoOpts).addTo(map);
+  }catch(e){
+    toast('Error inisialisasi layer: '+e.message.substring(0,50),'err');
+    return;
+  }
+  const ck=$('ck-'+nm);if(ck)ck.checked=true;
+
+  // Strategi berbeda: Point(SVG) load sekaligus, Polygon(Canvas) batch 50+delay
+  const BATCH=50; // 50 fitur per batch — balance antara kecepatan dan render load
+  const DELAY=0;  // Tanpa delay — yield saja (setTimeout 0) cukup untuk spread
+  let idx=0;
+  $('up-msg').textContent='Memuat '+cnt+' fitur...';
+
+  function addBatch(){
+    const slice=features.slice(idx,idx+BATCH);
+    try{
+      LY[nm].addData({type:'FeatureCollection',features:slice});
+    }catch(be){console.warn('addData error:',be);}
+    idx+=BATCH;
+
+    // Update counter progress
+    const loaded=Math.min(idx,cnt);
+    $('cnt-'+nm).textContent=loaded+'/'+cnt;
+    $('up-msg').textContent='Memuat... '+loaded+'/'+cnt+' fitur';
+
+    if(idx<cnt){
+      requestAnimationFrame(()=>setTimeout(addBatch,8));
+    } else {
+      // Semua batch selesai
+      $('cnt-'+nm).textContent=cnt;
+      $('up-msg').textContent='';
+
+      // Tampilkan kembali — semua fitur muncul sekaligus
+      try{const op=map.getPane('overlayPane');if(op)op.style.visibility='visible';}catch(e){}
+      // FIX 1: fitBounds 200ms — jeda setelah batch terakhir
+      setTimeout(()=>{
+        try{
+          if(LY[nm]&&LY[nm].getBounds().isValid())
+            map.fitBounds(LY[nm].getBounds().pad(0.05));
+        }catch(e){}
+      },200);
+
+      // FIX 2: Scoring 500ms — setelah fitBounds selesai
+      setTimeout(()=>{
+        if(!LY[nm])return;
+        const ls=[];
+        LY[nm].eachLayer(l=>{if(l.feature&&l.feature.properties)ls.push(l);});
+        let si=0;
+        // scoring tanpa pending style — Point warna dari pointToLayer
+        (function scoreChunk(){
+          for(let end=Math.min(si+50,ls.length);si<end;si++){
+            try{
+              const l=ls[si];
+              l.feature.properties._score=computeScore(l.feature.properties);
+              // Point: warna sudah di-set di pointToLayer, tidak perlu setStyle lagi
+              // Polygon: tidak perlu update warna di scoring (heatmap handle ini)
+            }catch(x){}
+          }
+          if(si<ls.length){
+            setTimeout(scoreChunk,0);
+          } else {
+            $('cnt-'+nm).textContent=cnt;
+            if(nm==='hutan'){setTimeout(detectOverlapHutan,500);}
+            else if(nm==='wiup'&&window._hutanPendingOverlap){setTimeout(detectOverlapHutan,500);}
+          }
+        })();
+      },500);
+    }
+  }
+  // Pendekatan C: sembunyikan peta saat addData berjalan
+  try{const op=map.getPane('overlayPane');if(op)op.style.visibility='hidden';}catch(e){}
+  // Mulai batch pertama dengan sedikit delay agar UI update dulu
+  setTimeout(addBatch,16);
+}
+
+function fSty(f,nm){
+  const sc=f.properties&&f.properties._score!=null?f.properties._score:null;
+  if(hmOn&&sc!=null&&nm!=='hutan'){const c=scColor(sc);return{color:c,weight:1.5,fillColor:c,fillOpacity:.7};}
+  if(nm==='hutan'){return getHutanStyle(f.properties);}
+  const b={
+    mineral: {color:'#92400E',weight:1,   fillColor:'#CA8A04',fillOpacity:.55},
+    batubara:{color:'#6B2C08',weight:1,   fillColor:'#78350F',fillOpacity:.50},
+    wiup:    {color:'#1D4ED8',weight:1.5, fillColor:'#2563EB',fillOpacity:.30},
+    bg:      {color:'#94A3B8',weight:.4,  fillColor:'#CBD5E1',fillOpacity:.30}
+  };
+  return b[nm]||b.bg;
+}
+function scColor(s){return s>=70?'#16A34A':s>=45?'#D97706':'#DC2626';}
+// Warna khusus Point marker per layer — kontras tinggi vs basemap & polygon
+function ptColor(nm){
+  const c={
+    batubara:{fill:'#EA580C',stroke:'#9A3412'},  // oranye gelap — khas batubara
+    mineral: {fill:'#CA8A04',stroke:'#92400E'},  // kuning emas — zona mineral
+    wiup:    {fill:'#0D9488',stroke:'#0F766E'},  // teal — kontras vs polygon biru WIUP
+    bg:      {fill:'#64748B',stroke:'#475569'},  // abu
+  };
+  return c[nm]||{fill:'#6366F1',stroke:'#4338CA'};
+}
+
+function tglLayer(nm){const ck=$('ck-'+nm);if(!LY[nm])return;if(ck.checked)map.addLayer(LY[nm]);else map.removeLayer(LY[nm]);}
+function changeBM(k){
+  if(!BM[k]){toast('Basemap tidak tersedia','warn');return;}
+  Object.values(BM).forEach(b=>{try{map.removeLayer(b);}catch(x){}});
+  BM[k].addTo(map);
+  Object.values(LY).filter(Boolean).forEach(l=>{try{l.bringToFront();}catch(x){}});
+}
+
+function trigUp(nm){$('file-'+nm).click();}
+function handleUp(evt,nm){
+  const file=evt.target.files[0];
+  if(!file)return;
+  evt.target.value='';
+  if(file.size>80*1024*1024){
+    toast('File terlalu besar — maks 80MB. Gunakan Mapshaper untuk simplify.','err');
+    return;
+  }
+  $('up-msg').textContent='Membaca '+file.name+' ('+Math.round(file.size/1024)+' KB)...';
+  toast('Membaca file GeoJSON...','info');
+  tryReadFile(file,['utf-8','latin1'],nm);
+}
+
+function tryReadFile(file,encs,nm){
+  const enc=encs[0];
+  const rest=encs.slice(1);
+  const rd=new FileReader();
+  rd.onerror=function(){
+    toast('Gagal membaca file','err');
+    $('up-msg').textContent='Gagal membaca file.';
+  };
+  // GRUP 2: async handler + await processRaw + try-catch
+  rd.onload=async function(e){
+    try{
+      await processRaw(e.target.result,file,rest,nm,enc);
+    }catch(err){
+      console.error('processRaw error:',err);
+      toast('Error memproses file: '+String(err.message||err).substring(0,60),'err');
+      $('up-msg').textContent='Error: '+String(err.message||err).substring(0,80);
+    }
+  };
+  if(enc==='latin1'){
+    rd.readAsBinaryString(file);
+  } else {
+    rd.readAsText(file,enc);
+  }
+}
+
+async function processRaw(raw,file,restEncs,nm,enc){
+  // 1. Hapus BOM
+  if(raw&&raw.charCodeAt(0)===0xFEFF) raw=raw.slice(1);
+  // 2. Fix trailing comma
+  raw=raw.replace(/,([ \t\n\r]*[}\]])/g,'$1');
+  // 3. Hapus karakter tidak printable kecuali \n \r \t
+  raw=raw.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g,'');
+  // FIX-B: yield ke browser sebelum JSON.parse — beri 1 frame update UI
+  $('up-msg').textContent='Memproses JSON...';
+  await new Promise(r=>setTimeout(r,0));
+  // 4. Parse JSON
+  var data=null;
+  try{
+    data=JSON.parse(raw);
+  } catch(je){
+    if(restEncs.length>0){
+      tryReadFile(file,restEncs,nm);
+      return;
+    }
+    diagnoseError(je,raw,file.name);
+    return;
+  }
+  // 5. Normalize ke FeatureCollection
+  data=normalizeGeoJSON(data);
+  if(!data){
+    $('up-msg').textContent='Bukan GeoJSON valid. Pastikan export sudah benar.';
+    toast('Format tidak dikenali — bukan GeoJSON','err');
+    return;
+  }
+  if(data.features.length===0){
+    $('up-msg').textContent='File valid tapi kosong (0 fitur). Cek selection/filter di ArcGIS.';
+    toast('File kosong — 0 fitur ditemukan','warn');
+    return;
+  }
+  // FIX-B: yield lagi sebelum forEach standarisasi (O(n) besar)
+  $('up-msg').textContent='Standarisasi '+data.features.length+' fitur...';
+  await new Promise(r=>setTimeout(r,0));
+  // 6. Standarisasi field wajib
+  data.features.forEach(function(f){
+    if(!f.properties)f.properties={};
+    var p=f.properties;
+    if(!p.NAMAFOR)    p.NAMAFOR=getNama(p);
+    if(!p.KOMODITAS_FINAL) p.KOMODITAS_FINAL=getKomoditas(p);
+    if(!p.WILAYAH)    p.WILAYAH=getWilayah(p);
+    if(!p.TIPE){
+      var km=(p.KOMODITAS_FINAL||'').toLowerCase();
+      if(km.includes('batubara')||km.includes('coal')) p.TIPE='Batubara';
+      else if(nm==='wiup') p.TIPE='WIUP';
+      else p.TIPE='Mineral';
+    }
+    // P14: Konversi Point → Polygon kotak kecil — eliminasi O(n²) redraw
+    if(f.geometry&&(f.geometry.type==='Point'||f.geometry.type==='MultiPoint')){
+      var coords=f.geometry.type==='Point'?f.geometry.coordinates:f.geometry.coordinates[0];
+      if(Array.isArray(coords)&&coords.length>=2){
+        p._origLon=coords[0];p._origLat=coords[1];p._geomType='Point';
+        f.geometry=pointToRect(coords[0],coords[1]);
+      }
+    }
+  });
+  // 6b. Smart detect layer type dari nama file jika nm tidak jelas
+  if(nm==='batubara'||nm==='wiup'||nm==='hutan'){
+    // sudah benar
+  } else {
+    const fnLow=file.name.toLowerCase();
+    if(fnLow.includes('batubara')||fnLow.includes('coal')||fnLow.includes('potensi'))
+      nm='batubara';
+    else if(fnLow.includes('wiup')||fnLow.includes('iup')||fnLow.includes('tambang'))
+      nm='wiup';
+    else if(fnLow.includes('hutan')||fnLow.includes('kawasan')||fnLow.includes('klhk')||fnLow.includes('forest'))
+      nm='hutan';
+    else if(fnLow.includes('mineral')||fnLow.includes('geologi'))
+      nm='mineral';
+  }
+  // Konversi CRS EPSG:3857 untuk layer hutan
+  if(nm==='hutan'&&needsCRSConversion(data.features)){
+    $('up-msg').textContent='Konversi CRS EPSG:3857 ke WGS84...';
+    await new Promise(r=>setTimeout(r,0));
+    let converted=0;
+    data.features.forEach(f=>{
+      if(f.geometry){f.geometry=convertGeomTo4326(f.geometry);converted++;}
+    });
+    toast('CRS dikonversi: '+converted+' fitur','info');
+  }
+  // FIX-B: yield terakhir sebelum addLayer (operasi paling berat)
+  $('up-msg').textContent='Merender '+data.features.length+' fitur ke peta...';
+  await new Promise(r=>setTimeout(r,0));
+  // 7. Load ke peta (fitBounds & toast sudah di dalam addLayer callback)
+  addLayer(data,nm);
+  toast(nm.toUpperCase()+' berhasil: '+data.features.length+' fitur — dimuat bertahap','ok');
+}
+
+// KONVERSI POINT → POLYGON KOTAK KECIL (P14)
+// Eliminasi CircleMarker O(n²) Canvas redraw — Polygon berperilaku seperti WIUP
+function pointToRect(lon,lat){
+  var h=0.01; // setengah sisi ≈ 2km × 2km — lebih kecil dari WIUP terkecil
+  return{type:'Polygon',coordinates:[[
+    [lon-h,lat-h],[lon+h,lat-h],[lon+h,lat+h],[lon-h,lat+h],[lon-h,lat-h]
+  ]]};
+}
+
+function normalizeGeoJSON(data){
+  if(!data||typeof data!=='object')return null;
+  if(data.type==='FeatureCollection'&&Array.isArray(data.features))return data;
+  if(data.type==='Feature')return{type:'FeatureCollection',features:[data]};
+  if(Array.isArray(data)){
+    var feats=data.filter(function(f){return f&&f.type;});
+    return{type:'FeatureCollection',features:feats};
+  }
+  if(data.features&&Array.isArray(data.features))
+    return{type:'FeatureCollection',features:data.features};
+  return null;
+}
+
+function diagnoseError(je,raw,fname){
+  var msg=je.message||'';
+  var hint='';
+  var posM=msg.match(/position (\d+)/);
+  if(posM){
+    var pos=parseInt(posM[1]);
+    var ctx=raw.substring(Math.max(0,pos-40),pos+40);
+    console.error('JSON error di pos '+pos+' dalam '+fname+': ['+ctx+']');
+  }
+  if(msg.indexOf('position 0')>=0||msg.indexOf('column 1')>=0)
+    hint='Karakter pertama tidak valid — kemungkinan BOM atau file bukan JSON';
+  else if(msg.indexOf("'")>=0)
+    hint="Single quote tidak valid di JSON — ganti dengan double quote";
+  else
+    hint='Jalankan fix_wiup.py untuk perbaikan otomatis';
+  $('up-msg').textContent='Error JSON: '+msg.substring(0,80);
+  toast('Gagal: '+hint.substring(0,70),'err');
+}
+
+
+
+function applyFilter(){
+  const tp=$('flt-tipe').value,wl=$('flt-wil').value;
+  ['mineral','wiup','batubara','hutan'].forEach(nm=>{
+    if(!LY[nm])return;
+    LY[nm].eachLayer(l=>{
+      try{
+        const p=l.feature.properties;
+        const okT=tp==='all'||p.TIPE===tp;
+        const okW=wl==='all'||(p.WILAYAH||'').includes(wl);
+        const show=okT&&okW;
+        const base=fSty(l.feature,nm);
+        l.setStyle({color:base.color,weight:show?base.weight:0,fillColor:base.fillColor,fillOpacity:show?base.fillOpacity:0,opacity:show?1:0});
+      }catch(x){}
+    });
+  });
+}
+function resetFilter(){$('flt-tipe').value='all';$('flt-wil').value='all';applyFilter();}
+
+function setTool(t){
+  tool=t;
+  ['id','rad'].forEach(x=>$('btn-'+x).classList.toggle('on',x===t));
+  $('tlbl').textContent=t==='id'?'Mode: Identify':'Mode: Radius 5km';
+  $('rinfo').style.display=t==='rad'?'block':'none';
+  if(t==='id'&&rCirc){map.removeLayer(rCirc);rCirc=null;}
+}
+function tglHM(){
+  hmOn=!hmOn;$('btn-hm').classList.toggle('on',hmOn);
+  toast(hmOn?'Mengaktifkan Heatmap...':'Heatmap dinonaktifkan','info');
+  // Chunk per layer dengan setTimeout(0) — tidak blokir main thread
+  const layers=['mineral','wiup','batubara'];
+  let idx=0;
+  function applyNext(){
+    if(idx>=layers.length){
+      if(hmOn)toast('Heatmap AI Score aktif','ok');
+      return;
+    }
+    const nm=layers[idx++];
+    if(LY[nm])LY[nm].setStyle(f=>fSty(f,nm));
+    setTimeout(applyNext,0);
+  }
+  setTimeout(applyNext,50);
+}
+function resetV(){
+  if(LY.mineral&&LY.mineral.getBounds&&LY.mineral.getBounds().isValid())map.fitBounds(LY.mineral.getBounds().pad(.1));
+  else map.flyTo([-2.5,117.5],5,{duration:1});
+  if(rCirc){map.removeLayer(rCirc);rCirc=null;}
+}
+function gotoMyLoc(){
+  if(!navigator.geolocation){toast('Geolocation tidak didukung browser ini','warn');return;}
+  toast('Mencari lokasi Anda...','info');
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      map.setView([pos.coords.latitude,pos.coords.longitude],12);
+      // Marker lokasi user — ungu, berbeda dari semua layer
+      if(window._geoMark)try{map.removeLayer(window._geoMark);}catch(x){}
+      window._geoMark=L.circleMarker([pos.coords.latitude,pos.coords.longitude],{
+        renderer:L.canvas(),radius:10,
+        color:'#5B21B6',weight:3,fillColor:'#7C3AED',fillOpacity:0.95
+      }).addTo(map).bindPopup(
+        '<div style="font-size:12px;font-weight:500;color:#1A3A5C">📍 Lokasi Anda<br>'
+        +'<span style="font-size:10px;color:#64748B">'+pos.coords.latitude.toFixed(5)+', '+pos.coords.longitude.toFixed(5)+'</span></div>'
+      ).openPopup();
+      toast('Lokasi ditemukan','ok');
+    },
+    err=>{toast('Tidak bisa mendapatkan lokasi: '+err.message,'warn');},
+    {timeout:8000,enableHighAccuracy:true}
+  );
+}
+
+const KS={'Batubara':90,'Nikel':88,'Tembaga':85,'Emas':80,'Bauksit':72,'Besi':65,'Mangan':60,'Mineral':55,'Geologi':30};
+const LS={'Batupasir':78,'Serpentinit':82,'Batulempung':60,'Granit':55,'Basalt':50,'Batugamping':46,'Andesit':40};
+function computeScore(p){
+  const km=getKomoditas(p).toLowerCase(),lt=(p.LITHOLOGI||p.LITOLOGI||'').toLowerCase(),wl=getWilayah(p).toLowerCase();
+  let sK=30;for(const[k,v]of Object.entries(KS)){if(km.includes(k.toLowerCase())){sK=v;break;}}
+  let sG=40;for(const[k,v]of Object.entries(LS)){if(lt.includes(k.toLowerCase())){sG=v;break;}}
+  let sA=50;
+  if(wl.includes('kalimantan'))sA=72;if(wl.includes('sumatera'))sA=67;
+  if(wl.includes('selatan'))sA=Math.min(sA+10,100);if(wl.includes('timur'))sA=Math.min(sA+6,100);
+  if(wl.includes('tengah'))sA=Math.min(sA+4,100);if(wl.includes('utara'))sA=Math.min(sA+3,100);
+  // Bonus status IUP aktif
+  const st=getStatus(p).toLowerCase();
+  let bonus=0;
+  if(st.includes('aktif')||st.includes('produksi')||st.includes('operasi'))bonus=8;
+  else if(st.includes('eksplorasi'))bonus=4;
+  else if(st.includes('konstruksi'))bonus=5;
+  // Bonus luas besar (>500 ha)
+  const luasRaw=parseFloat(p.LUAS||p.LUAS_HA||p.SHAPE_Area||0);
+  const luasHa=luasRaw>100000?luasRaw/10000:luasRaw;
+  if(luasHa>5000)bonus+=5; else if(luasHa>1000)bonus+=3; else if(luasHa>500)bonus+=1;
+  const hutanPen=p._hutanPenalty||0;
+  return Math.round(Math.min(Math.max(W.k/100*sK+W.g/100*sG+W.a/100*sA+bonus-hutanPen,0),100));
+}
+function updW(k,v){W[k]=parseInt(v);$('wv-'+k).textContent=v+'%';}
+function runScore(heat){
+  let n=0;
+  ['mineral','wiup','batubara'].forEach(nm=>{
+    if(!LY[nm])return;
+    LY[nm].eachLayer(l=>{
+      try{l.feature.properties._score=computeScore(l.feature.properties);n++;}catch(x){}
+    });
+    if(heat)LY[nm].setStyle(f=>fSty(f,nm));
+  });
+  if(heat){hmOn=true;$('btn-hm').classList.add('on');}
+  toast('Scoring selesai: '+n+' fitur','ok');
+}
+function scLabel(s){return s>=75?'🟢 Potensi TINGGI — Layak prioritas utama':s>=50?'🟡 Potensi SEDANG — Perlu kajian lanjut':'🔴 Potensi RENDAH — Tidak disarankan';}
+function showSP(sc,p){
+  $('sp').style.display='block';
+  const el=$('scnum');el.style.color=scColor(sc);animN(el,0,sc,700);
+  const perusInfo=p?getPerusahaan(p):'';
+  const statusInfo=p?getStatus(p):'';
+  const noIUP=p?getNomor(p):'';
+  $('screko').textContent=scLabel(sc)+(p?
+    '\n\nPerusahaan: '+(perusInfo||'-')+
+    '\nKomoditas: '+getKomoditas(p)+
+    '\nLitologi: '+(p.LITHOLOGI||p.LITOLOGI||'-')+
+    '\nWilayah: '+getWilayah(p)+
+    (statusInfo?'\nStatus IUP: '+statusInfo:'')+
+    (noIUP?'\nNomor IUP: '+noIUP:'')
+    :'');
+  $('scbars').innerHTML=[['Komoditas',W.k,'#2563EB'],['Geologi',W.g,'#16A34A'],['Aksesibilitas',W.a,'#D97706']].map(([n,w,c])=>`<div class="scrow"><div class="scrow-h"><span>${n}</span><span style="color:${c}">${w}%</span></div><div class="sctrack"><div class="scfill" style="width:${w}%;background:${c}"></div></div></div>`).join('');
+}
+function animN(el,f,t,d){
+  // Cancel RAF lama jika ada — cegah multiple loops bersamaan
+  if(el._rafId)cancelAnimationFrame(el._rafId);
+  const t0=performance.now();
+  const tick=n=>{
+    const p=Math.min((n-t0)/d,1),e=p<.5?2*p*p:-1+(4-2*p)*p;
+    el.textContent=Math.round(f+(t-f)*e);
+    if(p<1){el._rafId=requestAnimationFrame(tick);}
+    else{el._rafId=0;}
+  };
+  el._rafId=requestAnimationFrame(tick);
+}
+
+function getNama(p){
+  if(p.namobj&&p.namobj.trim())return p.namobj.trim();
+  return p.NAMAFOR||p.NAMA||p.NAMA_IUP||p.NAMA_WIUP||p.kode_wiup||p.NAMOBJ||p.NAME||p.Nama||'Tidak diketahui';
+}
+function getPerusahaan(p){
+  if(p.sumberdata&&p.sumberdata.trim()&&p.sumberdata.trim()!=='-')return p.sumberdata.trim();
+  // WIUP user: badan_usah="PT" + nama_usaha="TIMAH TBK" → gabung jadi "PT TIMAH TBK"
+  const badan=(p.badan_usah||'').trim();
+  const usaha=(p.nama_usaha||'').trim();
+  if(badan&&usaha){
+    // Gabungkan hanya jika badan adalah prefix (PT, CV, UD, dll)
+    const isPfx=/^(PT|CV|UD|PD|Fa|CO|TB|TBK|Tbk)\.?$/i.test(badan);
+    if(isPfx) return (badan+' '+usaha).trim();
+    // Jika keduanya berbeda dan tidak prefix, pakai yang lebih panjang
+    return usaha.length>=badan.length?usaha:badan;
+  }
+  if(usaha) return usaha;
+  if(badan&&badan.length>3) return badan; // "PT" saja tidak berguna
+  // Lapis 1: alias kolom ESDM/MODI lain
+  const v=p.PERUSAHAAN||p.NAMA_PERUSAHAAN||p.COMPANY||p.BADAN_USAHA||
+    p.PEMEGANG_IUP||p.PEMEGANG||p.HOLDER||p.SUBJEK||p.SUBJEK_HUK||
+    p.NAMA_BADAN||p.NAMA_BADU||p.NAMA_PERU||p.NAMA_PERUSA||
+    p.PEMOHON||p.ENTITAS||p.CORP||p.PT_NAMA||
+    p.NAMOBJ||p.NAMAOBJ||p.INVESTOR||p.OWNER||p.PENGELOLA||'';
+  if(v&&v.trim()&&v.trim()!=='-')return v.trim();
+  // Lapis 2: smart scan — HINDARI kolom provinsi/kabupaten
+  const skip=new Set(['nama_prov','nama_kab','id_prov','id_kab','nama_prov',
+    'pulau','lokasi','komoditas','kegiatan','jenis_izin','pejabat']);
+  const kw=['perus','compan','pemegang','holder','corp',
+            'pemohon','entitas','invest','owner','penge','operat'];
+  for(const key of Object.keys(p)){
+    if(skip.has(key.toLowerCase()))continue;
+    const kl=key.toLowerCase();
+    if(kw.some(k=>kl.includes(k))){
+      const val=p[key];
+      if(val&&String(val).trim()&&String(val).trim()!=='-')
+        return String(val).trim();
+    }
+  }
+  return '';
+}
+function getNomor(p){
+  return p.sk_iup||p.kode_wiup||p.NOMOR_IUP||p.NO_IUP||p.NOMOR||p.NO_SK||p.SK_IUP||p.NOMORSK||'';
+}
+function getStatus(p){
+  return p.statdikbb||p.kegiatan||p.STATUS_IUP||p.STATUS||p.STAT_IUP||p.KETERANGAN||'';
+}
+function getLuas(p){
+  const l=p.luas_sk||p.LUAS||p.LUAS_HA||p.LUAS_KM2||p.SHAPE_Area||p.AREA||null;
+  if(!l)return null;
+  const num=parseFloat(l);
+  if(isNaN(num))return null;
+  // konversi m2 ke ha jika nilai sangat besar
+  return num>100000?Math.round(num/10000).toLocaleString('id-ID')+' ha':Math.round(num).toLocaleString('id-ID')+' ha';
+}
+function getKomoditas(p){
+  return p.KOMODITAS_FINAL||p.komoditas||p.KOMODITAS||p.KOMODITI||p.COMMODITY||p.BAHAN_GALIAN||'-';
+}
+function getWilayah(p){
+  const kab=p.kabupaten||p.nama_kab||p.KABUPATEN||p.KAB_KOTA||'';
+  const prov=p.provinsi||p.nama_prov||p.WILAYAH||p.PROVINSI||p.PROVINCE||'';
+  if(kab&&prov)return kab+', '+prov;
+  if(kab)return kab;
+  if(prov)return prov;
+  return p.lokasikhas||p.lokasi||p.WILAYAH||'-';
+}
+function openBS(p,l){
+  curP=p;curL=l;window._lastFeature=p;
+  const nm=getNama(p);
+  $('bs-name').textContent=nm.substring(0,60);
+  const tp=p.TIPE||'',tc=tp==='Mineral'?'tm':tp==='Batubara'?'tb2':tp==='Geologi'?'tg':'tw';
+  let hutanBadge='';
+  if(p._hutanKonflik){const pen=p._hutanPenalty||0;
+    if(pen>=35)hutanBadge='<span class="tag" style="background:#FEE2E2;color:#991B1B;margin-left:4px">Zona Konflik Hutan</span>';
+    else if(pen>=15)hutanBadge='<span class="tag" style="background:#FEF3C7;color:#92400E;margin-left:4px">Perlu Kajian Hutan</span>';
+    else if(pen>0)hutanBadge='<span class="tag" style="background:#FEF9C3;color:#854D0E;margin-left:4px">Overlap HPT/HPK</span>';}
+  $('bs-tags').innerHTML=`<span class="tag ${tc}">${tp||'Data'}</span>${hutanBadge}`;
+  const perus=getPerusahaan(p),nomor=getNomor(p),status=getStatus(p),luas=getLuas(p);
+  // Lapis 3 fallback: jika perusahaan kosong, tambahkan semua properties non-kosong
+  let extraFlds=[];
+  if(!perus){
+    const skipKeys=new Set(['_score','_geometry','_geomType','NAMAFOR','KOMODITAS_FINAL',
+      'WILAYAH','TIPE','LITHOLOGI','LITOLOGI','UMUR','AGE','LUAS','LUAS_HA','SHAPE_Area',
+      'STATUS_IUP','STATUS','NOMOR_IUP','NO_IUP','TAHUN','YEAR']);
+    for(const[k,v]of Object.entries(p)){
+      if(skipKeys.has(k))continue;
+      if(!v||String(v).trim()===''||String(v)==='-')continue;
+      if(String(v).length>100)continue; // skip geometry/panjang
+      extraFlds.push([k,String(v)]);
+      if(extraFlds.length>=6)break; // maks 6 field tambahan
+    }
+  }
+  const flds=[
+    ['Perusahaan', perus||null],
+    ['Nama Lokasi',p.namobj||null],
+    ['Komoditas',  getKomoditas(p)],
+    ['Kelas Kalori',p.klsbb||null],
+    ['Wilayah',    getWilayah(p)],
+    ['Status',     status||null],
+    ['No. IUP / Kode', nomor||null],
+    ['Sumber Daya',p.total_sd?String(Math.round(p.total_sd*100)/100)+' juta ton':null],
+    ['Cadangan',   p.total_cada?String(Math.round(p.total_cada*100)/100)+' juta ton':null],
+    ['Luas',       luas],
+    ['Pulau',      p.pulau||null],
+    ['Update',     p.update_||null],
+    ['Berlaku',    p.tgl_berlak||null],
+    ['Berakhir',   p.tgl_akhir||null],
+    ['Litologi',   p.LITHOLOGI||p.LITOLOGI||null],
+    ...extraFlds,
+  ].filter(([,v])=>v&&String(v).trim()!==''&&String(v)!=='-');
+  $('bs-grid').innerHTML=flds.map(([k,v])=>`<div class="bs-f"><div class="bs-fl">${k}</div><div class="bs-fv" title="${String(v)}">${String(v).substring(0,28)}</div></div>`).join('');
+  const sc=p._score!==undefined?p._score:computeScore(p);p._score=sc;
+  const sn=$('bs-sn');sn.textContent=sc;sn.style.color=scColor(sc);
+  // Simpan geometry dari layer agar expGJ bisa export koordinat
+  try{
+    const gj=l.toGeoJSON();
+    if(gj&&gj.geometry)p._geometry=gj.geometry;
+  }catch(x){}
+  $('bs').classList.add('open');
+}
+function closeBS(){$('bs').classList.remove('open');curP=null;curL=null;}
+function addFromBS(){if(curP){addRes(curP);showTab('hasil');}}
+function chatFromBS(){if(curP){toggleChat(true);const nm=getNama(curP),per=getPerusahaan(curP);$('ch-inp').value='Jelaskan potensi '+(per?per+' — ':'')+nm;sendChat();}}
+function scoreFromBS(){if(!curP)return;const sc=computeScore(curP);curP._score=sc;if(curL)curL.setStyle(fSty({properties:curP},curP.TIPE==='Batubara'?'batubara':'mineral'));showSP(sc,curP);showTab('score');}
+
+function addRes(p){
+  const nm=getNama(p),wil=getWilayah(p);
+  if(results.some(r=>r._n===nm&&r.WIL===wil))return;
+  const sc=p._score!==undefined?p._score:computeScore(p);p._score=sc;
+  const perus=getPerusahaan(p),status=getStatus(p),nomor=getNomor(p),luas=getLuas(p);
+  results.unshift({_n:nm,_p:p,KOM:getKomoditas(p),WIL:wil,LIT:p.LITHOLOGI||p.LITOLOGI||'-',TIP:p.TIPE||'-',SC:sc,PER:perus,STA:status,NOM:nomor,LUA:luas||'-'});
+  if(window._lastRadiusData)window._lastRadiusData.results=[...results];
+  renderH();updSess();
+}
+function renderH(){
+  $('tot-h').textContent=results.length;
+  if(!results.length){$('hasil-list').innerHTML='<div class="empty">Belum ada hasil analisis</div>';return;}
+  $('hasil-list').innerHTML=results.slice(0,60).map(r=>{
+    const c=scColor(r.SC),tc=r.TIP==='Mineral'?'tm':r.TIP==='Batubara'?'tb2':r.TIP==='Geologi'?'tg':'tw';
+    const perusLine=r.PER?`<span style="color:var(--t2);font-weight:500">${r.PER.substring(0,34)}</span><br>`:'';
+    const staLine=r.STA?` · <span style="color:${r.STA.toLowerCase().includes('aktif')?'var(--hi)':'var(--mi)'}">${r.STA}</span>`:'';
+    return`<div class="ri" style="border-left-color:${c}">
+      <div class="ri-n"><span>${r._n}</span><span class="ri-s" style="color:${c}">${r.SC}</span></div>
+      <div class="ri-m">${perusLine}${r.KOM} · ${r.WIL}${staLine}<br><span class="tag ${tc}">${r.TIP}</span>${r.LUA&&r.LUA!=='-'?` <span style="color:var(--t3)">${r.LUA}</span>`:''}</div>
+    </div>`;}).join('');
+}
+function clrH(){results=[];renderH();updSess();if(rCirc){map.removeLayer(rCirc);rCirc=null;}$('sp').style.display='none';$('scnum').textContent='—';}
+
+function onSI(v){$('srch-clr').style.display=v?'block':'none';clearTimeout(sTimer);if(!v.trim()){$('srch-res').style.display='none';return;}sTimer=setTimeout(()=>doSearch(v.trim()),350);}
+function onSK(e){
+  if(e.key==='Escape'){
+    clrS();
+    closeBS();
+    closeDisc();
+    if(chatOpen)toggleChat();
+  }
+}
+function clrS(){
+  $('srch-inp').value='';
+  $('srch-clr').style.display='none';
+  $('srch-res').style.display='none';
+  if(srchMark){try{map.removeLayer(srchMark);}catch(x){}srchMark=null;}
+}
+async function doSearch(q){
+  const box=$('srch-res');
+  const cr=/^(-?\d+\.?\d*)\s*[,\s]\s*(-?\d+\.?\d*)$/.exec(q);
+  if(cr){const la=parseFloat(cr[1]),lo=parseFloat(cr[2]);if(la>=-90&&la<=90&&lo>=-180&&lo<=180){flyTo(la,lo,'Koordinat: '+q);box.style.display='none';return;}}
+  box.innerHTML='<div class="sr-empty">Mencari...</div>';box.style.display='block';
+  if(sAC)sAC.abort();sAC=new AbortController();
+  try{
+    const url='https://nominatim.openstreetmap.org/search?q='+encodeURIComponent(q)+'&format=json&limit=5&countrycodes=id&accept-language=id';
+    const res=await fetch(url,{signal:sAC.signal,headers:{'Accept':'application/json'}});
+    const data=await res.json();
+    if(!data.length){box.innerHTML='<div class="sr-empty">Tidak ditemukan</div>';return;}
+    box.innerHTML=data.map(d=>`<div class="sr-item" onclick="pickR(${parseFloat(d.lat)},${parseFloat(d.lon)},'${esc(d.display_name.split(',')[0])}')"><div class="sr-name">${esc(d.display_name.split(',').slice(0,2).join(', '))}</div><div class="sr-sub">${parseFloat(d.lat).toFixed(4)}, ${parseFloat(d.lon).toFixed(4)}</div></div>`).join('');
+  }catch(e){if(e.name!=='AbortError')box.innerHTML='<div class="sr-empty">Gagal mencari</div>';}
+}
+function pickR(la,lo,nm){$('srch-res').style.display='none';$('srch-inp').value=nm;flyTo(la,lo,nm);}
+function flyTo(la,lo,nm){
+  map.setView([la,lo],12);
+  // Hapus marker lama jika ada
+  if(srchMark){try{map.removeLayer(srchMark);}catch(x){}}
+  // Buat marker baru — CircleMarker merah mencolok
+  srchMark=L.circleMarker([la,lo],{
+    renderer:L.canvas(),
+    radius:10,color:'#B91C1C',weight:2.5,
+    fillColor:'#EF4444',fillOpacity:0.9
+  }).addTo(map);
+  // Popup nama lokasi — otomatis terbuka
+  srchMark.bindPopup(
+    '<div style="font-family:var(--fw);font-size:12px;font-weight:500;color:#1A3A5C;min-width:120px">'
+    +'<div style="font-size:10px;color:#94A3B8;margin-bottom:2px">📍 Lokasi Pencarian</div>'
+    +nm
+    +'</div>',
+    {closeButton:true,className:'srch-popup'}
+  ).openPopup();
+  toast('Menuju: '+nm,'info');
+}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+document.addEventListener('click',e=>{if(!$('sb-search').contains(e.target))$('srch-res').style.display='none';});
+
+function expCSV(){
+  if(!results.length){toast('Belum ada data','warn');return;}
+  const cols=['NO','NAMA_WIUP','PERUSAHAAN','KOMODITAS','WILAYAH','LITOLOGI','TIPE','STATUS_IUP','NOMOR_IUP','LUAS','AI_SCORE'];
+  const rows=results.map((r,i)=>[i+1,r._n,r.PER||'-',r.KOM,r.WIL,r.LIT,r.TIP,r.STA||'-',r.NOM||'-',r.LUA||'-',r.SC]);
+  const csv='\uFEFF'+[cols,...rows].map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
+  dlB(csv,'mineravix_'+stmp()+'.csv','text/csv;charset=utf-8;');toast('CSV berhasil didownload','ok');
+}
+function expGJ(){
+  if(!results.length){toast('Belum ada data','warn');return;}
+  const fc={type:'FeatureCollection',features:results.map(r=>({
+    type:'Feature',
+    properties:r._p,
+    geometry:r._p&&r._p._geometry?r._p._geometry:null
+  }))};
+  const withGeo=fc.features.filter(f=>f.geometry).length;
+  dlB(JSON.stringify(fc,null,2),'mineravix_'+stmp()+'.geojson','application/json');
+  const geoInfo=withGeo?' ('+withGeo+' dengan koordinat)':'';
+  toast('GeoJSON diexport: '+results.length+' fitur'+geoInfo,'ok');
+}
+async function expPDF(){
+  if(!results.length){toast('Belum ada data','warn');return;}
+  toast('Membuat PDF...','info');
+  const{jsPDF}=window.jspdf,doc=new jsPDF('l','mm','a4'),PW=doc.internal.pageSize.getWidth(),PH=doc.internal.pageSize.getHeight();
+  doc.setFillColor(26,58,92);doc.rect(0,0,PW,22,'F');
+  doc.setTextColor(255,255,255);doc.setFontSize(16);doc.setFont('helvetica','bold');doc.text('MINERAVIX',14,10);
+  doc.setFontSize(9);doc.setFont('helvetica','normal');doc.text('AI Geo Insight Engine · PT. Citra Eksplor Energi (GEOCEE)',14,16);
+  doc.setTextColor(180,200,220);doc.text('Laporan: '+new Date().toLocaleString('id-ID'),PW-14,16,{align:'right'});
+  const avg=results.length?Math.round(results.reduce((s,r)=>s+r.SC,0)/results.length):0;
+  doc.setFillColor(244,247,251);doc.rect(14,26,PW-28,14,'F');
+  doc.setTextColor(26,58,92);doc.setFontSize(9);doc.setFont('helvetica','bold');
+  doc.text('Total: '+results.length+' wilayah',20,35);doc.text('Rata-rata Score: '+avg+'/100',90,35);doc.text('Sesi: '+sessStart.toLocaleString('id-ID'),185,35);
+  let y=50;const xp=[14,22,78,134,168,205,230,255];const cols2=['No','Nama WIUP','Perusahaan','Komoditas','Wilayah','Tipe','Status','Score'];
+  doc.setFontSize(7.5);doc.setTextColor(26,58,92);doc.setFont('helvetica','bold');
+  cols2.forEach((c,i)=>doc.text(c,xp[i],y));doc.setDrawColor(200,212,228);doc.line(14,y+2,PW-14,y+2);y+=8;
+  results.slice(0,30).forEach((r,i)=>{
+    if(y>PH-16){doc.addPage();y=20;cols2.forEach((c,j)=>{doc.setFont('helvetica','bold');doc.text(c,xp[j],y);});y+=8;}
+    if(i%2===0){doc.setFillColor(244,247,251);doc.rect(14,y-5,PW-28,7,'F');}
+    doc.setFont('helvetica','normal');doc.setTextColor(71,85,105);
+    [String(i+1),(r._n||'-').substring(0,20),(r.PER||'-').substring(0,18),(r.KOM||'-').substring(0,14),(r.WIL||'-').substring(0,16),(r.TIP||'-').substring(0,9),(r.STA||'-').substring(0,12)].forEach((v,j)=>doc.text(v,xp[j],y));
+    const sc=r.SC,scc=sc>=70?[22,163,74]:sc>=45?[217,119,6]:[220,38,38];
+    doc.setFont('helvetica','bold');doc.setTextColor(...scc);doc.text(String(sc),xp[7],y);y+=7;
+  });
+  const pg=doc.internal.getNumberOfPages();
+  for(let p=1;p<=pg;p++){doc.setPage(p);doc.setFillColor(26,58,92);doc.rect(0,PH-10,PW,10,'F');doc.setTextColor(70,100,140);doc.setFontSize(6.5);doc.setFont('helvetica','normal');doc.text('MINERAVIX v4 · GEOCEE · Hal. '+p+' dari '+pg+' · AI Score bersifat informatif — bukan rekomendasi investasi · PT. Citra Eksplor Energi tidak bertanggung jawab atas keputusan berdasarkan data ini',PW/2,PH-5,{align:'center'});}
+  doc.save('mineravix_laporan_'+stmp()+'.pdf');toast('PDF berhasil didownload','ok');
+}
+function dlB(c,fn,m){const b=new Blob([c],{type:m}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=fn;a.click();URL.revokeObjectURL(u);}
+function stmp(){return new Date().toISOString().slice(0,10).replace(/-/g,'');}
+
+function updSess(){
+  const d=Math.round((Date.now()-sessStart)/60000),avg=results.length?Math.round(results.reduce((s,r)=>s+r.SC,0)/results.length):'-';
+  $('sess-info').innerHTML=[['Mulai sesi',sessStart.toLocaleTimeString('id-ID')],['Durasi',d+' menit'],['Wilayah dianalisis',results.length],['Rata-rata Score',avg],['Versi','Mineravix v5']].map(([k,v])=>`<div class="skv"><span class="sk">${k}</span><span class="sv">${v}</span></div>`).join('');
+}
+
+function showTab(nm){
+  const tabs=['layer','score','hasil','export'],tels=document.querySelectorAll('.sb-tab');
+  tabs.forEach((t,i)=>{tels[i].classList.toggle('on',t===nm);$('tab-'+t).classList.toggle('on',t===nm);});
+  updSess();
+}
+
+function toast(msg,tp='ok'){
+  const ic={ok:'✓',err:'✕',info:'i',warn:'!'};
+  const el=document.createElement('div');el.className='toast';
+  el.innerHTML=`<div class="ti-ico ti-${tp}">${ic[tp]||'i'}</div><span>${msg}</span>`;
+  $('twrap').appendChild(el);
+  setTimeout(()=>{el.style.opacity='0';el.style.transition='opacity .3s';setTimeout(()=>el.remove(),300);},4000);
+}
+
+function toggleChat(fo){chatOpen=fo===true?true:!chatOpen;$('chat').classList.toggle('open',chatOpen);$('btn-chat').classList.toggle('active',chatOpen);if(chatOpen)setTimeout(()=>map&&map.invalidateSize(),320);}
+function chKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat();}}
+function sendChip(el){$('ch-inp').value=el.textContent;sendChat();}
+async function sendChat(){
+  if(window._chatBusy)return;
+  const inp=$('ch-inp'),text=inp.value.trim();if(!text)return;
+  // Cek API key
+  const apiKey=sessionStorage.getItem('geocee_gemini_key')||'';
+  if(!apiKey){
+    appMsg('⚙️ Masukkan Gemini API Key dulu via tombol ⚙️ di pojok kanan atas chat.','ai');
+    showApiKeyModal();return;
+  }
+  window._chatBusy=true;
+  const snd=$('ch-snd');if(snd)snd.disabled=true;
+  inp.value='';
+  appMsg(text,'u');
+  // Susun prompt sistem + konteks data aktif
+  let ctx='Kamu adalah GEOCEE AI, asisten analisis pertambangan untuk Mineravix v5 milik PT. Citra Eksplor Energi (GEOCEE). '+
+    'Fokus wilayah: Kalimantan dan Sumatera. '+
+    'Keahlian: WIUP, IUP, Batubara, regulasi ESDM, geologi Indonesia, potensi mineral, kawasan hutan KLHK. '+
+    'Regulasi kehutanan: UU No.41/1999, PP No.23/2021. HL/HK/TN dilarang tambang. HP/HPT/HPK perlu IPPKH. '+
+    'Aturan jawaban: Bahasa Indonesia, maksimal 150 kata, teknis dan akurat, langsung ke inti.';
+  if(results.length){
+    const top=results.slice(0,3).map(r=>r._n+'(score:'+r.SC+', '+r.KOM+', '+r.WIL+')').join('; ');
+    ctx+=' Data sesi aktif (top 3): '+top+'.';
+  }
+  if(window._lastFeature){
+    const f=window._lastFeature;
+    ctx+=' Fitur terakhir diklik: '+getNama(f)+
+      ', perusahaan: '+(getPerusahaan(f)||'-')+
+      ', komoditas: '+getKomoditas(f)+
+      ', wilayah: '+getWilayah(f)+
+      (getStatus(f)?', status IUP: '+getStatus(f):'')+
+      (f._hutanKonflik?', overlap kawasan hutan: '+f._hutanKonflik+' (penalty: -'+f._hutanPenalty+' poin)':'')+'.';
+  }
+  const ty=appTyping();
+  try{
+    const endpoint='https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='+apiKey;
+    const body={
+      system_instruction:{parts:[{text:ctx}]},
+      contents:[{role:'user',parts:[{text:text}]}],
+      generationConfig:{maxOutputTokens:500,temperature:0.4}
+    };
+    // Fungsi fetch dengan auto-retry 1x untuk "high demand" error
+    const doFetch=async()=>fetch(endpoint,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body)
+    });
+    let rsp=await doFetch();
+    let data=await rsp.json();
+    // Auto-retry 1x setelah 3 detik jika server overload (503/high demand)
+    if(data.error&&(data.error.code===503||
+      (data.error.message||'').toLowerCase().includes('high demand')||
+      (data.error.message||'').toLowerCase().includes('overloaded'))){
+      appMsg('⏳ Server Gemini sedang sibuk, mencoba lagi dalam 3 detik...','ai');
+      await new Promise(r=>setTimeout(r,3000));
+      rsp=await doFetch();
+      data=await rsp.json();
+    }
+    ty.remove();
+    if(data.error){
+      const code=data.error.code||0;
+      const msg=data.error.message||'';
+      if(code===400||msg.includes('API_KEY'))
+        appMsg('❌ API Key tidak valid. Periksa kembali via ⚙️ Settings.','ai');
+      else if(code===429)
+        appMsg('⏳ Kuota harian Gemini habis. Coba lagi besok atau upgrade akun Google.','ai');
+      else if(code===403)
+        appMsg('🔒 API Key tidak punya akses Gemini. Pastikan Generative Language API sudah diaktifkan.','ai');
+      else if(code===503)
+        appMsg('⏳ Server Gemini sedang sangat sibuk. Coba lagi beberapa menit.','ai');
+      else
+        appMsg('⚠️ Error: '+msg.substring(0,100),'ai');
+    } else {
+      const txt=data.candidates?.[0]?.content?.parts?.[0]?.text||'Maaf, tidak ada jawaban.';
+      appMsg(txt,'ai');
+    }
+  }catch(e){
+    ty.remove();
+    if(!navigator.onLine)
+      appMsg('📡 Tidak ada koneksi internet. Fitur peta & scoring tetap berjalan offline.','ai');
+    else
+      appMsg('⚠️ Gagal menghubungi Gemini. Coba lagi beberapa saat.','ai');
+  }
+  finally{window._chatBusy=false;if(snd)snd.disabled=false;}
+}
+function appMsg(text,role){
+  const d=document.createElement('div');d.className='msg '+(role==='ai'?'mai':'mu');
+  if(role==='ai')d.innerHTML='<div class="mn">GEOCEE AI</div>'+text.replace(/\n/g,'<br>');else d.textContent=text;
+  $('ch-msgs').appendChild(d);$('ch-msgs').scrollTop=99999;return d;
+}
+function appTyping(){
+  const d=document.createElement('div');d.className='msg mai';d.innerHTML='<div class="mn">GEOCEE AI</div><div class="tdots"><span></span><span></span><span></span></div>';
+  $('ch-msgs').appendChild(d);$('ch-msgs').scrollTop=99999;return d;
+}
+
+function showHelp(){alert('MINERAVIX v4 — Panduan Singkat\n\n🔍 Search: Ketik nama desa/kota atau koordinat lat,lon\n🖱 Identify: Klik polygon untuk info detail\n⭕ Radius: Klik titik → semua area 5km dianalisis\n🔥 Heatmap: Warna peta berdasarkan AI Score\n📂 Upload: Klik tombol Upload di sidebar Layer\n📍 Koordinat: Gerakkan kursor di peta — lihat bar bawah\n💡 Klik nilai koordinat untuk copy ke clipboard\n\n⚠ AI Score bersifat informatif — bukan rekomendasi investasi.\nKlik ⓘ di legend peta untuk membaca disclaimer lengkap.\n\nMineravix v4 Free Tier · PT. Citra Eksplor Energi (GEOCEE)');}
+function showDisc(){document.getElementById('disc-modal').classList.add('open');}
+function closeDisc(){document.getElementById('disc-modal').classList.remove('open');}
+function showUpg(){alert('🚀 Upgrade ke Mineravix Pro\n\n• Scoring otomatis seluruh wilayah\n• PDF laporan premium berkop GEOCEE\n• AI Chatbot unlimited\n• Alert perubahan WIUP otomatis\n• Akses online multi-user\n• Custom scoring parameter\n\nHubungi: info@geocee.id');}
+
+/* ── TOOLTIP ──────────────────────────────────────────────── */
+var _ttEl=null;
+function initTooltip(){_ttEl=$('map-tooltip');}
+
+function showTooltip(e,p){
+  if(!_ttEl){initTooltip();}
+  var nm=getNama(p);
+  var per=getPerusahaan(p);
+  var kom=getKomoditas(p);
+  var wil=getWilayah(p);
+  var sta=getStatus(p);
+  var luas=getLuas(p);
+  var sc=p._score!==null&&p._score!==undefined?Math.round(p._score):null;
+  var tipe=p.TIPE||'';
+
+  // Warna tipe badge
+  var tipeColor=tipe==='Batubara'?'var(--coal)':tipe==='Mineral'?'var(--mineral)':tipe==='WIUP'?'var(--blue)':'var(--t3)';
+  var tipeBg=tipe==='Batubara'?'#FEF3C7':tipe==='Mineral'?'#FEE2E2':tipe==='WIUP'?'var(--blue-lt)':'var(--pg)';
+
+  var rows='';
+  if(kom&&kom!=='-')rows+='<div class="tt-row"><span>Komoditas</span><span class="tt-val">'+kom+'</span></div>';
+  if(wil&&wil!=='-')rows+='<div class="tt-row"><span>Wilayah</span><span class="tt-val">'+wil.substring(0,22)+'</span></div>';
+  if(sta&&sta!=='-')rows+='<div class="tt-row"><span>Status IUP</span><span class="tt-val" style="color:'+
+    (sta.toLowerCase().includes('aktif')||sta.toLowerCase().includes('produksi')?'var(--hi)':'var(--mi)')+'">'+sta+'</span></div>';
+  if(luas&&luas!=='-')rows+='<div class="tt-row"><span>Luas</span><span class="tt-val">'+luas+'</span></div>';
+  // Tambah lat/lon untuk Point geometry
+  var geomType=p._geomType||'';
+  if(!geomType&&lastLat)rows+='<div class="tt-row"><span>Koordinat</span><span class="tt-val mono">'+
+    (lastLat?lastLat.toFixed(4):'-')+', '+(lastLon?lastLon.toFixed(4):'-')+'</span></div>';
+
+  var scoreHtml='';
+  if(sc!==null){
+    var c=scColor(sc);
+    var lbl=sc>=75?'Potensi Tinggi':sc>=50?'Potensi Sedang':'Potensi Rendah';
+    scoreHtml='<div class="tt-score-row">'+
+      '<div class="tt-score-num" style="color:'+c+'">'+sc+'</div>'+
+      '<div class="tt-score-bar-wrap">'+
+        '<div class="tt-score-bar"><div class="tt-score-fill" style="width:'+sc+'%;background:'+c+'"></div></div>'+
+        '<div class="tt-score-lbl" style="color:'+c+'">'+lbl+'</div>'+
+      '</div>'+
+    '</div>';
+  }
+
+  _ttEl.innerHTML=
+    '<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">'+
+      '<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:'+tipeColor+';flex-shrink:0"></span>'+
+      '<span style="font-size:10px;color:'+tipeColor+';font-weight:500">'+( tipe||'Data')+'</span>'+
+    '</div>'+
+    '<div class="tt-name">'+nm.substring(0,36)+'</div>'+
+    (per?'<div class="tt-company">'+per.substring(0,32)+'</div>':'')+
+    rows+
+    scoreHtml;
+
+  _ttEl.style.display='block';
+  // Cache ukuran setelah render untuk hindari reflow di moveTooltip
+  _ttMapRect=null; // reset agar recalculate 1x
+  requestAnimationFrame(function(){
+    _ttW=_ttEl.offsetWidth||220;
+    _ttH=_ttEl.offsetHeight||120;
+    _ttMapRect=$('map').getBoundingClientRect();
+    moveTooltip(e);
+  });
+}
+
+var _ttW=220,_ttH=120,_ttMapRect=null,_ttRafId=0;
+function moveTooltip(e){
+  if(!_ttEl||_ttEl.style.display==='none')return;
+  if(_ttRafId)return; // throttle ke 1x per frame
+  _ttRafId=requestAnimationFrame(function(){
+    _ttRafId=0;
+    if(!_ttMapRect)_ttMapRect=$('map').getBoundingClientRect();
+    var ox=e.originalEvent.clientX,oy=e.originalEvent.clientY;
+    var x=ox-_ttMapRect.left+14;
+    var y=oy-_ttMapRect.top-10;
+    if(x+_ttW>_ttMapRect.width-10) x=ox-_ttMapRect.left-_ttW-10;
+    if(y+_ttH>_ttMapRect.height-30) y=oy-_ttMapRect.top-_ttH-10;
+    _ttEl.style.transform='translate('+x+'px,'+y+'px)';
+  });
+}
+
+function hideTooltip(){
+  if(_ttEl)_ttEl.style.display='none';
+}
+
+// Hide tooltip saat klik di peta kosong
+
+// Resize observer — fix map blank saat panel berubah ukuran
+if(window.ResizeObserver){
+  var _roTimer=0;
+  new ResizeObserver(function(){
+    clearTimeout(_roTimer);
+    _roTimer=setTimeout(function(){
+      if(map){map.invalidateSize();_ttMapRect=null;}
+    },300);
+  }).observe(document.getElementById('map-wrap'));
+}
+
+const GEOCEE_LOGO_B64="data:image/png;base64,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";
+
+/* ============================================================
+   FITUR HUTAN + POINT ANALYSIS REPORT
+   ============================================================ */
+
+function getHutanTipe(p){
+  const ket=(p.Keterangan||p.FUNGSI_KAW||p.NAMOBJ||p.FUNGSI||'').toLowerCase();
+  if(ket.includes('lindung'))return 'HL';
+  if(ket.includes('konservasi'))return 'HK';
+  if(ket.includes('taman nasional')||ket.includes(' tn '))return 'HK';
+  if(ket.includes('suaka')||ket.includes('margasatwa'))return 'HK';
+  if(ket.includes('taman hutan raya')||ket.includes('tahura'))return 'HK';
+  if(ket.includes('taman wisata'))return 'HK';
+  if(ket.includes('cagar alam'))return 'HK';
+  if(ket.includes('produksi terbatas')||ket.includes('hpt'))return 'HPT';
+  if(ket.includes('produksi konversi')||ket.includes('hpk'))return 'HPK';
+  if(ket.includes('produksi'))return 'HP';
+  if(ket.includes('areal penggunaan lain')||ket.includes('apl'))return 'APL';
+  if(ket.includes('laut')||ket.includes('sungai')||ket.includes('badan air'))return 'AIR';
+  return 'LAIN';
+}
+function getHutanStyle(p){
+  const tipe=getHutanTipe(p);
+  const styles={
+    'HL' :{color:'#991B1B',weight:0.8,fillColor:'#DC2626',fillOpacity:0.40},
+    'HK' :{color:'#5B21B6',weight:0.8,fillColor:'#7C3AED',fillOpacity:0.40},
+    'HP' :{color:'#14532D',weight:0.8,fillColor:'#15803D',fillOpacity:0.35},
+    'HPT':{color:'#92400E',weight:0.8,fillColor:'#D97706',fillOpacity:0.35},
+    'HPK':{color:'#854D0E',weight:0.8,fillColor:'#CA8A04',fillOpacity:0.30},
+    'APL':{color:'#64748B',weight:0.5,fillColor:'#94A3B8',fillOpacity:0.20},
+    'AIR':{color:'#93C5FD',weight:0.3,fillColor:'#BFDBFE',fillOpacity:0.15},
+    'LAIN':{color:'#CBD5E1',weight:0.3,fillColor:'#E2EAF4',fillOpacity:0.15},
+  };
+  return styles[tipe]||styles['LAIN'];
+}
+function getHutanPenalty(tipe){
+  if(['HL','HK'].includes(tipe))return 35;
+  if(tipe==='HP')return 15;
+  if(['HPT','HPK'].includes(tipe))return 10;
+  return 0;
+}
+function epsg3857toWGS84(x,y){
+  const lon=x/20037508.342*180;
+  let lat=y/20037508.342*180;
+  lat=180/Math.PI*(2*Math.atan(Math.exp(lat*Math.PI/180))-Math.PI/2);
+  return[round6(lon),round6(lat)];
+}
+function round6(n){return Math.round(n*1000000)/1000000;}
+function convertGeomTo4326(geom){
+  if(!geom||!geom.type)return geom;
+  function convCoord(c){return epsg3857toWGS84(c[0],c[1]);}
+  function convRing(ring){return ring.map(convCoord);}
+  function convPoly(poly){return poly.map(convRing);}
+  if(geom.type==='Polygon')return{type:'Polygon',coordinates:convPoly(geom.coordinates)};
+  if(geom.type==='MultiPolygon')return{type:'MultiPolygon',coordinates:geom.coordinates.map(convPoly)};
+  return geom;
+}
+function needsCRSConversion(features){
+  for(const f of features.slice(0,5)){
+    try{
+      const g=f.geometry;if(!g)continue;
+      let x=null;
+      if(g.type==='Polygon')x=g.coordinates[0][0][0];
+      else if(g.type==='MultiPolygon')x=g.coordinates[0][0][0][0];
+      if(x!==null&&Math.abs(x)>180)return true;
+    }catch(e){}
+  }
+  return false;
+}
+function detectOverlapHutan(){
+  if(!LY.hutan||!LY.wiup){window._hutanPendingOverlap=true;return;}
+  window._hutanPendingOverlap=false;
+  const wiupLayers=[];
+  LY.wiup.eachLayer(l=>{if(l.feature)wiupLayers.push(l);});
+  if(!wiupLayers.length)return;
+  const hutanFeatures=[];
+  LY.hutan.eachLayer(l=>{if(l.feature)hutanFeatures.push(l.feature);});
+  if(!hutanFeatures.length)return;
+  toast('Mendeteksi tumpang tindih WIUP vs Hutan...','info');
+  let idx=0;const CHUNK=15;
+  function processChunk(){
+    const end=Math.min(idx+CHUNK,wiupLayers.length);
+    for(let i=idx;i<end;i++){
+      const wl=wiupLayers[i];const wp=wl.feature.properties;
+      let worstTipe=null;let worstPenalty=0;
+      try{
+        const wGJ=wl.toGeoJSON();
+        for(const hf of hutanFeatures){
+          try{
+            if(turf.booleanIntersects(wGJ,hf)){
+              const ht=getHutanTipe(hf.properties);
+              const pen=getHutanPenalty(ht);
+              if(pen>worstPenalty){worstPenalty=pen;worstTipe=ht;}
+            }
+          }catch(te){}
+        }
+      }catch(we){}
+      wp._hutanKonflik=worstTipe;wp._hutanPenalty=worstPenalty;
+      if(worstPenalty>0){
+        try{
+          const bc=worstPenalty>=35?'#DC2626':'#D97706';
+          const bw=worstPenalty>=35?3:2;
+          wl.setStyle({color:bc,weight:bw,fillColor:'#2563EB',fillOpacity:0.30});
+        }catch(se){}
+      }
+      wp._score=computeScore(wp);
+    }
+    idx=end;
+    if(idx<wiupLayers.length)setTimeout(processChunk,0);
+    else{
+      const konflik=wiupLayers.filter(l=>l.feature.properties._hutanPenalty>0).length;
+      toast('Deteksi selesai: '+konflik+' WIUP overlap kawasan hutan','ok');
+    }
+  }
+  setTimeout(processChunk,300);
+}
+
+/* ── POINT ANALYSIS REPORT ── */
+window._lastRadiusData={lat:null,lon:null,results:[]};
+
+async function reverseGeocode(lat,lon){
+  try{
+    const url='https://nominatim.openstreetmap.org/reverse?lat='+lat+'&lon='+lon+'&format=json&accept-language=id';
+    const r=await fetch(url,{headers:{'Accept':'application/json'}});
+    const d=await r.json();
+    const a=d.address||{};
+    const parts=[a.village||a.hamlet||a.suburb||'',a.subdistrict||a.city_district||'',
+      a.city||a.regency||a.county||'',a.state||'',a.archipelago||a.island||''].filter(Boolean);
+    return parts.join(', ')||d.display_name||'Unknown Location';
+  }catch(e){return 'Unknown Location';}
+}
+
+async function showPointReportModal(){
+  const lat=window._lastRadiusData.lat||lastLat;
+  const lon=window._lastRadiusData.lon||lastLon;
+  const r=window._lastRadiusData.results.length?window._lastRadiusData.results:results;
+  const nMin=r.filter(x=>x.TIP==='Mineral'||x.TIP==='Geologi').length;
+  const nWIUP=r.filter(x=>x.TIP==='WIUP').length;
+  const nBatu=r.filter(x=>x.TIP==='Batubara').length;
+  // Buat modal jika belum ada
+  if(!document.getElementById('par-modal'))buildParModal();
+  document.getElementById('par-stat').innerHTML=
+    'Formation/Mineral: <b>'+(nMin+nBatu)+'</b> &nbsp;|&nbsp; WIUP: <b>'+nWIUP+'</b> &nbsp;|&nbsp; Forest: <b>'+(LY.hutan?'Loaded':'Not loaded')+'</b>';
+  if(lat&&lon){
+    document.getElementById('par-coords').value=lat.toFixed(6)+', '+lon.toFixed(6);
+    document.getElementById('par-loc').value='Detecting...';
+    reverseGeocode(lat,lon).then(loc=>{document.getElementById('par-loc').value=loc;});
+  }
+  document.getElementById('par-modal').classList.add('open');
+  setTimeout(()=>document.getElementById('par-name').focus(),100);
+}
+function closePointReportModal(){document.getElementById('par-modal').classList.remove('open');}
+
+function buildParModal(){
+  const s=document.createElement('style');
+  s.textContent='#par-modal{display:none;position:fixed;inset:0;z-index:9200;background:rgba(15,39,68,.75);backdrop-filter:blur(4px);align-items:center;justify-content:center;}#par-modal.open{display:flex;}.par-box{background:#fff;border-radius:12px;padding:28px 32px;width:500px;max-width:96vw;box-shadow:0 20px 60px rgba(0,0,0,.28);}.par-title{font-size:16px;font-weight:700;color:#1A3A5C;margin-bottom:3px;}.par-sub{font-size:11px;color:#94A3B8;margin-bottom:20px;}.par-label{font-size:11px;font-weight:600;color:#475569;margin-bottom:5px;text-transform:uppercase;letter-spacing:.06em;display:block;}.par-inp{width:100%;border:1px solid #CBD5E1;border-radius:6px;padding:9px 12px;font-size:13px;color:#1A3A5C;font-family:inherit;outline:none;margin-bottom:14px;}.par-inp:focus{border-color:#7C3AED;}.par-row{display:flex;gap:10px;margin-top:4px;}.par-btn{flex:1;padding:11px;border-radius:7px;border:none;cursor:pointer;font-size:13px;font-weight:600;font-family:inherit;}.par-ok{background:#7C3AED;color:#fff;}.par-cancel{background:#F1F5F9;color:#475569;flex:0.5;}.par-info{background:#F5F3FF;border:1px solid #DDD6FE;border-radius:6px;padding:9px 12px;font-size:11px;color:#5B21B6;margin-bottom:14px;line-height:1.7;}';
+  document.head.appendChild(s);
+  const m=document.createElement('div');m.id='par-modal';
+  m.innerHTML='<div class="par-box"><div class="par-title">Export Point Analysis Report</div><div class="par-sub">A4 Portrait · Mineral Potential Analysis · Bilingual</div><label class="par-label">Prepared For (Name / Company)</label><input class="par-inp" id="par-name" placeholder="e.g. PT. Tambang Maju Bersama" maxlength="80"><label class="par-label">Coordinates (Lat, Lon)</label><input class="par-inp" id="par-coords" placeholder="e.g. -3.311196, 109.873749" maxlength="60"><label class="par-label">Location Name</label><input class="par-inp" id="par-loc" placeholder="Auto-detecting..." maxlength="200"><div class="par-info" id="par-info">Data found in radius:<br><span id="par-stat">Click radius tool first</span></div><div class="par-row"><button class="par-btn par-cancel" onclick="closePointReportModal()">Cancel</button><button class="par-btn par-ok" onclick="genPointReport()">Generate PDF</button></div></div>';
+  document.body.appendChild(m);
+}
+
+function getHutanInRadius(buf){
+  const status={hasHL:false,hasTN:false,hasSM:false,hasTHR:false,hasTWA:false,hasHK:false,hasHP:false,hasHPT:false,hasHPK:false,hasAPL:false,details:[]};
+  if(!LY.hutan)return status;
+  LY.hutan.eachLayer(l=>{
+    try{
+      if(turf.booleanIntersects(buf,l.toGeoJSON())){
+        const ket=l.feature.properties.Keterangan||'';
+        const tipe=getHutanTipe(l.feature.properties);
+        if(!status.details.includes(ket))status.details.push(ket);
+        if(tipe==='HL')status.hasHL=true;if(tipe==='HK')status.hasHK=true;
+        if(tipe==='HP')status.hasHP=true;if(tipe==='HPT')status.hasHPT=true;
+        if(tipe==='HPK')status.hasHPK=true;if(tipe==='APL')status.hasAPL=true;
+        const kl=ket.toLowerCase();
+        if(kl.includes('taman nasional'))status.hasTN=true;
+        if(kl.includes('suaka'))status.hasSM=true;
+        if(kl.includes('taman hutan raya')||kl.includes('tahura'))status.hasTHR=true;
+        if(kl.includes('taman wisata'))status.hasTWA=true;
+      }
+    }catch(e){}
+  });
+  return status;
+}
+
+function computePointScore(formasi,hutanStatus,wiupData,wilayah){
+  const GEO_SCORES={'emas':95,'gold':95,'nikel':92,'nickel':92,'tembaga':88,'copper':88,'perak':85,'silver':85,'bauksit':78,'besi':72,'iron':72,'mangan':68,'batubara':85,'coal':85,'mineral':55,'serpentinit':72,'batupasir':65,'sandstone':65,'granit':58,'granite':58,'basalt':50,'andesit':45,'batugamping':42,'limestone':42,'tuffa':60,'tufa':60,'ophiolite':65,'ofiolit':65,'flysch':55};
+  let geoScore=20;
+  const allText=(formasi.map(f=>((f.KOM||'')+' '+(f.LIT||'')).toLowerCase())).join(' ');
+  for(const[k,v]of Object.entries(GEO_SCORES)){if(allText.includes(k)&&v>geoScore)geoScore=v;}
+  let wiupScore=100;
+  if(wiupData.length>0){
+    const aktif=wiupData.filter(w=>{const st=(w.STA||'').toLowerCase();return st.includes('produksi')||st.includes('operasi');}).length;
+    const eksplo=wiupData.filter(w=>(w.STA||'').toLowerCase().includes('eksplorasi')).length;
+    const expired=wiupData.filter(w=>{const st=(w.STA||'').toLowerCase();return st.includes('expired')||st.includes('berakhir')||st.includes('dicabut');}).length;
+    if(aktif>=3)wiupScore=5;else if(aktif>=1)wiupScore=15;else if(eksplo>=1)wiupScore=40;else if(expired>=1)wiupScore=75;else wiupScore=60;
+  }
+  const wl=(wilayah||'').toLowerCase();
+  let accScore=50;
+  if(wl.includes('kalimantan selatan'))accScore=82;else if(wl.includes('kalimantan timur'))accScore=80;else if(wl.includes('sumatera selatan'))accScore=76;else if(wl.includes('riau'))accScore=74;else if(wl.includes('kalimantan tengah'))accScore=66;else if(wl.includes('kalimantan utara'))accScore=62;else if(wl.includes('sumatera utara'))accScore=64;else if(wl.includes('sumatera barat'))accScore=62;else if(wl.includes('kalimantan'))accScore=65;else if(wl.includes('sumatera'))accScore=63;else if(wl.includes('sulawesi'))accScore=55;else if(wl.includes('jawa'))accScore=70;else if(wl.includes('papua'))accScore=35;
+  const baseScore=Math.round(geoScore*0.40+wiupScore*0.40+accScore*0.20);
+  let multiplier=1.0,forestLabel='Clear - No Protected Zone',forestNote='No regulatory forest constraint';
+  const isRedZone=hutanStatus.hasHL||hutanStatus.hasHK||hutanStatus.hasTN||hutanStatus.hasSM||hutanStatus.hasTHR||hutanStatus.hasTWA;
+  if(!LY.hutan){multiplier=0.70;forestLabel='Forest Data Not Loaded';forestNote='Upload Hutan_ZonaMerah GeoJSON for accurate assessment';}
+  else if(isRedZone){
+    multiplier=0.00;const zones=[];
+    if(hutanStatus.hasHL)zones.push('Hutan Lindung');if(hutanStatus.hasHK)zones.push('Hutan Konservasi');
+    if(hutanStatus.hasTN)zones.push('Taman Nasional');if(hutanStatus.hasSM)zones.push('Suaka Margasatwa');
+    if(hutanStatus.hasTHR)zones.push('Taman Hutan Raya');if(hutanStatus.hasTWA)zones.push('Taman Wisata Alam');
+    forestLabel='PROTECTED: '+zones.join(', ');forestNote='Mining strictly prohibited - UU No. 41/1999 & PP No. 23/2021';
+  } else if(hutanStatus.hasHPT&&hutanStatus.hasHPK){multiplier=0.40;forestLabel='HPT & HPK';forestNote='IPPKH from KLHK required';}
+  else if(hutanStatus.hasHPT){multiplier=0.40;forestLabel='Hutan Produksi Terbatas (HPT)';forestNote='IPPKH from KLHK required';}
+  else if(hutanStatus.hasHPK){multiplier=0.45;forestLabel='Hutan Produksi Konversi (HPK)';forestNote='IPPKH from KLHK required';}
+  else if(hutanStatus.hasHP){multiplier=0.60;forestLabel='Hutan Produksi (HP)';forestNote='IPPKH from KLHK required - moderate risk';}
+  else if(hutanStatus.hasAPL){multiplier=1.00;forestLabel='Areal Penggunaan Lain (APL)';forestNote='No forest permit required';}
+  return{total:Math.min(Math.max(Math.round(baseScore*multiplier),0),100),base:baseScore,geo:geoScore,wiup:wiupScore,acc:accScore,multiplier:multiplier,forestLabel:forestLabel,forestNote:forestNote,isRedZone:isRedZone};
+}
+
+function scoreLabel(s){
+  if(s===0)return{lbl:'NO POTENTIAL',sub:'Protected zone - mining strictly prohibited by law',color:[185,28,28]};
+  if(s>=80)return{lbl:'HIGH POTENTIAL',sub:'Strong candidate for immediate exploration',color:[22,163,74]};
+  if(s>=60)return{lbl:'GOOD POTENTIAL',sub:'Recommended for exploration with standard permits',color:[21,128,61]};
+  if(s>=40)return{lbl:'MODERATE POTENTIAL',sub:'Further study and permits required',color:[217,119,6]};
+  return{lbl:'LOW POTENTIAL',sub:'Significant regulatory or geological constraints',color:[220,38,38]};
+}
+
+async function genPointReport(){
+  const name=document.getElementById('par-name').value.trim()||'—';
+  const coordStr=document.getElementById('par-coords').value.trim();
+  const locName=document.getElementById('par-loc').value.trim()||'Unknown Location';
+  let lat=window._lastRadiusData.lat||lastLat||0;
+  let lon=window._lastRadiusData.lon||lastLon||0;
+  const cm=coordStr.match(/(-?\d+\.?\d*)\s*[,\s]\s*(-?\d+\.?\d*)/);
+  if(cm){lat=parseFloat(cm[1]);lon=parseFloat(cm[2]);}
+  closePointReportModal();
+  toast('Generating Point Analysis Report...','info');
+  await new Promise(r=>setTimeout(r,200));
+  const allRes=window._lastRadiusData.results.length?window._lastRadiusData.results:[...results];
+  const formasiData=allRes.filter(r=>r.TIP==='Mineral'||r.TIP==='Geologi'||r.TIP==='Batubara');
+  const wiupData=allRes.filter(r=>r.TIP==='WIUP');
+  const aluvialKW=['aluvial','alluvial','aluvium','endapan','pasir lepas'];
+  const formasiBersih=formasiData.filter(f=>!aluvialKW.some(k=>(f.LIT||'').toLowerCase().includes(k)));
+  const pt=turf.point([lon,lat]);
+  const buf=turf.buffer(pt,5,{units:'kilometers'});
+  const hutanStatus=getHutanInRadius(buf);
+  const wilayah=allRes.length?allRes[0].WIL||locName:locName;
+  const sc=computePointScore(formasiBersih,hutanStatus,wiupData,wilayah);
+  const sl=scoreLabel(sc.total);
+  const{jsPDF}=window.jspdf;
+  const doc=new jsPDF('p','mm','a4');
+  const PW=doc.internal.pageSize.getWidth();
+  const PH=doc.internal.pageSize.getHeight();
+  const PAD=14;
+  const tgl=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'});
+  function sf(sz,wt,clr){doc.setFontSize(sz);doc.setFont('helvetica',wt||'normal');doc.setTextColor(...(clr||[26,58,92]));}
+  function hl(y,clr,w){doc.setDrawColor(...(clr||[178,195,215]));doc.setLineWidth(w||0.3);doc.line(PAD,y,PW-PAD,y);}
+  function secTitle(y,num,title){doc.setFillColor(124,58,237);doc.rect(PAD,y,PW-PAD*2,8,'F');sf(9,'bold',[255,255,255]);doc.text(num+'  '+title,PAD+4,y+5.5);return y+12;}
+  let y=0;
+  // KOP
+  doc.setFillColor(26,58,92);doc.rect(0,0,PW,28,'F');
+  sf(16,'bold',[255,255,255]);doc.text('MINERAVIX v5.1',PAD,11);
+  sf(9,'normal',[147,197,253]);doc.text('MINERAL POTENTIAL ANALYSIS REPORT',PAD,17);
+  doc.text('AI Geo Insight Engine - PT. Citra Eksplor Energi (GEOCEE)',PAD,22);
+  sf(8,'normal',[100,140,180]);doc.text('Generated: '+tgl,PW-PAD,22,{align:'right'});
+  y=32;
+  // IDENTITAS
+  function buildLocFull(raw){
+    const parts=raw.split(',').map(s=>s.trim()).filter(Boolean);
+    const filtered=parts.filter(p=>!/^\d+$/.test(p)&&p.toLowerCase()!=='indonesia');
+    return filtered.slice(0,5).join(', ');
+  }
+  const locFull=buildLocFull(locName);
+  const identH=38;
+  doc.setFillColor(244,247,251);doc.setDrawColor(178,195,215);doc.setLineWidth(0.3);
+  doc.rect(PAD,y,PW-PAD*2,identH,'FD');
+  sf(7.5,'bold',[100,120,150]);doc.text('PREPARED FOR',PAD+4,y+6);doc.text('COORDINATES',PAD+95,y+6);
+  sf(10,'bold',[26,58,92]);doc.text(name.substring(0,40),PAD+4,y+12);
+  sf(9,'normal',[26,58,92]);doc.text(lat.toFixed(6)+',  '+lon.toFixed(6),PAD+95,y+12);
+  doc.setDrawColor(210,220,235);doc.setLineWidth(0.2);doc.line(PAD+4,y+15,PW-PAD-4,y+15);
+  sf(7.5,'bold',[100,120,150]);doc.text('LOCATION',PAD+4,y+21);
+  sf(9,'normal',[26,58,92]);
+  const locSplit=doc.splitTextToSize(locFull,PW-PAD*2-50);
+  doc.text(locSplit[0]||locFull,PAD+4,y+27);if(locSplit[1])doc.text(locSplit[1],PAD+4,y+32);
+  sf(7.5,'bold',[100,120,150]);doc.text('ANALYSIS RADIUS',PW-PAD-35,y+21);
+  sf(9,'bold',[37,99,235]);doc.text('5 km',PW-PAD-25,y+27);
+  y+=identH+4;
+  // SECTION 1
+  y=secTitle(y,'01','ROCK FORMATION & COMMODITY');
+  if(formasiBersih.length===0){sf(9,'normal',[100,120,150]);doc.text('No mineral formation detected within 5 km radius.',PAD+4,y);y+=8;}
+  else{
+    const xF=[PAD,PAD+62,PAD+122];const hdrF=['Formation / Name','Lithology','Commodity'];
+    doc.setFillColor(237,233,254);doc.rect(PAD,y-4,PW-PAD*2,7,'F');
+    sf(7.5,'bold',[91,33,182]);hdrF.forEach((h,i)=>doc.text(h,xF[i],y));hl(y+2,[200,180,240]);y+=6;
+    formasiBersih.slice(0,12).forEach((f,i)=>{
+      if(y>PH-40){doc.addPage();y=20;}
+      if(i%2===0){doc.setFillColor(250,249,255);doc.rect(PAD,y-3,PW-PAD*2,6,'F');}
+      sf(7.5,'normal',[26,58,92]);doc.text((f._n||'-').substring(0,28),xF[0],y);
+      doc.text((f.LIT||'-').substring(0,24),xF[1],y);
+      sf(7.5,'bold',[91,33,182]);doc.text((f.KOM||'-').substring(0,26),xF[2],y);y+=5.5;
+    });
+    if(formasiBersih.length>12){sf(7,'normal',[150,150,150]);doc.text('... and '+(formasiBersih.length-12)+' more formations',PAD,y);y+=5;}
+  }
+  y+=4;
+  // SECTION 2
+  if(y>PH-80){doc.addPage();y=14;}
+  y=secTitle(y,'02','FOREST CONSERVATION STATUS');
+  if(!LY.hutan){sf(9,'normal',[150,100,0]);doc.text('[!] Forest layer not loaded. Upload Hutan_ZonaMerah GeoJSON.',PAD+4,y);y+=8;}
+  else{
+    const isRedZone2=hutanStatus.hasHL||hutanStatus.hasTN||hutanStatus.hasSM||hutanStatus.hasTHR||hutanStatus.hasTWA||hutanStatus.hasHK;
+    const isYellowZone=!isRedZone2&&(hutanStatus.hasHP||hutanStatus.hasHPT||hutanStatus.hasHPK);
+    if(isRedZone2){doc.setFillColor(254,242,242);doc.setDrawColor(220,38,38);doc.setLineWidth(0.5);doc.rect(PAD,y-3,PW-PAD*2,9,'FD');sf(9,'bold',[185,28,28]);doc.text('[STOP]  PROTECTED ZONE DETECTED - Mining activities strictly prohibited',PAD+4,y+3);}
+    else if(isYellowZone){doc.setFillColor(255,251,235);doc.setDrawColor(217,119,6);doc.setLineWidth(0.5);doc.rect(PAD,y-3,PW-PAD*2,9,'FD');sf(9,'bold',[146,64,14]);doc.text('[!]  RESTRICTED ZONE - IPPKH permit from KLHK required',PAD+4,y+3);}
+    else{doc.setFillColor(240,253,244);doc.setDrawColor(22,163,74);doc.setLineWidth(0.5);doc.rect(PAD,y-3,PW-PAD*2,9,'FD');sf(9,'bold',[21,128,61]);doc.text('[OK]  CLEAR - No protected forest zone detected within 5 km radius',PAD+4,y+3);}
+    y+=13;
+    const hutanChecks=[['Hutan Lindung (Protected Forest)',hutanStatus.hasHL],['Hutan Konservasi (Conservation)',hutanStatus.hasHK],['Taman Nasional (National Park)',hutanStatus.hasTN],['Suaka Margasatwa (Wildlife Reserve)',hutanStatus.hasSM],['Taman Hutan Raya (Grand Forest Park)',hutanStatus.hasTHR],['Taman Wisata Alam (Nature Reserve)',hutanStatus.hasTWA],['Hutan Produksi (Production Forest)',hutanStatus.hasHP],['Hutan Produksi Terbatas (Limited)',hutanStatus.hasHPT],['Hutan Produksi Konversi (Convert)',hutanStatus.hasHPK]];
+    hutanChecks.forEach(([lbl,detected])=>{
+      if(y>PH-40){doc.addPage();y=14;}
+      const clr=detected?[185,28,28]:[21,128,61];
+      sf(7.5,'normal',[71,85,105]);doc.text('-  '+lbl,PAD+4,y);
+      sf(7.5,'bold',clr);doc.text(detected?'Detected':'Not Detected',PW-PAD-2,y,{align:'right'});
+      hl(y+1.5,[230,230,230],0.2);y+=5.5;
+    });
+    if(isRedZone2||isYellowZone){y+=2;doc.setFillColor(255,251,235);doc.rect(PAD,y,PW-PAD*2,14,'F');sf(7,'bold',[120,53,15]);doc.text('REGULATORY REFERENCE:',PAD+4,y+5);sf(7,'normal',[146,64,14]);doc.text('UU No. 41 Tahun 1999 tentang Kehutanan  |  PP No. 23 Tahun 2021 tentang Penyelenggaraan Kehutanan',PAD+4,y+10);y+=18;}
+  }
+  y+=4;
+  // SECTION 3
+  if(y>PH-80){doc.addPage();y=14;}
+  y=secTitle(y,'03','NEARBY MINING LICENSES (WIUP)');
+  if(wiupData.length===0){sf(9,'normal',[21,128,61]);doc.text('[OK]  No active WIUP found within 5 km radius - Area open for new license application.',PAD+4,y);y+=8;}
+  else{
+    sf(8,'normal',[71,85,105]);doc.text(wiupData.length+' mining license(s) found within 5 km radius:',PAD+4,y);y+=7;
+    const xW=[PAD,PAD+58,PAD+110,PAD+142,PAD+170];const hdrW=['Company / License','Commodity','Status IUP','Wilayah','Score'];
+    doc.setFillColor(239,246,255);doc.rect(PAD,y-4,PW-PAD*2,7,'F');sf(8,'bold',[29,78,216]);hdrW.forEach((h,i)=>doc.text(h,xW[i],y));hl(y+2,[180,200,230]);y+=6;
+    wiupData.slice(0,15).forEach((w,i)=>{
+      if(y>PH-40){doc.addPage();y=20;}
+      if(i%2===0){doc.setFillColor(248,250,255);doc.rect(PAD,y-3,PW-PAD*2,6,'F');}
+      sf(7.5,'normal',[26,58,92]);doc.text(((w.PER||w._n||'-')+' / '+(w.NOM||'')).substring(0,28),xW[0],y);
+      doc.text((w.KOM||'-').substring(0,16),xW[1],y);
+      const stClr=(w.STA||'').toLowerCase().includes('produksi')?[22,163,74]:[71,85,105];
+      sf(7.5,'bold',stClr);doc.text((w.STA||'-').substring(0,14),xW[2],y);
+      sf(7.5,'normal',[71,85,105]);doc.text((w.WIL||'-').substring(0,14),xW[3],y);
+      const scc=w.SC>=70?[22,163,74]:w.SC>=45?[217,119,6]:[220,38,38];
+      sf(7.5,'bold',scc);doc.text(String(w.SC),xW[4],y);y+=5.5;
+    });
+  }
+  y+=6;
+  // SECTION 4
+  if(y>PH-110){doc.addPage();y=14;}
+  y=secTitle(y,'04','AI SCORE & RECOMMENDATION');
+  const bannerClr=sc.total===0?[254,242,242]:sc.total>=60?[240,253,244]:[255,251,235];
+  doc.setFillColor(...bannerClr);doc.setDrawColor(...sl.color);doc.setLineWidth(0.8);doc.rect(PAD,y,PW-PAD*2,24,'FD');
+  sf(28,'bold',sl.color);doc.text(String(sc.total),PAD+20,y+17);
+  sf(8,'bold',[100,120,140]);doc.text('/ 100',PAD+38,y+17);
+  sf(11,'bold',sl.color);doc.text(sl.lbl,PAD+55,y+12);
+  sf(8,'normal',[71,85,105]);doc.text(sl.sub,PAD+55,y+19);
+  y+=28;
+  sf(8,'bold',[26,58,92]);doc.text('BASE SCORE COMPONENTS:',PAD,y);y+=6;
+  const xB=[PAD,PAD+65,PAD+105,PAD+145];
+  doc.setFillColor(245,243,255);doc.rect(PAD,y-4,PW-PAD*2,7,'F');
+  sf(8,'bold',[91,33,182]);['Component','Weight','Score','Contribution'].forEach((h,i)=>doc.text(h,xB[i],y));hl(y+2,[200,180,240]);y+=6;
+  [['Geological Formation','40%',sc.geo+' / 100',(sc.geo*0.40).toFixed(1)],['WIUP Competition','40%',sc.wiup+' / 100',(sc.wiup*0.40).toFixed(1)],['Accessibility','20%',sc.acc+' / 100',(sc.acc*0.20).toFixed(1)]].forEach(([lbl,wt,cs,ct],i)=>{
+    if(i%2===0){doc.setFillColor(250,249,255);doc.rect(PAD,y-3,PW-PAD*2,6,'F');}
+    sf(8,'normal',[26,58,92]);doc.text(lbl,xB[0],y);sf(8,'bold',[91,33,182]);doc.text(wt,xB[1],y);
+    sf(8,'normal',[26,58,92]);doc.text(cs,xB[2],y);sf(8,'bold',[91,33,182]);doc.text(ct,xB[3],y);y+=6;
+  });
+  doc.setFillColor(237,233,254);doc.rect(PAD,y-3,PW-PAD*2,7,'F');sf(9,'bold',[91,33,182]);doc.text('BASE SCORE',xB[0],y+1.5);doc.text('100%',xB[1],y+1.5);doc.text(sc.base+' / 100',xB[3],y+1.5);y+=12;
+  sf(8,'bold',[26,58,92]);doc.text('FOREST / REGULATORY MULTIPLIER:',PAD,y);y+=6;
+  const multClr=sc.multiplier===0?[185,28,28]:sc.multiplier<1.0?[146,64,14]:[22,163,74];
+  const multBg=sc.multiplier===0?[254,242,242]:sc.multiplier<1.0?[255,251,235]:[240,253,244];
+  doc.setFillColor(...multBg);doc.setDrawColor(...multClr);doc.setLineWidth(0.5);doc.rect(PAD,y-3,PW-PAD*2,16,'FD');
+  sf(9,'bold',multClr);doc.text('x '+sc.multiplier.toFixed(2)+'   >>   '+sc.forestLabel,PAD+4,y+4);
+  sf(7,'normal',multClr);doc.text(sc.forestNote,PAD+4,y+10);y+=20;
+  doc.setFillColor(26,58,92);doc.rect(PAD,y-3,PW-PAD*2,10,'F');
+  sf(9,'bold',[255,255,255]);doc.text('FINAL AI SCORE = BASE ('+sc.base+') x MULTIPLIER ('+sc.multiplier.toFixed(2)+')',PAD+4,y+3.5);
+  sf(11,'bold',sc.total===0?[255,150,150]:sc.total>=60?[150,255,180]:[255,220,100]);doc.text(sc.total+' / 100',PW-PAD-2,y+3.5,{align:'right'});y+=14;
+  if(sc.multiplier===0){doc.setFillColor(254,242,242);doc.setDrawColor(220,38,38);doc.setLineWidth(0.4);doc.rect(PAD,y,PW-PAD*2,18,'FD');sf(8,'bold',[185,28,28]);doc.text('[STOP]  REGULATORY BARRIER - ZERO POTENTIAL',PAD+4,y+6);sf(7,'normal',[185,28,28]);const regLines=doc.splitTextToSize('This location is within a legally protected forest zone. Mining and exploration activities are strictly prohibited under UU No. 41 Tahun 1999 and PP No. 23 Tahun 2021.',PW-PAD*2-8);doc.text(regLines,PAD+4,y+12);y+=22;}
+  else if(sc.multiplier<1.0){doc.setFillColor(255,251,235);doc.setDrawColor(217,119,6);doc.setLineWidth(0.4);doc.rect(PAD,y,PW-PAD*2,14,'FD');sf(8,'bold',[146,64,14]);doc.text('[!]  PERMIT REQUIRED BEFORE EXPLORATION',PAD+4,y+6);sf(7,'normal',[146,64,14]);doc.text('Izin Pinjam Pakai Kawasan Hutan (IPPKH) from Kementerian LHK is required. Contact: klhk.go.id',PAD+4,y+11);y+=18;}
+  // FOOTER
+  const pg=doc.internal.getNumberOfPages();
+  for(let p=1;p<=pg;p++){
+    doc.setPage(p);const PH2=doc.internal.pageSize.getHeight();
+    doc.setFillColor(26,58,92);doc.rect(0,PH2-10,PW,10,'F');
+    sf(6.5,'normal',[120,160,200]);
+    doc.text('MINERAVIX v5.1 - AI Geo Insight Engine - PT. Citra Eksplor Energi (GEOCEE) - Data is informational only - Page '+p+' of '+pg,PW/2,PH2-4,{align:'center'});
+  }
+  const fname='mineravix_point_analysis_'+new Date().toISOString().slice(0,10).replace(/-/g,'')+'.pdf';
+  doc.save(fname);
+  toast('Point Analysis Report: '+fname,'ok');
+}
+
+if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',boot);}else{boot();}
+// FIX 3: visibilitychange — refresh Canvas saat tab aktif kembali
+document.addEventListener('visibilitychange',function(){
+  if(!document.hidden&&map){
+    setTimeout(function(){map.invalidateSize();},100);
+  }
+});
+// GRUP 4: Global error handler — tangkap semua async/unhandled error
+window.addEventListener('unhandledrejection',function(e){
+  const msg=e.reason&&(e.reason.message||String(e.reason))||'Unknown error';
+  console.error('Unhandled Promise rejection:',e.reason);
+  if(msg.length>5)toast('Error: '+msg.substring(0,80),'err');
+  e.preventDefault();
+});
+window.onerror=function(msg,src,line){
+  console.error('Global JS error:',msg,'at',src,'line',line);
+  if(msg&&msg.length>5)toast('JS Error: '+String(msg).substring(0,60),'warn');
+};
+
+/* ============================================================
+   FITUR v5: GEOCEE AI — GEMINI API KEY MODAL
+   ============================================================ */
+(function(){
+  const s=document.createElement('style');
+  s.textContent=`
+#apikey-modal{
+  display:none;position:fixed;inset:0;z-index:9100;
+  background:rgba(15,39,68,.75);backdrop-filter:blur(4px);
+  align-items:center;justify-content:center;
+}
+#apikey-modal.open{display:flex;}
+.akm-box{
+  background:#fff;border-radius:12px;padding:26px 28px;
+  width:420px;max-width:94vw;box-shadow:0 20px 60px rgba(0,0,0,.28);
+}
+.akm-title{font-size:15px;font-weight:700;color:#1A3A5C;margin-bottom:3px;}
+.akm-sub{font-size:11px;color:#94A3B8;margin-bottom:18px;line-height:1.6;}
+.akm-label{font-size:11px;font-weight:600;color:#475569;margin-bottom:5px;text-transform:uppercase;letter-spacing:.06em;}
+.akm-wrap{display:flex;gap:6px;margin-bottom:14px;}
+.akm-inp{flex:1;border:1px solid #CBD5E1;border-radius:6px;padding:9px 12px;font-size:12px;color:#1A3A5C;font-family:monospace;outline:none;}
+.akm-inp:focus{border-color:#2563EB;box-shadow:0 0 0 3px rgba(37,99,235,.12);}
+.akm-eye{background:#F1F5F9;border:1px solid #CBD5E1;border-radius:6px;padding:0 12px;cursor:pointer;font-size:14px;color:#475569;}
+.akm-eye:hover{background:#E2EAF4;}
+.akm-info{background:#EFF6FF;border:1px solid #BFDBFE;border-radius:6px;padding:9px 12px;font-size:11px;color:#1D4ED8;margin-bottom:16px;line-height:1.7;}
+.akm-status{font-size:11px;margin-bottom:12px;min-height:16px;font-weight:500;}
+.akm-ok{color:#16A34A;}.akm-err{color:#DC2626;}
+.akm-row{display:flex;gap:8px;}
+.akm-btn{flex:1;padding:10px;border-radius:7px;border:none;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;transition:.15s;}
+.akm-save{background:#2563EB;color:#fff;}.akm-save:hover{background:#1D4ED8;}
+.akm-clear{background:#FEE2E2;color:#991B1B;}.akm-clear:hover{background:#FCA5A5;}
+.akm-cancel{background:#F1F5F9;color:#475569;flex:0.6;}.akm-cancel:hover{background:#E2EAF4;}
+  `;
+  document.head.appendChild(s);
+
+  const m=document.createElement('div');
+  m.id='apikey-modal';
+  m.innerHTML=`
+    <div class="akm-box">
+      <div class="akm-title">⚙️ GEOCEE AI — Gemini API Key</div>
+      <div class="akm-sub">API Key disimpan hanya di browser Anda (sessionStorage) —<br>tidak dikirim ke server manapun selain Google Gemini.</div>
+      <div class="akm-label">Gemini API Key</div>
+      <div class="akm-wrap">
+        <input class="akm-inp" id="akm-inp" type="password" placeholder="AIza...">
+        <button class="akm-eye" id="akm-eye" onclick="toggleAkmEye()">👁</button>
+      </div>
+      <div class="akm-info">
+        🔑 Dapatkan API Key gratis di <b>aistudio.google.com</b><br>
+        ✅ Free tier: 1.500 request/hari<br>
+        🔒 Key hanya berlaku selama sesi browser ini
+      </div>
+      <div class="akm-status" id="akm-status"></div>
+      <div class="akm-row">
+        <button class="akm-btn akm-cancel" onclick="closeApiKeyModal()">Batal</button>
+        <button class="akm-btn akm-clear" onclick="clearApiKey()">🗑 Hapus Key</button>
+        <button class="akm-btn akm-save" onclick="saveApiKey()">💾 Simpan & Aktifkan</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(m);
+
+  // Isi field jika key sudah ada
+  m.addEventListener('mouseenter',function(){
+    const k=sessionStorage.getItem('geocee_gemini_key')||'';
+    const inp=document.getElementById('akm-inp');
+    if(k&&!inp.value)inp.value=k;
+    updateAkmStatus();
+  });
+})();
+
+function showApiKeyModal(){
+  document.getElementById('apikey-modal').classList.add('open');
+  const k=sessionStorage.getItem('geocee_gemini_key')||'';
+  const inp=document.getElementById('akm-inp');
+  if(k)inp.value=k;
+  updateAkmStatus();
+  setTimeout(()=>inp.focus(),100);
+}
+function closeApiKeyModal(){
+  document.getElementById('apikey-modal').classList.remove('open');
+}
+function toggleAkmEye(){
+  const inp=document.getElementById('akm-inp');
+  const eye=document.getElementById('akm-eye');
+  if(inp.type==='password'){inp.type='text';eye.textContent='🙈';}
+  else{inp.type='password';eye.textContent='👁';}
+}
+function updateAkmStatus(){
+  const el=document.getElementById('akm-status');
+  const k=sessionStorage.getItem('geocee_gemini_key')||'';
+  if(k){
+    el.className='akm-status akm-ok';
+    el.textContent='✅ API Key aktif — GEOCEE AI siap digunakan';
+    // Update subtitle chat
+    const sub=document.querySelector('.ch-sub');
+    if(sub)sub.textContent='Powered by Gemini 2.5 Flash · GEOCEE ✅';
+  } else {
+    el.className='akm-status akm-err';
+    el.textContent='⚠️ Belum ada API Key — GEOCEE AI belum aktif';
+    const sub=document.querySelector('.ch-sub');
+    if(sub)sub.textContent='Powered by Gemini · Masukkan API Key via ⚙️';
+  }
+}
+function saveApiKey(){
+  const inp=document.getElementById('akm-inp');
+  const key=inp.value.trim();
+  if(!key){
+    document.getElementById('akm-status').className='akm-status akm-err';
+    document.getElementById('akm-status').textContent='❌ API Key tidak boleh kosong';
+    return;
+  }
+  if(!key.startsWith('AIza')){
+    document.getElementById('akm-status').className='akm-status akm-err';
+    document.getElementById('akm-status').textContent='❌ Format API Key tidak valid — harus diawali AIza...';
+    return;
+  }
+  sessionStorage.setItem('geocee_gemini_key',key);
+  updateAkmStatus();
+  toast('GEOCEE AI aktif — Gemini 1.5 Flash siap','ok');
+  setTimeout(closeApiKeyModal,800);
+}
+function clearApiKey(){
+  sessionStorage.removeItem('geocee_gemini_key');
+  document.getElementById('akm-inp').value='';
+  updateAkmStatus();
+  toast('API Key dihapus','info');
+}
+
+/* ============================================================
+   FITUR v5: EXPORT LAYOUT PETA PDF — A4 LANDSCAPE
+   ============================================================ */
+
+// CSS Modal — inject ke head
+(function(){
+  const s=document.createElement('style');
+  s.textContent=`
+#map-export-modal{
+  display:none;position:fixed;inset:0;z-index:9000;
+  background:rgba(15,39,68,.7);backdrop-filter:blur(4px);
+  align-items:center;justify-content:center;
+}
+#map-export-modal.open{display:flex;}
+.mem-box{
+  background:#fff;border-radius:12px;padding:28px 32px;
+  width:480px;max-width:94vw;box-shadow:0 20px 60px rgba(0,0,0,.25);
+}
+.mem-title{font-size:16px;font-weight:700;color:#1A3A5C;margin-bottom:4px;}
+.mem-sub{font-size:11px;color:#94A3B8;margin-bottom:20px;}
+.mem-label{font-size:11px;font-weight:600;color:#475569;margin-bottom:5px;text-transform:uppercase;letter-spacing:.06em;}
+.mem-inp{width:100%;border:1px solid #CBD5E1;border-radius:6px;padding:9px 12px;font-size:13px;color:#1A3A5C;font-family:inherit;outline:none;margin-bottom:14px;}
+.mem-inp:focus{border-color:#2563EB;box-shadow:0 0 0 3px rgba(37,99,235,.12);}
+.mem-row{display:flex;gap:10px;margin-top:4px;}
+.mem-btn{flex:1;padding:11px;border-radius:7px;border:none;cursor:pointer;font-size:13px;font-weight:600;font-family:inherit;transition:.15s;}
+.mem-ok{background:#2563EB;color:#fff;}.mem-ok:hover{background:#1D4ED8;}
+.mem-cancel{background:#F1F5F9;color:#475569;}.mem-cancel:hover{background:#E2EAF4;}
+.mem-prev{margin-top:14px;background:#F4F7FB;border-radius:8px;padding:10px 14px;font-size:11px;color:#475569;font-family:monospace;line-height:1.8;border:1px solid #E2EAF4;}
+  `;
+  document.head.appendChild(s);
+
+  // Buat elemen modal di DOM
+  const m=document.createElement('div');
+  m.id='map-export-modal';
+  m.innerHTML=`
+    <div class="mem-box">
+      <div class="mem-title">🗺 Export Layout Peta PDF</div>
+      <div class="mem-sub">A4 Landscape · Berkop GEOCEE · Basemap abu-abu</div>
+      <div class="mem-label">Judul Peta</div>
+      <input class="mem-inp" id="mem-judul" placeholder="cth: Peta WIUP Kalimantan Selatan 2025" maxlength="80">
+      <div class="mem-label">Nama Pembuat</div>
+      <input class="mem-inp" id="mem-author" placeholder="cth: Tim Eksplorasi GEOCEE" maxlength="60">
+      <div class="mem-label">Catatan / Keterangan (opsional)</div>
+      <input class="mem-inp" id="mem-note" placeholder="cth: Data WIUP per Januari 2025" maxlength="100">
+      <div class="mem-prev" id="mem-prev">
+        📋 Layout: Peta utama (kiri) + Legenda & Info (kanan)<br>
+        🗺 Basemap: Abu-abu ringan saat export<br>
+        🏷 Elemen: Kop GEOCEE · Skala · Arah Utara · Disclaimer
+      </div>
+      <div class="mem-row">
+        <button class="mem-btn mem-cancel" onclick="closeMapExportModal()">Batal</button>
+        <button class="mem-btn mem-ok" onclick="expMapPDF()">⬇ Export PDF</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(m);
+
+  // Auto-suggest judul dari data aktif
+  m.addEventListener('mouseenter',function(){
+    const inp=document.getElementById('mem-judul');
+    if(!inp.value&&window.results&&results.length){
+      const wils=[...new Set(results.slice(0,5).map(r=>r.WIL).filter(Boolean))];
+      const koms=[...new Set(results.slice(0,5).map(r=>r.KOM).filter(Boolean))];
+      const sug=(koms[0]?koms[0]+' — ':'')+
+        (wils.length?wils.slice(0,2).join(' & ')+' ':'Indonesia ')+
+        new Date().getFullYear();
+      inp.placeholder=sug;
+    }
+  });
+})();
+
+function showMapExportModal(){
+  document.getElementById('map-export-modal').classList.add('open');
+}
+function closeMapExportModal(){
+  document.getElementById('map-export-modal').classList.remove('open');
+}
+
+async function expMapPDF(){
+  const judul=($('mem-judul').value.trim()||$('mem-judul').placeholder||'Peta Potensi Tambang Indonesia');
+  const author=($('mem-author').value.trim()||'PT. Citra Eksplor Energi (GEOCEE)');
+  const note=($('mem-note').value.trim()||'Data bersifat informatif');
+  closeMapExportModal();
+  toast('Menyiapkan layout peta...','info');
+
+  // Tunggu sebentar agar toast tampil
+  await new Promise(r=>setTimeout(r,300));
+
+  // STEP 1: Capture canvas peta
+  let mapImgData=null;
+  try{
+    // Sembunyikan tile basemap sementara — ambil abu2 dari background
+    const mapEl=document.getElementById('map');
+    const origBg=mapEl.style.background;
+    mapEl.style.background='#E8EDF2';
+
+    // Sembunyikan semua tile layer sementara
+    const tiles=mapEl.querySelectorAll('.leaflet-tile-pane');
+    tiles.forEach(t=>{t.style.visibility='hidden';});
+
+    await new Promise(r=>setTimeout(r,120));
+
+    // Gabungkan semua canvas layer ke satu canvas
+    const allCanvas=mapEl.querySelectorAll('canvas');
+    const rect=mapEl.getBoundingClientRect();
+    const W=Math.round(rect.width)||800;
+    const H=Math.round(rect.height)||500;
+
+    const merge=document.createElement('canvas');
+    merge.width=W;merge.height=H;
+    const ctx=merge.getContext('2d');
+
+    // Background abu-abu
+    ctx.fillStyle='#E8EDF2';
+    ctx.fillRect(0,0,W,H);
+
+    // Gambar tiap canvas layer
+    allCanvas.forEach(c=>{
+      try{
+        const cr=c.getBoundingClientRect();
+        const dx=cr.left-rect.left;
+        const dy=cr.top-rect.top;
+        ctx.drawImage(c,dx,dy);
+      }catch(ex){}
+    });
+
+    mapImgData=merge.toDataURL('image/jpeg',0.92);
+
+    // Kembalikan basemap
+    tiles.forEach(t=>{t.style.visibility='';});
+    mapEl.style.background=origBg;
+  }catch(ex){
+    toast('Gagal capture peta: '+ex.message,'err');
+    return;
+  }
+
+  toast('Menyusun layout PDF...','info');
+  await new Promise(r=>setTimeout(r,200));
+
+  // STEP 2: Buat PDF A4 Landscape
+  const{jsPDF}=window.jspdf;
+  const doc=new jsPDF('l','mm','a4');
+  const PW=doc.internal.pageSize.getWidth();  // 297mm
+  const PH=doc.internal.pageSize.getHeight(); // 210mm
+
+  // Dimensi zona layout
+  const KOP_H=22;      // tinggi kop atas
+  const FOOT_H=10;     // tinggi footer
+  const PAD=8;         // padding tepi
+  const PANEL_W=82;    // lebar panel kanan (legenda+info)
+  const MAP_W=PW-PANEL_W-PAD*2-4; // lebar zona peta
+  const MAP_H=PH-KOP_H-FOOT_H-PAD*2; // tinggi zona peta
+  const MAP_X=PAD;
+  const MAP_Y=KOP_H+PAD;
+  const PANEL_X=MAP_X+MAP_W+4;
+  const PANEL_Y=KOP_H+PAD;
+
+  // ── KOP ──────────────────────────────────────────────
+  // Background navy
+  doc.setFillColor(26,58,92);
+  doc.rect(0,0,PW,KOP_H,'F');
+
+  // Logo GEOCEE
+  try{
+    doc.addImage(GEOCEE_LOGO_B64,'PNG',PAD,1,16,16);
+  }catch(e){}
+
+  // Teks kop
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(13);
+  doc.setFont('helvetica','bold');
+  doc.text('MINERAVIX v5',PAD+19,9);
+
+  doc.setFontSize(8);
+  doc.setFont('helvetica','normal');
+  doc.setTextColor(180,210,235);
+  doc.text('AI Geo Insight Engine · PT. Citra Eksplor Energi (GEOCEE)',PAD+19,15);
+
+  // Judul peta di kop — rata kanan
+  doc.setFontSize(10);
+  doc.setFont('helvetica','bold');
+  doc.setTextColor(255,255,255);
+  doc.text(judul.substring(0,60),PW-PAD,9,{align:'right'});
+
+  doc.setFontSize(7.5);
+  doc.setFont('helvetica','normal');
+  doc.setTextColor(180,210,235);
+  const tglStr=new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'});
+  doc.text('Dicetak: '+tglStr+' · '+author,PW-PAD,15,{align:'right'});
+
+  // ── PETA UTAMA ──────────────────────────────────────
+  // Border peta
+  doc.setDrawColor(178,195,215);
+  doc.setLineWidth(0.4);
+  doc.rect(MAP_X,MAP_Y,MAP_W,MAP_H);
+
+  // Gambar canvas peta
+  if(mapImgData){
+    doc.addImage(mapImgData,'JPEG',MAP_X+0.2,MAP_Y+0.2,MAP_W-0.4,MAP_H-0.4);
+  }
+
+  // ── SKALA BAR ────────────────────────────────────────
+  const scaleX=MAP_X+4;
+  const scaleY=MAP_Y+MAP_H-8;
+  const scaleW=40;
+  // Hitung nilai skala dari zoom aktif
+  const zoomNow=map?map.getZoom():7;
+  const centerLat=map?map.getCenter().lat:-2.5;
+  const mPerPx=156543.03*Math.cos(centerLat*Math.PI/180)/Math.pow(2,zoomNow);
+  // 1 mm di PDF = berapa meter di dunia?
+  // A4 landscape map area: MAP_W mm mewakili MAP_W*MAP_H peta
+  // Ambil scaleW mm lebar bar
+  const realKm=Math.round(mPerPx*(scaleW*3.78)*2)/1000; // 3.78px per mm di 96dpi → kasar
+  const scaleLabel=realKm>10?Math.round(realKm/10)*10+' km':realKm.toFixed(0)+' km';
+
+  doc.setFillColor(26,58,92);
+  doc.rect(scaleX,scaleY,scaleW/2,2,'F');
+  doc.setFillColor(255,255,255);
+  doc.rect(scaleX+scaleW/2,scaleY,scaleW/2,2,'F');
+  doc.setDrawColor(26,58,92);
+  doc.setLineWidth(0.3);
+  doc.rect(scaleX,scaleY,scaleW,2);
+  doc.setTextColor(26,58,92);
+  doc.setFontSize(7);
+  doc.setFont('helvetica','normal');
+  doc.text('0',scaleX,scaleY+5);
+  doc.text(scaleLabel,scaleX+scaleW,scaleY+5,{align:'right'});
+  doc.text('Skala Bar',scaleX+scaleW/2,scaleY-1.5,{align:'center'});
+
+  // ── ARAH UTARA ───────────────────────────────────────
+  const nX=MAP_X+MAP_W-14;
+  const nY=MAP_Y+14;
+  // Lingkaran
+  doc.setDrawColor(26,58,92);
+  doc.setLineWidth(0.5);
+  doc.circle(nX,nY,6);
+  // Panah utara
+  doc.setFillColor(26,58,92);
+  doc.triangle(nX,nY-5.5, nX-2.5,nY+1, nX+2.5,nY+1,'F');
+  doc.setFillColor(255,255,255);
+  doc.triangle(nX,nY+5.5, nX-2.5,nY-1, nX+2.5,nY-1,'F');
+  // Huruf N
+  doc.setFontSize(7);
+  doc.setFont('helvetica','bold');
+  doc.setTextColor(26,58,92);
+  doc.text('U',nX,nY-7.5,{align:'center'});
+
+  // Koordinat sistem di pojok kiri bawah peta
+  doc.setFontSize(6.5);
+  doc.setFont('helvetica','normal');
+  doc.setTextColor(100,120,140);
+  doc.text('WGS 84 · EPSG:4326',MAP_X+4,MAP_Y+MAP_H-2);
+
+  // ── PANEL KANAN: INFO + LEGENDA ──────────────────────
+  let py=PANEL_Y;
+
+  // Kotak info peta
+  doc.setFillColor(244,247,251);
+  doc.setDrawColor(178,195,215);
+  doc.setLineWidth(0.3);
+  doc.rect(PANEL_X,py,PANEL_W,50,'FD');
+
+  doc.setFontSize(8);
+  doc.setFont('helvetica','bold');
+  doc.setTextColor(26,58,92);
+  doc.text('INFORMASI PETA',PANEL_X+4,py+7);
+  doc.setLineWidth(0.3);
+  doc.setDrawColor(178,195,215);
+  doc.line(PANEL_X+4,py+9,PANEL_X+PANEL_W-4,py+9);
+
+  const avg=results.length?Math.round(results.reduce((s,r)=>s+r.SC,0)/results.length):0;
+  const koms=[...new Set(results.slice(0,8).map(r=>r.KOM).filter(Boolean))];
+  const wils=[...new Set(results.slice(0,8).map(r=>r.WIL).filter(Boolean))];
+  const infos=[
+    ['Judul',judul.substring(0,32)],
+    ['Total Area',results.length+' wilayah'],
+    ['Komoditas',koms.slice(0,2).join(', ')||'-'],
+    ['Wilayah',wils.slice(0,2).join(', ')||'-'],
+    ['Avg AI Score',avg+' / 100'],
+    ['Pembuat',author.substring(0,28)],
+  ];
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(7.5);
+  infos.forEach(([k,v],i)=>{
+    const iy=py+14+i*6;
+    doc.setTextColor(120,140,160);
+    doc.text(k+':',PANEL_X+4,iy);
+    doc.setTextColor(26,58,92);
+    doc.setFont('helvetica','bold');
+    doc.text(String(v),PANEL_X+4,iy+4);
+    doc.setFont('helvetica','normal');
+  });
+  py+=54;
+
+  // Kotak legenda
+  doc.setFillColor(255,255,255);
+  doc.setDrawColor(178,195,215);
+  doc.rect(PANEL_X,py,PANEL_W,78,'FD');
+  doc.setFontSize(8);
+  doc.setFont('helvetica','bold');
+  doc.setTextColor(26,58,92);
+  doc.text('LEGENDA',PANEL_X+4,py+7);
+  doc.line(PANEL_X+4,py+9,PANEL_X+PANEL_W-4,py+9);
+
+  const legends=[
+    [[202,138,4],'Zona Mineral'],
+    [[100,116,139],'Background Geologi'],
+    [[37,99,235],'WIUP'],
+    [[120,53,15],'Batubara'],
+  ];
+  legends.forEach(([c,lbl],i)=>{
+    const ly=py+15+i*9;
+    doc.setFillColor(...c);
+    doc.rect(PANEL_X+4,ly-4,6,5,'F');
+    doc.setTextColor(71,85,105);
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica','normal');
+    doc.text(lbl,PANEL_X+13,ly);
+  });
+
+  // Divider AI Score
+  const aiY=py+52;
+  doc.setFontSize(7.5);
+  doc.setFont('helvetica','bold');
+  doc.setTextColor(26,58,92);
+  doc.text('AI SCORE',PANEL_X+4,aiY);
+  const scoreItems=[
+    [[22,163,74],'Score ≥ 70 — Potensi TINGGI'],
+    [[217,119,6],'Score 45–69 — Potensi SEDANG'],
+    [[220,38,38],'Score < 45 — Potensi RENDAH'],
+  ];
+  scoreItems.forEach(([c,lbl],i)=>{
+    const sy=aiY+5+i*8;
+    doc.setFillColor(...c);
+    doc.rect(PANEL_X+4,sy-3,6,4,'F');
+    doc.setTextColor(71,85,105);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(7);
+    doc.text(lbl,PANEL_X+13,sy);
+  });
+  py+=82;
+
+  // Kotak catatan (jika ada)
+  if(note){
+    doc.setFillColor(255,251,235);
+    doc.setDrawColor(253,230,138);
+    doc.rect(PANEL_X,py,PANEL_W,22,'FD');
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica','bold');
+    doc.setTextColor(120,53,15);
+    doc.text('CATATAN',PANEL_X+4,py+7);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(7);
+    doc.setTextColor(146,64,14);
+    const noteLines=doc.splitTextToSize(note,PANEL_W-8);
+    doc.text(noteLines,PANEL_X+4,py+13);
+    py+=26;
+  }
+
+  // ── FOOTER ───────────────────────────────────────────
+  doc.setFillColor(26,58,92);
+  doc.rect(0,PH-FOOT_H,PW,FOOT_H,'F');
+  doc.setTextColor(120,160,200);
+  doc.setFontSize(6.5);
+  doc.setFont('helvetica','normal');
+  doc.text(
+    'MINERAVIX v5 · PT. Citra Eksplor Energi (GEOCEE) · '+
+    'AI Score bersifat informatif — bukan rekomendasi investasi · '+
+    'Sumber data: ESDM Indonesia · Dicetak '+tglStr,
+    PW/2,PH-3.5,{align:'center'}
+  );
+
+  // ── HALAMAN 2: TABEL DATA ─────────────────────────────
+  if(results.length){
+    doc.addPage('a4','l');
+    const PW2=doc.internal.pageSize.getWidth();
+    const PH2=doc.internal.pageSize.getHeight();
+
+    // Kop halaman 2
+    doc.setFillColor(26,58,92);
+    doc.rect(0,0,PW2,KOP_H,'F');
+    try{doc.addImage(GEOCEE_LOGO_B64,'PNG',PAD,1,16,16);}catch(e){}
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(11);
+    doc.setFont('helvetica','bold');
+    doc.text('DATA HASIL ANALISIS — '+judul.substring(0,50),PAD+19,10);
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica','normal');
+    doc.setTextColor(180,210,235);
+    doc.text('Total: '+results.length+' wilayah · Avg Score: '+avg+'/100 · '+author,PAD+19,16);
+
+    // Tabel
+    let ty=KOP_H+8;
+    const xp=[PAD,PAD+8,PAD+62,PAD+118,PAD+152,PAD+189,PAD+214,PAD+238];
+    const cols=['No','Nama WIUP/Area','Perusahaan','Komoditas','Wilayah','Tipe','Status','Score'];
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica','bold');
+    doc.setTextColor(26,58,92);
+    cols.forEach((c,i)=>doc.text(c,xp[i],ty));
+    doc.setDrawColor(178,195,215);
+    doc.setLineWidth(0.3);
+    doc.line(PAD,ty+2,PW2-PAD,ty+2);
+    ty+=7;
+
+    results.slice(0,40).forEach((r,i)=>{
+      if(ty>PH2-14){
+        doc.addPage('a4','l');
+        ty=20;
+        doc.setFont('helvetica','bold');
+        cols.forEach((c,j)=>doc.text(c,xp[j],ty));
+        doc.line(PAD,ty+2,PW2-PAD,ty+2);
+        ty+=7;
+      }
+      if(i%2===0){doc.setFillColor(244,247,251);doc.rect(PAD,ty-5,PW2-PAD*2,7,'F');}
+      doc.setFont('helvetica','normal');
+      doc.setTextColor(71,85,105);
+      [String(i+1),
+       (r._n||'-').substring(0,22),
+       (r.PER||'-').substring(0,18),
+       (r.KOM||'-').substring(0,14),
+       (r.WIL||'-').substring(0,16),
+       (r.TIP||'-').substring(0,9),
+       (r.STA||'-').substring(0,12)
+      ].forEach((v,j)=>doc.text(v,xp[j],ty));
+      const scc=r.SC>=70?[22,163,74]:r.SC>=45?[217,119,6]:[220,38,38];
+      doc.setFont('helvetica','bold');
+      doc.setTextColor(...scc);
+      doc.text(String(r.SC),xp[7],ty);
+      ty+=7;
+    });
+
+    // Footer halaman 2
+    doc.setFillColor(26,58,92);
+    doc.rect(0,PH2-FOOT_H,PW2,FOOT_H,'F');
+    doc.setTextColor(120,160,200);
+    doc.setFontSize(6.5);
+    doc.setFont('helvetica','normal');
+    doc.text('MINERAVIX v5 · GEOCEE · Data bersifat informatif · Hal. 2',PW2/2,PH2-3.5,{align:'center'});
+  }
+
+  // Simpan PDF
+  const fname='mineravix_peta_'+stmp()+'.pdf';
+  doc.save(fname);
+  toast('Layout Peta PDF berhasil: '+fname,'ok');
+}
+</script>
+</body>
+</html>
