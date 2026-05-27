@@ -2695,6 +2695,12 @@ async function expMapPDF(){
     doc.text('MINERAVIX v5 · GEOCEE · Data bersifat informatif · Hal. 2',PW2/2,PH2-3.5,{align:'center'});
   }
 
+  // Simpan PDF peta
+  const fname='mineravix_peta_'+stmp()+'.pdf';
+  doc.save(fname);
+  toast('Layout Peta PDF berhasil: '+fname,'ok');
+} // ← penutup expMapPDF
+
 /* ═══════════════════════════════════════════════
    HEXBIN AI SCORE — v5.2
    Grid hexagon berbasis lat/lon tanpa library H3.
