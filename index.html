@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="description" content="Mineravix v5 — AI Geo Insight Engine untuk analisis potensi WIUP dan Batubara Indonesia. Platform GIS berbasis AI oleh PT. Citra Eksplor Energi (GEOCEE).">
 <meta name="theme-color" content="#1A3A5C">
-<title>MINERAVIX v5.3 — AI Geo Insight Engine + Auto-load Hutan | GEOCEE</title>
+<title>MINERAVIX v5.4 — AI Geo Insight Engine + Performa Optimal | GEOCEE</title>
 <style id="font-defs">
 /* System font stack — zero network request, instant render */
 :root {
@@ -287,7 +287,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color
 <body>
 <div id="splash">
   <div class="sp-logo">MINERAVIX</div>
-  <div class="sp-sub">AI Geo Insight Engine · V5.3 · Auto-load Hutan</div>
+  <div class="sp-sub">AI Geo Insight Engine · V5.4 · Performa Optimal</div>
   <div class="sp-bar"><div class="sp-fill" id="spf"></div></div>
   <div class="sp-msg" id="spm">Memuat sistem...</div>
 </div>
@@ -295,7 +295,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color
   <div id="topbar">
     <div class="tb-logo">M</div>
     <div><span class="tb-name">MINERAVIX</span><span class="tb-sep">·</span><span class="tb-sub">GEOCEE</span></div>
-    <div class="tb-tier">v5.3</div>
+    <div class="tb-tier">v5.4</div>
     <div class="tb-space"></div>
     <button class="tb-btn" id="btn-chat" onclick="toggleChat()">⚡ AI Chat</button>
     <button class="tb-btn" onclick="showHelp()" style="margin-left:6px">? Bantuan</button>
@@ -342,7 +342,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color
           <div class="lrow" style="align-items:center">
             <input type="checkbox" class="lck" id="ck-hutan" onchange="tglLayer('hutan')">
             <div class="ldot" style="background:var(--hutan-hp)"></div>
-            <span class="lname">Kawasan Hutan</span>
+            <span class="lname">Kawasan Hutan <span id="hutan-zoom-hint" style="font-size:9px;color:var(--t3);font-style:italic">(zoom≥8)</span></span>
             <span class="lcnt" id="cnt-hutan">0</span>
             <button class="lup-btn" onclick="trigUp('hutan')" title="Upload GeoJSON Kawasan Hutan">🌳</button>
           </div>
@@ -571,7 +571,6 @@ async function boot(){
   }catch(fatalErr){
     console.error('Boot error:',fatalErr);
     setSp(100,'Siap (mode terbatas)');
-    // Tetap lanjut meski error — user bisa upload data manual
     try{if(typeof L!=='undefined'&&!window._mapInit)initMap();}catch(x){}
     await sleep(300);
   }finally{
@@ -580,12 +579,68 @@ async function boot(){
     await sleep(350);
     $('splash').style.display='none';
     $('app').classList.add('ready');
-    toast('Mineravix v4 · Upload data GeoJSON via tab Layer','info');
+    toast('Mineravix v5.4 · GEOCEE','info');
+    // ── TEKNIK 2: Load hutan lazy setelah peta tampil ────────
+    // Delay 1.5 detik agar UI sudah stabil dulu sebelum fetch besar
+    setTimeout(loadHutanLazy, 1500);
+    // ─────────────────────────────────────────────────────────
   }
 }
 
 // BM tiles dibuat lazy di dalam initMap() agar Leaflet sudah ready
 let BM={};
+
+// ── TEKNIK 2: LAZY LOAD HUTAN ────────────────────────────────
+// Dipanggil 1.5 detik setelah peta tampil — tidak blokir splash
+async function loadHutanLazy(){
+  if(LY.hutan)return; // sudah ada (upload manual), skip
+  const cntEl=$('cnt-hutan');
+  if(cntEl)cntEl.textContent='...';
+  try{
+    const hutanFiles=[
+      'output/Hutan_ZonaMerah_Kalimantan.geojson',
+      'output/Hutan_ZonaMerah_Sumatera.geojson'
+    ];
+    const hutanRes=await Promise.allSettled(
+      hutanFiles.map(function(url){return fetchWithTimeout(url,25000);})
+    );
+    var hutanFeatures=[];
+    var hutanLoaded=0;
+    for(var hi=0;hi<hutanRes.length;hi++){
+      var hr=hutanRes[hi];
+      if(hr.status!=='fulfilled'||!hr.value||!hr.value.ok)continue;
+      try{
+        var hd=await hr.value.json();
+        if(hd&&hd.features&&hd.features.length>0){
+          hd.features.forEach(function(f){if(!f.properties)f.properties={};});
+          hutanFeatures=hutanFeatures.concat(hd.features);
+          hutanLoaded++;
+        }
+      }catch(he){console.warn('Hutan parse error:',he.message);}
+    }
+    if(hutanFeatures.length>0){
+      var hutanFC={type:'FeatureCollection',features:hutanFeatures};
+      addLayer(hutanFC,'hutan');
+      // Teknik 1: cek zoom saat ini — jika zoom < 8, sembunyikan dulu
+      var ckH=$('ck-hutan');
+      if(ckH)ckH.checked=true;
+      var zNow=map?map.getZoom():5;
+      if(zNow<8&&LY.hutan&&map.hasLayer(LY.hutan)){
+        map.removeLayer(LY.hutan);
+        var hintEl=$('hutan-zoom-hint');
+        if(hintEl){hintEl.style.display='';hintEl.textContent='(aktif zoom≥8)';}
+      }
+      toast('Kawasan Hutan: '+hutanFeatures.length+' fitur (muncul saat zoom≥8)','ok');
+      if(LY.wiup&&typeof detectOverlapHutan==='function')detectOverlapHutan();
+    } else {
+      if(cntEl)cntEl.textContent='0';
+    }
+  }catch(e){
+    console.warn('loadHutanLazy error:',e.message);
+    if(cntEl)cntEl.textContent='0';
+  }
+}
+// ─────────────────────────────────────────────────────────────
 
 function initMap(){
   if(map)return;
@@ -641,6 +696,27 @@ function initMap(){
         });
       });
     },150);
+    // ── TEKNIK 1: Zoom-based visibility layer Hutan ──────────
+    // Hutan hanya render saat zoom >= 8 (level kecamatan)
+    // Di zoom rendah (nasional/provinsi) disembunyikan agar ringan
+    const ckH=$('ck-hutan');
+    const hintEl=$('hutan-zoom-hint');
+    if(LY.hutan&&ckH&&ckH.checked){
+      if(z>=8){
+        // Tampilkan hutan jika belum ada di peta
+        if(!map.hasLayer(LY.hutan)){
+          map.addLayer(LY.hutan);
+        }
+        if(hintEl)hintEl.style.display='none';
+      } else {
+        // Sembunyikan hutan di zoom rendah
+        if(map.hasLayer(LY.hutan)){
+          map.removeLayer(LY.hutan);
+        }
+        if(hintEl){hintEl.style.display='';hintEl.textContent='(aktif zoom≥8)';}
+      }
+    }
+    // ─────────────────────────────────────────────────────────
   });
   map.on('click',e=>{
     hideTooltip();
@@ -748,39 +824,7 @@ async function loadDef(){
       }
     }catch(e){/* file tidak ada, skip */}
   }
-  // ── AUTO-LOAD HUTAN ZONA MERAH ──────────────────────────────
-  // Kalimantan + Sumatera dimuat paralel, timeout 20 detik per file
-  if(!LY.hutan){
-    const hutanFiles=[
-      'output/Hutan_ZonaMerah_Kalimantan.geojson',
-      'output/Hutan_ZonaMerah_Sumatera.geojson'
-    ];
-    const hutanRes=await Promise.allSettled(
-      hutanFiles.map(function(url){return fetchWithTimeout(url,20000);})
-    );
-    var hutanFeatures=[];
-    var hutanLoaded=0;
-    for(var hi=0;hi<hutanRes.length;hi++){
-      var hr=hutanRes[hi];
-      if(hr.status!=='fulfilled'||!hr.value||!hr.value.ok)continue;
-      try{
-        var hd=await hr.value.json();
-        if(hd&&hd.features&&hd.features.length>0){
-          hd.features.forEach(function(f){if(!f.properties)f.properties={};});
-          hutanFeatures=hutanFeatures.concat(hd.features);
-          hutanLoaded++;
-        }
-      }catch(he){console.warn('Hutan parse error:',he.message);}
-    }
-    if(hutanFeatures.length>0){
-      var hutanFC={type:'FeatureCollection',features:hutanFeatures};
-      addLayer(hutanFC,'hutan');
-      var ckH=$('ck-hutan');if(ckH)ckH.checked=true;
-      toast('Kawasan Hutan auto-loaded: '+hutanFeatures.length+' fitur ('+hutanLoaded+' file)','ok');
-      if(LY.wiup&&typeof detectOverlapHutan==='function')detectOverlapHutan();
-    }
-  }
-  // ────────────────────────────────────────────────────────────
+  // Hutan dimuat lazy setelah boot selesai — lihat loadHutanLazy()
 }
 
 function addLayer(data,nm){
