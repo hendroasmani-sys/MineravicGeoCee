@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="description" content="Mineravix v5 — AI Geo Insight Engine untuk analisis potensi WIUP dan Batubara Indonesia. Platform GIS berbasis AI oleh PT. Citra Eksplor Energi (GEOCEE).">
 <meta name="theme-color" content="#1A3A5C">
-<title>MINERAVIX v5.2 — AI Geo Insight Engine + Hexbin Score | GEOCEE</title>
+<title>MINERAVIX v5.3 — AI Geo Insight Engine + Auto-load Hutan | GEOCEE</title>
 <style id="font-defs">
 /* System font stack — zero network request, instant render */
 :root {
@@ -287,7 +287,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color
 <body>
 <div id="splash">
   <div class="sp-logo">MINERAVIX</div>
-  <div class="sp-sub">AI Geo Insight Engine · V5.2 · Hexbin Score</div>
+  <div class="sp-sub">AI Geo Insight Engine · V5.3 · Auto-load Hutan</div>
   <div class="sp-bar"><div class="sp-fill" id="spf"></div></div>
   <div class="sp-msg" id="spm">Memuat sistem...</div>
 </div>
@@ -295,7 +295,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color
   <div id="topbar">
     <div class="tb-logo">M</div>
     <div><span class="tb-name">MINERAVIX</span><span class="tb-sep">·</span><span class="tb-sub">GEOCEE</span></div>
-    <div class="tb-tier">v5.2</div>
+    <div class="tb-tier">v5.3</div>
     <div class="tb-space"></div>
     <button class="tb-btn" id="btn-chat" onclick="toggleChat()">⚡ AI Chat</button>
     <button class="tb-btn" onclick="showHelp()" style="margin-left:6px">? Bantuan</button>
@@ -748,6 +748,39 @@ async function loadDef(){
       }
     }catch(e){/* file tidak ada, skip */}
   }
+  // ── AUTO-LOAD HUTAN ZONA MERAH ──────────────────────────────
+  // Kalimantan + Sumatera dimuat paralel, timeout 20 detik per file
+  if(!LY.hutan){
+    const hutanFiles=[
+      'output/Hutan_ZonaMerah_Kalimantan.geojson',
+      'output/Hutan_ZonaMerah_Sumatera.geojson'
+    ];
+    const hutanRes=await Promise.allSettled(
+      hutanFiles.map(function(url){return fetchWithTimeout(url,20000);})
+    );
+    var hutanFeatures=[];
+    var hutanLoaded=0;
+    for(var hi=0;hi<hutanRes.length;hi++){
+      var hr=hutanRes[hi];
+      if(hr.status!=='fulfilled'||!hr.value||!hr.value.ok)continue;
+      try{
+        var hd=await hr.value.json();
+        if(hd&&hd.features&&hd.features.length>0){
+          hd.features.forEach(function(f){if(!f.properties)f.properties={};});
+          hutanFeatures=hutanFeatures.concat(hd.features);
+          hutanLoaded++;
+        }
+      }catch(he){console.warn('Hutan parse error:',he.message);}
+    }
+    if(hutanFeatures.length>0){
+      var hutanFC={type:'FeatureCollection',features:hutanFeatures};
+      addLayer(hutanFC,'hutan');
+      var ckH=$('ck-hutan');if(ckH)ckH.checked=true;
+      toast('Kawasan Hutan auto-loaded: '+hutanFeatures.length+' fitur ('+hutanLoaded+' file)','ok');
+      if(LY.wiup&&typeof detectOverlapHutan==='function')detectOverlapHutan();
+    }
+  }
+  // ────────────────────────────────────────────────────────────
 }
 
 function addLayer(data,nm){
