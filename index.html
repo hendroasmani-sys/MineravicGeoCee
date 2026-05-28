@@ -151,7 +151,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color
 .mb.on{background:var(--blue-lt);border-color:var(--blue);color:var(--blue)}
 #tlbl{font-size:10px;color:var(--t3);font-family:var(--fm);margin-left:4px}
 /* LEGEND */
-#legend{position:absolute;right:10px;bottom:calc(var(--coh) + 10px);z-index:400;background:rgba(255,255,255,.95);border:1px solid var(--bd2);border-radius:var(--rmd);padding:9px 12px;min-width:130px;backdrop-filter:blur(4px)}
+#legend{position:absolute;right:10px;bottom:calc(var(--coh) + 10px);z-index:400;background:rgba(255,255,255,.95);border:1px solid var(--bd2);border-radius:var(--rmd);padding:9px 12px;min-width:130px;backdrop-filter:blur(4px);max-height:calc(100vh - 120px);overflow-y:auto;}
 .lg-t{font-size:9px;font-weight:600;color:var(--navy);text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px}
 .lg-r{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--t2);margin-bottom:5px}
 .lg-r:last-child{margin-bottom:0}
@@ -287,7 +287,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color
 <body>
 <div id="splash">
   <div class="sp-logo">MINERAVIX</div>
-  <div class="sp-sub">AI Geo Insight Engine · V5.4 · Fix Lazy Hutan</div>
+  <div class="sp-sub">AI Geo Insight Engine · V5.5 · Fix Legenda & IUP</div>
   <div class="sp-bar"><div class="sp-fill" id="spf"></div></div>
   <div class="sp-msg" id="spm">Memuat sistem...</div>
 </div>
@@ -295,7 +295,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color
   <div id="topbar">
     <div class="tb-logo">M</div>
     <div><span class="tb-name">MINERAVIX</span><span class="tb-sep">·</span><span class="tb-sub">GEOCEE</span></div>
-    <div class="tb-tier">v5.4</div>
+    <div class="tb-tier">v5.6</div>
     <div class="tb-space"></div>
     <button class="tb-btn" id="btn-chat" onclick="toggleChat()">⚡ AI Chat</button>
     <button class="tb-btn" onclick="showHelp()" style="margin-left:6px">? Bantuan</button>
@@ -432,7 +432,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color
         <div class="lg-r"><div class="lg-d" style="background:#CA8A04"></div>Zona Mineral</div>
         <div class="lg-r"><div class="lg-d" style="background:var(--geo)"></div>Background Geologi</div>
         <div class="lg-r"><div class="lg-d" style="background:var(--wiup)"></div>WIUP (Polygon/Point)</div>
-        <div class="lg-r"><div class="lg-d" style="background:#EA580C;border-radius:50%"></div>Potensi Batubara (Point)</div>
+        <div class="lg-r"><div class="lg-d" style="background:#78350F"></div>Potensi Batubara (IUP)</div>
         <div class="divider" style="margin:5px 0"></div>
         <div class="lg-t">Kawasan Hutan</div>
         <div class="lg-r"><div class="lg-d" style="background:var(--hutan-hl)"></div>Hutan Lindung</div>
@@ -579,7 +579,7 @@ async function boot(){
     await sleep(350);
     $('splash').style.display='none';
     $('app').classList.add('ready');
-    toast('Mineravix v5.4 · GEOCEE · Hutan auto-load','info');
+    toast('Mineravix v5.6 · GEOCEE','info');
     // ── TEKNIK 2: Load hutan lazy setelah peta tampil ────────
     // Delay 1.5 detik agar UI sudah stabil dulu sebelum fetch besar
     setTimeout(loadHutanLazy, 1500);
@@ -1336,6 +1336,23 @@ function animN(el,f,t,d){
 }
 
 function getNama(p){
+  // Untuk data WIUP/Batubara IUP: prioritaskan nama perusahaan dulu
+  // karena namobj/NAMAFOR sering berisi nama formasi geologi, bukan nama IUP
+  const tipe=(p.TIPE||p.tipe||'').toLowerCase();
+  const isIUP=tipe==='wiup'||tipe==='batubara';
+  if(isIUP){
+    // Coba baca nama perusahaan sebagai nama utama
+    const per=getPerusahaan(p);
+    if(per&&per.trim()&&per.trim()!=='-'&&per.trim()!=='Tidak diketahui'){
+      // Tambahkan nomor IUP jika ada untuk identifikasi unik
+      const nom=getNomor(p);
+      return nom?per.trim()+' ('+nom+')':per.trim();
+    }
+    // Fallback ke kode/nomor IUP
+    const nom=getNomor(p);
+    if(nom)return nom;
+  }
+  // Untuk data non-IUP (Mineral, Geologi): pakai nama formasi
   if(p.namobj&&p.namobj.trim())return p.namobj.trim();
   return p.NAMAFOR||p.NAMA||p.NAMA_IUP||p.NAMA_WIUP||p.kode_wiup||p.NAMOBJ||p.NAME||p.Nama||'Tidak diketahui';
 }
@@ -2043,7 +2060,8 @@ async function genPointReport(){
   await new Promise(r=>setTimeout(r,200));
   const allRes=window._lastRadiusData.results.length?window._lastRadiusData.results:[...results];
   const formasiData=allRes.filter(r=>r.TIP==='Mineral'||r.TIP==='Geologi'||r.TIP==='Batubara');
-  const wiupData=allRes.filter(r=>r.TIP==='WIUP');
+  // Batubara adalah IUP tambang — dimasukkan ke wiupData untuk seksi laporan NEARBY MINING LICENSES
+  const wiupData=allRes.filter(r=>r.TIP==='WIUP'||r.TIP==='Batubara');
   const aluvialKW=['aluvial','alluvial','aluvium','endapan','pasir lepas'];
   const formasiBersih=formasiData.filter(f=>!aluvialKW.some(k=>(f.LIT||'').toLowerCase().includes(k)));
   const pt=turf.point([lon,lat]);
@@ -2131,7 +2149,7 @@ async function genPointReport(){
   y+=4;
   // SECTION 3
   if(y>PH-80){doc.addPage();y=14;}
-  y=secTitle(y,'03','NEARBY MINING LICENSES (WIUP)');
+  y=secTitle(y,'03','NEARBY MINING LICENSES (IUP / WIUP)');
   if(wiupData.length===0){sf(9,'normal',[21,128,61]);doc.text('[OK]  No active WIUP found within 5 km radius - Area open for new license application.',PAD+4,y);y+=8;}
   else{
     sf(8,'normal',[71,85,105]);doc.text(wiupData.length+' mining license(s) found within 5 km radius:',PAD+4,y);y+=7;
@@ -2342,7 +2360,7 @@ function clearApiKey(){
 }
 
 /* ============================================================
-   FITUR v5: EXPORT LAYOUT PETA PDF — A4 LANDSCAPE
+   FITUR v5.6: EXPORT LAYOUT PETA PDF — A4 LANDSCAPE REDESIGN
    ============================================================ */
 
 // CSS Modal — inject ke head
@@ -2356,40 +2374,55 @@ function clearApiKey(){
 }
 #map-export-modal.open{display:flex;}
 .mem-box{
-  background:#fff;border-radius:12px;padding:28px 32px;
-  width:480px;max-width:94vw;box-shadow:0 20px 60px rgba(0,0,0,.25);
+  background:#fff;border-radius:12px;padding:24px 28px;
+  width:500px;max-width:94vw;box-shadow:0 20px 60px rgba(0,0,0,.25);
+  max-height:90vh;overflow-y:auto;
 }
-.mem-title{font-size:16px;font-weight:700;color:#1A3A5C;margin-bottom:4px;}
-.mem-sub{font-size:11px;color:#94A3B8;margin-bottom:20px;}
-.mem-label{font-size:11px;font-weight:600;color:#475569;margin-bottom:5px;text-transform:uppercase;letter-spacing:.06em;}
-.mem-inp{width:100%;border:1px solid #CBD5E1;border-radius:6px;padding:9px 12px;font-size:13px;color:#1A3A5C;font-family:inherit;outline:none;margin-bottom:14px;}
+.mem-title{font-size:15px;font-weight:700;color:#1A3A5C;margin-bottom:3px;}
+.mem-sub{font-size:11px;color:#94A3B8;margin-bottom:16px;}
+.mem-label{font-size:11px;font-weight:600;color:#475569;margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em;display:block;margin-top:10px;}
+.mem-inp{width:100%;border:1px solid #CBD5E1;border-radius:6px;padding:8px 11px;font-size:12px;color:#1A3A5C;font-family:inherit;outline:none;margin-bottom:2px;box-sizing:border-box;}
 .mem-inp:focus{border-color:#2563EB;box-shadow:0 0 0 3px rgba(37,99,235,.12);}
-.mem-row{display:flex;gap:10px;margin-top:4px;}
-.mem-btn{flex:1;padding:11px;border-radius:7px;border:none;cursor:pointer;font-size:13px;font-weight:600;font-family:inherit;transition:.15s;}
+.mem-logo-wrap{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.mem-logo-preview{width:48px;height:48px;border:1.5px dashed #CBD5E1;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;overflow:hidden;flex-shrink:0;}
+.mem-logo-preview img{width:100%;height:100%;object-fit:contain;}
+.mem-logo-hint{font-size:10px;color:#94A3B8;line-height:1.6;}
+.mem-row{display:flex;gap:10px;margin-top:14px;}
+.mem-btn{flex:1;padding:10px;border-radius:7px;border:none;cursor:pointer;font-size:13px;font-weight:600;font-family:inherit;transition:.15s;}
 .mem-ok{background:#2563EB;color:#fff;}.mem-ok:hover{background:#1D4ED8;}
-.mem-cancel{background:#F1F5F9;color:#475569;}.mem-cancel:hover{background:#E2EAF4;}
-.mem-prev{margin-top:14px;background:#F4F7FB;border-radius:8px;padding:10px 14px;font-size:11px;color:#475569;font-family:monospace;line-height:1.8;border:1px solid #E2EAF4;}
+.mem-cancel{background:#F1F5F9;color:#475569;flex:0.4;}.mem-cancel:hover{background:#E2EAF4;}
   `;
   document.head.appendChild(s);
 
-  // Buat elemen modal di DOM
   const m=document.createElement('div');
   m.id='map-export-modal';
   m.innerHTML=`
     <div class="mem-box">
       <div class="mem-title">🗺 Export Layout Peta PDF</div>
-      <div class="mem-sub">A4 Landscape · Berkop GEOCEE · Basemap abu-abu</div>
+      <div class="mem-sub">A4 Landscape · Grid Koordinat · Legenda Lengkap</div>
+
       <div class="mem-label">Judul Peta</div>
       <input class="mem-inp" id="mem-judul" placeholder="cth: Peta WIUP Kalimantan Selatan 2025" maxlength="80">
-      <div class="mem-label">Nama Pembuat</div>
-      <input class="mem-inp" id="mem-author" placeholder="cth: Tim Eksplorasi GEOCEE" maxlength="60">
-      <div class="mem-label">Catatan / Keterangan (opsional)</div>
-      <input class="mem-inp" id="mem-note" placeholder="cth: Data WIUP per Januari 2025" maxlength="100">
-      <div class="mem-prev" id="mem-prev">
-        📋 Layout: Peta utama (kiri) + Legenda & Info (kanan)<br>
-        🗺 Basemap: Abu-abu ringan saat export<br>
-        🏷 Elemen: Kop GEOCEE · Skala · Arah Utara · Disclaimer
+
+      <div class="mem-label">Nama Perusahaan</div>
+      <input class="mem-inp" id="mem-author" placeholder="cth: PT. Citra Eksplor Energi (GEOCEE)" maxlength="60">
+
+      <div class="mem-label">Logo Perusahaan (opsional)</div>
+      <div class="mem-logo-wrap">
+        <div class="mem-logo-preview" id="mem-logo-preview" onclick="document.getElementById('mem-logo-file').click()" title="Klik untuk upload logo">
+          <span id="mem-logo-icon">🏢</span>
+        </div>
+        <div class="mem-logo-hint">
+          Klik untuk upload logo perusahaan<br>
+          Format: PNG, JPG (maks 500KB)<br>
+          Akan tampil di pojok kiri kop peta
+        </div>
       </div>
+      <input type="file" id="mem-logo-file" accept="image/png,image/jpeg,image/jpg" style="display:none" onchange="handleLogoUpload(event)">
+
+      <div class="mem-label">Catatan / Keterangan (opsional)</div>
+      <input class="mem-inp" id="mem-note" placeholder="cth: Data WIUP per Januari 2025" maxlength="120">
+
       <div class="mem-row">
         <button class="mem-btn mem-cancel" onclick="closeMapExportModal()">Batal</button>
         <button class="mem-btn mem-ok" onclick="expMapPDF()">⬇ Export PDF</button>
@@ -2398,7 +2431,7 @@ function clearApiKey(){
   `;
   document.body.appendChild(m);
 
-  // Auto-suggest judul dari data aktif
+  // Auto-suggest judul
   m.addEventListener('mouseenter',function(){
     const inp=document.getElementById('mem-judul');
     if(!inp.value&&window.results&&results.length){
@@ -2412,6 +2445,29 @@ function clearApiKey(){
   });
 })();
 
+// Handle upload logo
+let _logoB64=null;
+function handleLogoUpload(evt){
+  const file=evt.target.files[0];
+  if(!file)return;
+  if(file.size>500*1024){toast('Logo maks 500KB','warn');return;}
+  const rd=new FileReader();
+  rd.onload=function(e){
+    _logoB64=e.target.result;
+    const prev=document.getElementById('mem-logo-preview');
+    const icon=document.getElementById('mem-logo-icon');
+    if(prev&&icon){
+      icon.style.display='none';
+      const img=document.createElement('img');
+      img.src=_logoB64;
+      prev.appendChild(img);
+    }
+    toast('Logo berhasil dimuat','ok');
+  };
+  rd.readAsDataURL(file);
+  evt.target.value='';
+}
+
 function showMapExportModal(){
   document.getElementById('map-export-modal').classList.add('open');
 }
@@ -2422,54 +2478,46 @@ function closeMapExportModal(){
 async function expMapPDF(){
   const judul=($('mem-judul').value.trim()||$('mem-judul').placeholder||'Peta Potensi Tambang Indonesia');
   const author=($('mem-author').value.trim()||'PT. Citra Eksplor Energi (GEOCEE)');
-  const note=($('mem-note').value.trim()||'Data bersifat informatif');
+  const note=($('mem-note').value.trim()||'');
   closeMapExportModal();
   toast('Menyiapkan layout peta...','info');
+  await new Promise(r=>setTimeout(r,200));
 
-  // Tunggu sebentar agar toast tampil
-  await new Promise(r=>setTimeout(r,300));
+  // ── STEP 1: AUTO-CENTER ke titik radius terakhir ──────────────────────
+  const hasRadius=window._lastRadiusData&&window._lastRadiusData.lat&&window._lastRadiusData.lon;
+  if(hasRadius){
+    map.panTo([window._lastRadiusData.lat,window._lastRadiusData.lon]);
+    await new Promise(r=>setTimeout(r,600));
+  }
 
-  // STEP 1: Capture canvas peta
+  // ── STEP 2: CAPTURE CANVAS PETA ────────────────────────────────────────
   let mapImgData=null;
+  let mapBounds=null;
   try{
-    // Sembunyikan tile basemap sementara — ambil abu2 dari background
+    mapBounds=map.getBounds();
     const mapEl=document.getElementById('map');
     const origBg=mapEl.style.background;
     mapEl.style.background='#E8EDF2';
-
-    // Sembunyikan semua tile layer sementara
     const tiles=mapEl.querySelectorAll('.leaflet-tile-pane');
     tiles.forEach(t=>{t.style.visibility='hidden';});
+    await new Promise(r=>setTimeout(r,150));
 
-    await new Promise(r=>setTimeout(r,120));
-
-    // Gabungkan semua canvas layer ke satu canvas
     const allCanvas=mapEl.querySelectorAll('canvas');
     const rect=mapEl.getBoundingClientRect();
     const W=Math.round(rect.width)||800;
     const H=Math.round(rect.height)||500;
-
     const merge=document.createElement('canvas');
     merge.width=W;merge.height=H;
     const ctx=merge.getContext('2d');
-
-    // Background abu-abu
     ctx.fillStyle='#E8EDF2';
     ctx.fillRect(0,0,W,H);
-
-    // Gambar tiap canvas layer
     allCanvas.forEach(c=>{
       try{
         const cr=c.getBoundingClientRect();
-        const dx=cr.left-rect.left;
-        const dy=cr.top-rect.top;
-        ctx.drawImage(c,dx,dy);
+        ctx.drawImage(c,cr.left-rect.left,cr.top-rect.top);
       }catch(ex){}
     });
-
     mapImgData=merge.toDataURL('image/jpeg',0.92);
-
-    // Kembalikan basemap
     tiles.forEach(t=>{t.style.visibility='';});
     mapEl.style.background=origBg;
   }catch(ex){
@@ -2478,314 +2526,312 @@ async function expMapPDF(){
   }
 
   toast('Menyusun layout PDF...','info');
-  await new Promise(r=>setTimeout(r,200));
+  await new Promise(r=>setTimeout(r,150));
 
-  // STEP 2: Buat PDF A4 Landscape
+  // ── STEP 3: SETUP PDF A4 LANDSCAPE ─────────────────────────────────────
   const{jsPDF}=window.jspdf;
   const doc=new jsPDF('l','mm','a4');
-  const PW=doc.internal.pageSize.getWidth();  // 297mm
-  const PH=doc.internal.pageSize.getHeight(); // 210mm
+  const PW=doc.internal.pageSize.getWidth();   // 297mm
+  const PH=doc.internal.pageSize.getHeight();  // 210mm
 
-  // Dimensi zona layout
-  const KOP_H=22;      // tinggi kop atas
-  const FOOT_H=10;     // tinggi footer
-  const PAD=8;         // padding tepi
-  const PANEL_W=82;    // lebar panel kanan (legenda+info)
-  const MAP_W=PW-PANEL_W-PAD*2-4; // lebar zona peta
-  const MAP_H=PH-KOP_H-FOOT_H-PAD*2; // tinggi zona peta
-  const MAP_X=PAD;
+  // Konstanta layout
+  const KOP_H=20;
+  const FOOT_H=9;
+  const PAD=7;
+  const PANEL_W=76;
+  const GRID_LEFT=10;  // lebar kolom label lat (kiri peta)
+  const GRID_BOT=8;    // tinggi baris label lon (bawah peta)
+  const MAP_X=PAD+GRID_LEFT;
   const MAP_Y=KOP_H+PAD;
-  const PANEL_X=MAP_X+MAP_W+4;
+  const MAP_W=PW-PANEL_W-PAD*2-GRID_LEFT-3;
+  const MAP_H=PH-KOP_H-FOOT_H-PAD*2-GRID_BOT;
+  const PANEL_X=MAP_X+MAP_W+3;
   const PANEL_Y=KOP_H+PAD;
+  const tglStr=new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'});
 
-  // ── KOP ──────────────────────────────────────────────
-  // Background navy
+  // Helper functions
+  function sf(size,style,clr){
+    doc.setFontSize(size);
+    doc.setFont('helvetica',style||'normal');
+    if(clr)doc.setTextColor(...clr);
+  }
+  function hl(x1,y1,x2,y2,clr,lw){
+    doc.setDrawColor(...(clr||[178,195,215]));
+    doc.setLineWidth(lw||0.25);
+    doc.line(x1,y1,x2,y2);
+  }
+
+  // ── STEP 4: KOP ─────────────────────────────────────────────────────────
   doc.setFillColor(26,58,92);
   doc.rect(0,0,PW,KOP_H,'F');
 
-  // Logo GEOCEE
-  try{
-    doc.addImage(GEOCEE_LOGO_B64,'PNG',PAD,1,16,16);
-  }catch(e){}
+  // Logo perusahaan (jika ada)
+  let logoW=0;
+  if(_logoB64){
+    try{
+      doc.addImage(_logoB64,'PNG',PAD,2,14,14);
+      logoW=17;
+    }catch(e){}
+  }
 
-  // Teks kop
-  doc.setTextColor(255,255,255);
-  doc.setFontSize(13);
-  doc.setFont('helvetica','bold');
-  doc.text('MINERAVIX v5',PAD+19,9);
+  // Nama perusahaan & subtitle
+  sf(11,'bold',[255,255,255]);
+  doc.text(author.substring(0,40),PAD+logoW,8);
+  sf(7,'normal',[160,195,230]);
+  doc.text('MINERAVIX v5 · AI Geo Insight Engine',PAD+logoW,14);
 
-  doc.setFontSize(8);
-  doc.setFont('helvetica','normal');
-  doc.setTextColor(180,210,235);
-  doc.text('AI Geo Insight Engine · PT. Citra Eksplor Energi (GEOCEE)',PAD+19,15);
+  // Judul peta di kanan kop
+  sf(10,'bold',[255,255,255]);
+  doc.text(judul.substring(0,55),PW-PAD,8,{align:'right'});
+  sf(7,'normal',[160,195,230]);
+  doc.text('Dicetak: '+tglStr,PW-PAD,14,{align:'right'});
 
-  // Judul peta di kop — rata kanan
-  doc.setFontSize(10);
-  doc.setFont('helvetica','bold');
-  doc.setTextColor(255,255,255);
-  doc.text(judul.substring(0,60),PW-PAD,9,{align:'right'});
-
-  doc.setFontSize(7.5);
-  doc.setFont('helvetica','normal');
-  doc.setTextColor(180,210,235);
-  const tglStr=new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'});
-  doc.text('Dicetak: '+tglStr+' · '+author,PW-PAD,15,{align:'right'});
-
-  // ── PETA UTAMA ──────────────────────────────────────
-  // Border peta
-  doc.setDrawColor(178,195,215);
+  // ── STEP 5: AREA PETA ───────────────────────────────────────────────────
+  doc.setDrawColor(120,140,165);
   doc.setLineWidth(0.4);
   doc.rect(MAP_X,MAP_Y,MAP_W,MAP_H);
 
-  // Gambar canvas peta
   if(mapImgData){
     doc.addImage(mapImgData,'JPEG',MAP_X+0.2,MAP_Y+0.2,MAP_W-0.4,MAP_H-0.4);
   }
 
-  // ── SKALA BAR ────────────────────────────────────────
-  const scaleX=MAP_X+4;
-  const scaleY=MAP_Y+MAP_H-8;
-  const scaleW=40;
-  // Hitung nilai skala dari zoom aktif
-  const zoomNow=map?map.getZoom():7;
-  const centerLat=map?map.getCenter().lat:-2.5;
-  const mPerPx=156543.03*Math.cos(centerLat*Math.PI/180)/Math.pow(2,zoomNow);
-  // 1 mm di PDF = berapa meter di dunia?
-  // A4 landscape map area: MAP_W mm mewakili MAP_W*MAP_H peta
-  // Ambil scaleW mm lebar bar
-  const realKm=Math.round(mPerPx*(scaleW*3.78)*2)/1000; // 3.78px per mm di 96dpi → kasar
-  const scaleLabel=realKm>10?Math.round(realKm/10)*10+' km':realKm.toFixed(0)+' km';
+  // ── STEP 6: GRID KOORDINAT ──────────────────────────────────────────────
+  if(mapBounds){
+    const zoomNow=map.getZoom();
+    // Interval grid berdasarkan zoom
+    let gridInterval=2;
+    if(zoomNow>=9)gridInterval=0.25;
+    else if(zoomNow>=8)gridInterval=0.5;
+    else if(zoomNow>=7)gridInterval=1;
+    else if(zoomNow>=5)gridInterval=2;
+    else gridInterval=5;
 
+    const south=mapBounds.getSouth();
+    const north=mapBounds.getNorth();
+    const west=mapBounds.getWest();
+    const east=mapBounds.getEast();
+    const latRange=north-south;
+    const lonRange=east-west;
+
+    // Fungsi konversi koordinat → posisi mm di peta
+    function latToY(lat){return MAP_Y+MAP_H-(lat-south)/latRange*MAP_H;}
+    function lonToX(lon){return MAP_X+(lon-west)/lonRange*MAP_W;}
+
+    // Grid lines dan label — Lintang (horizontal)
+    const firstLat=Math.ceil(south/gridInterval)*gridInterval;
+    sf(6,'normal',[60,80,100]);
+    doc.setDrawColor(130,150,170);
+    doc.setLineWidth(0.15);
+
+    for(let lat=firstLat;lat<north;lat=Math.round((lat+gridInterval)*1000)/1000){
+      const y=latToY(lat);
+      if(y<MAP_Y+1||y>MAP_Y+MAP_H-1)continue;
+      // Garis grid tipis
+      doc.setDrawColor(150,170,190);
+      doc.setLineWidth(0.12);
+      doc.line(MAP_X,y,MAP_X+MAP_W,y);
+      // Label di kiri
+      const latLbl=Math.abs(lat).toFixed(lat%1===0?0:2)+'°'+(lat>=0?'N':'S');
+      sf(5.5,'normal',[40,60,90]);
+      doc.text(latLbl,MAP_X-1,y+1.2,{align:'right'});
+      // Tick mark
+      doc.setDrawColor(80,100,130);
+      doc.setLineWidth(0.3);
+      doc.line(MAP_X-1.5,y,MAP_X,y);
+    }
+
+    // Grid lines dan label — Bujur (vertikal)
+    const firstLon=Math.ceil(west/gridInterval)*gridInterval;
+    for(let lon=firstLon;lon<east;lon=Math.round((lon+gridInterval)*1000)/1000){
+      const x=lonToX(lon);
+      if(x<MAP_X+1||x>MAP_X+MAP_W-1)continue;
+      // Garis grid tipis
+      doc.setDrawColor(150,170,190);
+      doc.setLineWidth(0.12);
+      doc.line(x,MAP_Y,x,MAP_Y+MAP_H);
+      // Label di bawah
+      const lonLbl=Math.abs(lon).toFixed(lon%1===0?0:2)+'°'+(lon>=0?'E':'W');
+      sf(5.5,'normal',[40,60,90]);
+      doc.text(lonLbl,x,MAP_Y+MAP_H+5.5,{align:'center'});
+      // Tick mark
+      doc.setDrawColor(80,100,130);
+      doc.setLineWidth(0.3);
+      doc.line(x,MAP_Y+MAP_H,x,MAP_Y+MAP_H+1.5);
+    }
+  }
+
+  // ── STEP 7: SKALA BAR ───────────────────────────────────────────────────
+  const zoomNow2=map?map.getZoom():7;
+  const centerLat2=map?map.getCenter().lat:-2.5;
+  const mPerPx=156543.03*Math.cos(centerLat2*Math.PI/180)/Math.pow(2,zoomNow2);
+  const dpi=96;
+  const mmPerPx=25.4/dpi;
+  const mPerMm=mPerPx/mmPerPx;
+  const scaleW=35;
+  const scaleRealM=scaleW*mPerMm;
+  let scaleLabel='';
+  if(scaleRealM>=1000)scaleLabel=Math.round(scaleRealM/1000)+' km';
+  else scaleLabel=Math.round(scaleRealM)+' m';
+  const scaleRatio=Math.round(mPerMm*1000);
+  const scaleX2=MAP_X+4;
+  const scaleY2=MAP_Y+MAP_H-6;
+  // Bar hitam-putih
+  doc.setFillColor(26,58,92);doc.rect(scaleX2,scaleY2,scaleW/2,2,'F');
+  doc.setFillColor(255,255,255);doc.rect(scaleX2+scaleW/2,scaleY2,scaleW/2,2,'F');
+  doc.setDrawColor(26,58,92);doc.setLineWidth(0.3);doc.rect(scaleX2,scaleY2,scaleW,2);
+  sf(5.5,'normal',[26,58,92]);
+  doc.text('0',scaleX2,scaleY2+4.5);
+  doc.text(scaleLabel,scaleX2+scaleW,scaleY2+4.5,{align:'right'});
+  sf(5,'normal',[80,100,120]);
+  doc.text('1 : '+scaleRatio.toLocaleString('id-ID'),scaleX2+scaleW/2,scaleY2-1,{align:'center'});
+
+  // ── STEP 8: ARAH UTARA ──────────────────────────────────────────────────
+  const nX2=MAP_X+MAP_W-10;
+  const nY2=MAP_Y+12;
+  doc.setDrawColor(26,58,92);doc.setLineWidth(0.5);doc.circle(nX2,nY2,6);
   doc.setFillColor(26,58,92);
-  doc.rect(scaleX,scaleY,scaleW/2,2,'F');
+  doc.triangle(nX2,nY2-5.2,nX2-2.2,nY2+0.8,nX2+2.2,nY2+0.8,'F');
   doc.setFillColor(255,255,255);
-  doc.rect(scaleX+scaleW/2,scaleY,scaleW/2,2,'F');
-  doc.setDrawColor(26,58,92);
-  doc.setLineWidth(0.3);
-  doc.rect(scaleX,scaleY,scaleW,2);
-  doc.setTextColor(26,58,92);
-  doc.setFontSize(7);
-  doc.setFont('helvetica','normal');
-  doc.text('0',scaleX,scaleY+5);
-  doc.text(scaleLabel,scaleX+scaleW,scaleY+5,{align:'right'});
-  doc.text('Skala Bar',scaleX+scaleW/2,scaleY-1.5,{align:'center'});
+  doc.triangle(nX2,nY2+5.2,nX2-2.2,nY2-0.8,nX2+2.2,nY2-0.8,'F');
+  sf(6,'bold',[26,58,92]);
+  doc.text('U',nX2,nY2-7,{align:'center'});
 
-  // ── ARAH UTARA ───────────────────────────────────────
-  const nX=MAP_X+MAP_W-14;
-  const nY=MAP_Y+14;
-  // Lingkaran
-  doc.setDrawColor(26,58,92);
-  doc.setLineWidth(0.5);
-  doc.circle(nX,nY,6);
-  // Panah utara
-  doc.setFillColor(26,58,92);
-  doc.triangle(nX,nY-5.5, nX-2.5,nY+1, nX+2.5,nY+1,'F');
-  doc.setFillColor(255,255,255);
-  doc.triangle(nX,nY+5.5, nX-2.5,nY-1, nX+2.5,nY-1,'F');
-  // Huruf N
-  doc.setFontSize(7);
-  doc.setFont('helvetica','bold');
-  doc.setTextColor(26,58,92);
-  doc.text('U',nX,nY-7.5,{align:'center'});
+  // Koordinat sistem
+  sf(5.5,'normal',[90,110,130]);
+  doc.text('WGS 84 · EPSG:4326',MAP_X+4,MAP_Y+MAP_H-1.5);
 
-  // Koordinat sistem di pojok kiri bawah peta
-  doc.setFontSize(6.5);
-  doc.setFont('helvetica','normal');
-  doc.setTextColor(100,120,140);
-  doc.text('WGS 84 · EPSG:4326',MAP_X+4,MAP_Y+MAP_H-2);
-
-  // ── PANEL KANAN: INFO + LEGENDA ──────────────────────
+  // ── STEP 9: PANEL KANAN — INFORMASI PETA ────────────────────────────────
   let py=PANEL_Y;
 
-  // Kotak info peta
+  // Kotak info
+  const infoH=72;
   doc.setFillColor(244,247,251);
   doc.setDrawColor(178,195,215);
   doc.setLineWidth(0.3);
-  doc.rect(PANEL_X,py,PANEL_W,50,'FD');
+  doc.rect(PANEL_X,py,PANEL_W,infoH,'FD');
+  sf(7.5,'bold',[26,58,92]);
+  doc.text('INFORMASI PETA',PANEL_X+4,py+6.5);
+  hl(PANEL_X+3,py+8.5,PANEL_X+PANEL_W-3,py+8.5,[178,195,215],0.3);
 
-  doc.setFontSize(8);
-  doc.setFont('helvetica','bold');
-  doc.setTextColor(26,58,92);
-  doc.text('INFORMASI PETA',PANEL_X+4,py+7);
-  doc.setLineWidth(0.3);
-  doc.setDrawColor(178,195,215);
-  doc.line(PANEL_X+4,py+9,PANEL_X+PANEL_W-4,py+9);
+  // Data info
+  const centerLL=map?map.getCenter():null;
+  const centerStr=centerLL?centerLL.lat.toFixed(4)+'°, '+centerLL.lng.toFixed(4)+'°':'-';
+  const koms=[...new Set(results.slice(0,6).map(r=>r.KOM).filter(k=>k&&k!=='-'))];
+  const wils=[...new Set(results.slice(0,6).map(r=>r.WIL).filter(w=>w&&w!=='-'))];
 
-  const avg=results.length?Math.round(results.reduce((s,r)=>s+r.SC,0)/results.length):0;
-  const koms=[...new Set(results.slice(0,8).map(r=>r.KOM).filter(Boolean))];
-  const wils=[...new Set(results.slice(0,8).map(r=>r.WIL).filter(Boolean))];
-  const infos=[
-    ['Judul',judul.substring(0,32)],
+  const infoRows=[
+    ['Judul',judul],
     ['Total Area',results.length+' wilayah'],
     ['Komoditas',koms.slice(0,2).join(', ')||'-'],
     ['Wilayah',wils.slice(0,2).join(', ')||'-'],
-    ['Avg AI Score',avg+' / 100'],
-    ['Pembuat',author.substring(0,28)],
+    ['Avg AI Score',(results.length?Math.round(results.reduce((s,r)=>s+r.SC,0)/results.length):0)+' / 100'],
+    ['Pembuat',author],
   ];
-  doc.setFont('helvetica','normal');
-  doc.setFontSize(7.5);
-  infos.forEach(([k,v],i)=>{
-    const iy=py+14+i*6;
-    doc.setTextColor(120,140,160);
-    doc.text(k+':',PANEL_X+4,iy);
-    doc.setTextColor(26,58,92);
-    doc.setFont('helvetica','bold');
-    doc.text(String(v),PANEL_X+4,iy+4);
-    doc.setFont('helvetica','normal');
-  });
-  py+=54;
 
-  // Kotak legenda
+  let iy=py+12;
+  sf(6.5,'normal',[90,110,130]);
+  infoRows.forEach(([k,v])=>{
+    if(iy>py+infoH-4)return;
+    doc.setFont('helvetica','bold');doc.setTextColor(90,110,130);
+    doc.text(k+':',PANEL_X+4,iy);
+    doc.setFont('helvetica','normal');doc.setTextColor(26,58,92);
+    const vLines=doc.splitTextToSize(String(v),PANEL_W-8);
+    doc.text(vLines[0],PANEL_X+4,iy+4);
+    iy+=9;
+  });
+  py+=infoH+3;
+
+  // ── STEP 10: PANEL KANAN — LEGENDA ──────────────────────────────────────
+  const legH=100;
   doc.setFillColor(255,255,255);
   doc.setDrawColor(178,195,215);
-  doc.rect(PANEL_X,py,PANEL_W,78,'FD');
-  doc.setFontSize(8);
-  doc.setFont('helvetica','bold');
-  doc.setTextColor(26,58,92);
-  doc.text('LEGENDA',PANEL_X+4,py+7);
-  doc.line(PANEL_X+4,py+9,PANEL_X+PANEL_W-4,py+9);
+  doc.rect(PANEL_X,py,PANEL_W,legH,'FD');
+  sf(7.5,'bold',[26,58,92]);
+  doc.text('LEGENDA',PANEL_X+4,py+6.5);
+  hl(PANEL_X+3,py+8.5,PANEL_X+PANEL_W-3,py+8.5,[178,195,215],0.3);
 
-  const legends=[
+  // Layer utama
+  const mainLeg=[
     [[202,138,4],'Zona Mineral'],
     [[100,116,139],'Background Geologi'],
-    [[37,99,235],'WIUP'],
-    [[120,53,15],'Batubara'],
+    [[37,99,235],'WIUP (Polygon/Point)'],
+    [[120,53,15],'Batubara (IUP)'],
   ];
-  legends.forEach(([c,lbl],i)=>{
-    const ly=py+15+i*9;
-    doc.setFillColor(...c);
-    doc.rect(PANEL_X+4,ly-4,6,5,'F');
-    doc.setTextColor(71,85,105);
-    doc.setFontSize(7.5);
-    doc.setFont('helvetica','normal');
-    doc.text(lbl,PANEL_X+13,ly);
+  let ly=py+13;
+  mainLeg.forEach(([c,lbl])=>{
+    doc.setFillColor(...c);doc.rect(PANEL_X+4,ly-3.5,5.5,4.5,'F');
+    sf(6.5,'normal',[60,80,100]);doc.text(lbl,PANEL_X+12,ly);
+    ly+=7;
   });
 
-  // Divider AI Score
-  const aiY=py+52;
-  doc.setFontSize(7.5);
-  doc.setFont('helvetica','bold');
-  doc.setTextColor(26,58,92);
-  doc.text('AI SCORE',PANEL_X+4,aiY);
-  const scoreItems=[
-    [[22,163,74],'Score ≥ 70 — Potensi TINGGI'],
-    [[217,119,6],'Score 45–69 — Potensi SEDANG'],
-    [[220,38,38],'Score < 45 — Potensi RENDAH'],
+  // Divider Kawasan Hutan
+  ly+=1;
+  sf(6.5,'bold',[26,58,92]);doc.text('KAWASAN HUTAN',PANEL_X+4,ly);ly+=5;
+  const hutanLeg=[
+    [[220,38,38],'Hutan Lindung (HL)'],
+    [[124,58,237],'Hutan Konservasi/TN (HK)'],
+    [[21,128,61],'Hutan Produksi (HP)'],
+    [[217,119,6],'Hutan Prod. Terbatas (HPT)'],
+    [[202,138,4],'Hutan Prod. Konversi (HPK)'],
+    [[148,163,184],'APL / Lainnya'],
   ];
-  scoreItems.forEach(([c,lbl],i)=>{
-    const sy=aiY+5+i*8;
-    doc.setFillColor(...c);
-    doc.rect(PANEL_X+4,sy-3,6,4,'F');
-    doc.setTextColor(71,85,105);
-    doc.setFont('helvetica','normal');
-    doc.setFontSize(7);
-    doc.text(lbl,PANEL_X+13,sy);
+  hutanLeg.forEach(([c,lbl])=>{
+    if(ly>py+legH-4)return;
+    doc.setFillColor(...c);doc.rect(PANEL_X+4,ly-3.5,5.5,4.5,'F');
+    sf(6,'normal',[60,80,100]);doc.text(lbl,PANEL_X+12,ly);
+    ly+=6;
   });
-  py+=82;
+  py+=legH+3;
 
-  // Kotak catatan (jika ada)
-  if(note){
-    doc.setFillColor(255,251,235);
-    doc.setDrawColor(253,230,138);
-    doc.rect(PANEL_X,py,PANEL_W,22,'FD');
-    doc.setFontSize(7.5);
-    doc.setFont('helvetica','bold');
-    doc.setTextColor(120,53,15);
-    doc.text('CATATAN',PANEL_X+4,py+7);
-    doc.setFont('helvetica','normal');
-    doc.setFontSize(7);
-    doc.setTextColor(146,64,14);
-    const noteLines=doc.splitTextToSize(note,PANEL_W-8);
-    doc.text(noteLines,PANEL_X+4,py+13);
-    py+=26;
+  // ── STEP 11: PANEL KANAN — AI SCORE ─────────────────────────────────────
+  const aiH=36;
+  if(py+aiH<PH-FOOT_H-PAD){
+    doc.setFillColor(248,250,255);
+    doc.setDrawColor(178,195,215);
+    doc.rect(PANEL_X,py,PANEL_W,aiH,'FD');
+    sf(7,'bold',[26,58,92]);doc.text('AI SCORE',PANEL_X+4,py+6);
+    hl(PANEL_X+3,py+8,PANEL_X+PANEL_W-3,py+8,[178,195,215],0.3);
+    const scoreItems=[
+      [[22,163,74],'Score \u226570 \u2014 Potensi TINGGI'],
+      [[217,119,6],'Score 45\u201369 \u2014 Potensi SEDANG'],
+      [[220,38,38],'Score <45 \u2014 Potensi RENDAH'],
+    ];
+    let sy=py+13;
+    scoreItems.forEach(([c,lbl])=>{
+      doc.setFillColor(...c);doc.rect(PANEL_X+4,sy-3.5,5.5,4,'F');
+      sf(6.5,'normal',[60,80,100]);doc.text(lbl,PANEL_X+12,sy);
+      sy+=7;
+    });
+    py+=aiH+3;
   }
 
-  // ── FOOTER ───────────────────────────────────────────
+  // ── STEP 12: PANEL KANAN — CATATAN ──────────────────────────────────────
+  if(note&&py+20<PH-FOOT_H-PAD){
+    const noteLines=doc.splitTextToSize(note,PANEL_W-8);
+    const noteH=Math.min(noteLines.length*5+12,30);
+    doc.setFillColor(255,251,235);
+    doc.setDrawColor(253,211,100);
+    doc.rect(PANEL_X,py,PANEL_W,noteH,'FD');
+    sf(6.5,'bold',[120,53,15]);doc.text('CATATAN',PANEL_X+4,py+6);
+    sf(6,'normal',[146,64,14]);
+    doc.text(noteLines.slice(0,3),PANEL_X+4,py+11);
+  }
+
+  // ── STEP 13: FOOTER ─────────────────────────────────────────────────────
   doc.setFillColor(26,58,92);
   doc.rect(0,PH-FOOT_H,PW,FOOT_H,'F');
-  doc.setTextColor(120,160,200);
-  doc.setFontSize(6.5);
-  doc.setFont('helvetica','normal');
+  sf(6,'normal',[140,175,215]);
   doc.text(
-    'MINERAVIX v5 · PT. Citra Eksplor Energi (GEOCEE) · '+
-    'AI Score bersifat informatif — bukan rekomendasi investasi · '+
-    'Sumber data: ESDM Indonesia · Dicetak '+tglStr,
-    PW/2,PH-3.5,{align:'center'}
+    'MINERAVIX v5 · '+author+' · Data bersifat informatif — bukan rekomendasi investasi · '+tglStr,
+    PW/2,PH-3,{align:'center'}
   );
 
-  // ── HALAMAN 2: TABEL DATA ─────────────────────────────
-  if(results.length){
-    doc.addPage('a4','l');
-    const PW2=doc.internal.pageSize.getWidth();
-    const PH2=doc.internal.pageSize.getHeight();
-
-    // Kop halaman 2
-    doc.setFillColor(26,58,92);
-    doc.rect(0,0,PW2,KOP_H,'F');
-    try{doc.addImage(GEOCEE_LOGO_B64,'PNG',PAD,1,16,16);}catch(e){}
-    doc.setTextColor(255,255,255);
-    doc.setFontSize(11);
-    doc.setFont('helvetica','bold');
-    doc.text('DATA HASIL ANALISIS — '+judul.substring(0,50),PAD+19,10);
-    doc.setFontSize(7.5);
-    doc.setFont('helvetica','normal');
-    doc.setTextColor(180,210,235);
-    doc.text('Total: '+results.length+' wilayah · Avg Score: '+avg+'/100 · '+author,PAD+19,16);
-
-    // Tabel
-    let ty=KOP_H+8;
-    const xp=[PAD,PAD+8,PAD+62,PAD+118,PAD+152,PAD+189,PAD+214,PAD+238];
-    const cols=['No','Nama WIUP/Area','Perusahaan','Komoditas','Wilayah','Tipe','Status','Score'];
-    doc.setFontSize(7.5);
-    doc.setFont('helvetica','bold');
-    doc.setTextColor(26,58,92);
-    cols.forEach((c,i)=>doc.text(c,xp[i],ty));
-    doc.setDrawColor(178,195,215);
-    doc.setLineWidth(0.3);
-    doc.line(PAD,ty+2,PW2-PAD,ty+2);
-    ty+=7;
-
-    results.slice(0,40).forEach((r,i)=>{
-      if(ty>PH2-14){
-        doc.addPage('a4','l');
-        ty=20;
-        doc.setFont('helvetica','bold');
-        cols.forEach((c,j)=>doc.text(c,xp[j],ty));
-        doc.line(PAD,ty+2,PW2-PAD,ty+2);
-        ty+=7;
-      }
-      if(i%2===0){doc.setFillColor(244,247,251);doc.rect(PAD,ty-5,PW2-PAD*2,7,'F');}
-      doc.setFont('helvetica','normal');
-      doc.setTextColor(71,85,105);
-      [String(i+1),
-       (r._n||'-').substring(0,22),
-       (r.PER||'-').substring(0,18),
-       (r.KOM||'-').substring(0,14),
-       (r.WIL||'-').substring(0,16),
-       (r.TIP||'-').substring(0,9),
-       (r.STA||'-').substring(0,12)
-      ].forEach((v,j)=>doc.text(v,xp[j],ty));
-      const scc=r.SC>=70?[22,163,74]:r.SC>=45?[217,119,6]:[220,38,38];
-      doc.setFont('helvetica','bold');
-      doc.setTextColor(...scc);
-      doc.text(String(r.SC),xp[7],ty);
-      ty+=7;
-    });
-
-    // Footer halaman 2
-    doc.setFillColor(26,58,92);
-    doc.rect(0,PH2-FOOT_H,PW2,FOOT_H,'F');
-    doc.setTextColor(120,160,200);
-    doc.setFontSize(6.5);
-    doc.setFont('helvetica','normal');
-    doc.text('MINERAVIX v5 · GEOCEE · Data bersifat informatif · Hal. 2',PW2/2,PH2-3.5,{align:'center'});
-  }
-
-  // Simpan PDF peta
+  // Simpan PDF
   const fname='mineravix_peta_'+stmp()+'.pdf';
   doc.save(fname);
   toast('Layout Peta PDF berhasil: '+fname,'ok');
 } // ← penutup expMapPDF
+
 
 /* ═══════════════════════════════════════════════
    HEXBIN AI SCORE — v5.2
