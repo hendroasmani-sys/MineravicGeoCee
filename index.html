@@ -2539,8 +2539,8 @@ async function expMapPDF(){
   const FOOT_H=9;
   const PAD=7;
   const PANEL_W=76;
-  const GRID_LEFT=10;  // lebar kolom label lat (kiri peta)
-  const GRID_BOT=8;    // tinggi baris label lon (bawah peta)
+  const GRID_LEFT=14;  // lebar kolom label lat kiri (7pt bold butuh ruang lebih)
+  const GRID_BOT=10;   // tinggi baris label lon bawah
   const MAP_X=PAD+GRID_LEFT;
   const MAP_Y=KOP_H+PAD;
   const MAP_W=PW-PANEL_W-PAD*2-GRID_LEFT-3;
@@ -2586,13 +2586,25 @@ async function expMapPDF(){
   sf(7,'normal',[160,195,230]);
   doc.text('Dicetak: '+tglStr,PW-PAD,14,{align:'right'});
 
-  // ── STEP 5: AREA PETA ───────────────────────────────────────────────────
-  doc.setDrawColor(120,140,165);
-  doc.setLineWidth(0.4);
-  doc.rect(MAP_X,MAP_Y,MAP_W,MAP_H);
+  // ── STEP 5: LAYOUT DIMENSI DENGAN RUANG GRID ────────────────────────────
+  // Tambah GRID_TOP untuk label lon di atas peta
+  const GRID_TOP=8; // tinggi baris label lon di atas
+  const MAP_Y2=MAP_Y+GRID_TOP; // area peta mulai lebih bawah
+  const MAP_H2=MAP_H-GRID_TOP; // tinggi peta berkurang
 
+  // ── DOUBLE BORDER ────────────────────────────────────────────────────────
+  // Bingkai luar tebal
+  doc.setDrawColor(60,80,110);
+  doc.setLineWidth(0.8);
+  doc.rect(MAP_X-3,MAP_Y2-3,MAP_W+6,MAP_H2+6);
+  // Bingkai dalam tipis (jarak 2mm dari luar)
+  doc.setDrawColor(100,125,155);
+  doc.setLineWidth(0.3);
+  doc.rect(MAP_X-1,MAP_Y2-1,MAP_W+2,MAP_H2+2);
+
+  // Gambar canvas peta di dalam border dalam
   if(mapImgData){
-    doc.addImage(mapImgData,'JPEG',MAP_X+0.2,MAP_Y+0.2,MAP_W-0.4,MAP_H-0.4);
+    doc.addImage(mapImgData,'JPEG',MAP_X,MAP_Y2,MAP_W,MAP_H2);
   }
 
   // ── STEP 6: GRID KOORDINAT ──────────────────────────────────────────────
@@ -2613,98 +2625,152 @@ async function expMapPDF(){
     const latRange=north-south;
     const lonRange=east-west;
 
-    // Fungsi konversi koordinat → posisi mm di peta
-    function latToY(lat){return MAP_Y+MAP_H-(lat-south)/latRange*MAP_H;}
+    // Fungsi konversi koordinat → posisi mm di peta (pakai MAP_Y2 dan MAP_H2)
+    function latToY(lat){return MAP_Y2+MAP_H2-(lat-south)/latRange*MAP_H2;}
     function lonToX(lon){return MAP_X+(lon-west)/lonRange*MAP_W;}
 
-    // Grid lines dan label — Lintang (horizontal)
+    // ── LINTANG (garis horizontal) — Label kiri ──────────────────────────
     const firstLat=Math.ceil(south/gridInterval)*gridInterval;
-    sf(6,'normal',[60,80,100]);
-    doc.setDrawColor(130,150,170);
-    doc.setLineWidth(0.15);
-
-    for(let lat=firstLat;lat<north;lat=Math.round((lat+gridInterval)*1000)/1000){
+    for(let lat=firstLat;lat<north;lat=Math.round((lat+gridInterval)*10000)/10000){
       const y=latToY(lat);
-      if(y<MAP_Y+1||y>MAP_Y+MAP_H-1)continue;
-      // Garis grid tipis
-      doc.setDrawColor(150,170,190);
-      doc.setLineWidth(0.12);
+      if(y<MAP_Y2+1||y>MAP_Y2+MAP_H2-1)continue;
+      // Garis full-cross visible
+      doc.setDrawColor(160,178,198);
+      doc.setLineWidth(0.15);
       doc.line(MAP_X,y,MAP_X+MAP_W,y);
-      // Label di kiri
-      const latLbl=Math.abs(lat).toFixed(lat%1===0?0:2)+'°'+(lat>=0?'N':'S');
-      sf(5.5,'normal',[40,60,90]);
-      doc.text(latLbl,MAP_X-1,y+1.2,{align:'right'});
-      // Tick mark
-      doc.setDrawColor(80,100,130);
-      doc.setLineWidth(0.3);
-      doc.line(MAP_X-1.5,y,MAP_X,y);
+      // Tick mark kiri (keluar ke antara bingkai)
+      doc.setDrawColor(60,80,110);
+      doc.setLineWidth(0.4);
+      doc.line(MAP_X-3,y,MAP_X,y);
+      // Label kiri — bold, 7pt
+      const latLbl=Math.abs(lat).toFixed(lat%1===0?0:(gridInterval<1?2:1))
+        +'°'+(lat>=0?'N':'S');
+      sf(7,'bold',[26,50,90]);
+      doc.text(latLbl,MAP_X-4,y+2,{align:'right'});
     }
 
-    // Grid lines dan label — Bujur (vertikal)
+    // ── BUJUR (garis vertikal) — Label atas + bawah ──────────────────────
     const firstLon=Math.ceil(west/gridInterval)*gridInterval;
-    for(let lon=firstLon;lon<east;lon=Math.round((lon+gridInterval)*1000)/1000){
+    for(let lon=firstLon;lon<east;lon=Math.round((lon+gridInterval)*10000)/10000){
       const x=lonToX(lon);
       if(x<MAP_X+1||x>MAP_X+MAP_W-1)continue;
-      // Garis grid tipis
-      doc.setDrawColor(150,170,190);
-      doc.setLineWidth(0.12);
-      doc.line(x,MAP_Y,x,MAP_Y+MAP_H);
-      // Label di bawah
-      const lonLbl=Math.abs(lon).toFixed(lon%1===0?0:2)+'°'+(lon>=0?'E':'W');
-      sf(5.5,'normal',[40,60,90]);
-      doc.text(lonLbl,x,MAP_Y+MAP_H+5.5,{align:'center'});
-      // Tick mark
-      doc.setDrawColor(80,100,130);
-      doc.setLineWidth(0.3);
-      doc.line(x,MAP_Y+MAP_H,x,MAP_Y+MAP_H+1.5);
+      // Garis full-cross visible
+      doc.setDrawColor(160,178,198);
+      doc.setLineWidth(0.15);
+      doc.line(x,MAP_Y2,x,MAP_Y2+MAP_H2);
+      // Tick mark atas + bawah (keluar ke antara bingkai)
+      doc.setDrawColor(60,80,110);
+      doc.setLineWidth(0.4);
+      doc.line(x,MAP_Y2-3,x,MAP_Y2);  // tick atas
+      doc.line(x,MAP_Y2+MAP_H2,x,MAP_Y2+MAP_H2+3); // tick bawah
+      // Label bujur
+      const lonLbl=Math.abs(lon).toFixed(lon%1===0?0:(gridInterval<1?2:1))
+        +'°'+(lon>=0?'E':'W');
+      sf(7,'bold',[26,50,90]);
+      // Label atas
+      doc.text(lonLbl,x,MAP_Y2-4.5,{align:'center'});
+      // Label bawah
+      doc.text(lonLbl,x,MAP_Y2+MAP_H2+7,{align:'center'});
     }
   }
 
-  // ── STEP 7: SKALA BAR ───────────────────────────────────────────────────
+  // ── STEP 7: SKALA BAR 4 SEGMEN ──────────────────────────────────────────
   const zoomNow2=map?map.getZoom():7;
   const centerLat2=map?map.getCenter().lat:-2.5;
   const mPerPx=156543.03*Math.cos(centerLat2*Math.PI/180)/Math.pow(2,zoomNow2);
   const dpi=96;
   const mmPerPx=25.4/dpi;
   const mPerMm=mPerPx/mmPerPx;
-  const scaleW=35;
+  // Target skala bar: 4 segmen, total 40mm
+  const scaleW=40;
   const scaleRealM=scaleW*mPerMm;
-  let scaleLabel='';
-  if(scaleRealM>=1000)scaleLabel=Math.round(scaleRealM/1000)+' km';
-  else scaleLabel=Math.round(scaleRealM)+' m';
-  const scaleRatio=Math.round(mPerMm*1000);
+  // Bulatkan ke nilai yang nice
+  let niceTotal=scaleRealM;
+  const mag=Math.pow(10,Math.floor(Math.log10(scaleRealM)));
+  const niceVals=[1,2,2.5,5,10];
+  let bestNice=mag;
+  for(const v of niceVals){
+    const candidate=v*mag;
+    if(Math.abs(candidate-scaleRealM)<Math.abs(bestNice-scaleRealM))bestNice=candidate;
+  }
+  niceTotal=bestNice;
+  // Panjang bar aktual berdasarkan nilai nice
+  const actualBarW=niceTotal/mPerMm;
+  // 4 segmen
+  const segW=actualBarW/4;
   const scaleX2=MAP_X+4;
-  const scaleY2=MAP_Y+MAP_H-6;
-  // Bar hitam-putih
-  doc.setFillColor(26,58,92);doc.rect(scaleX2,scaleY2,scaleW/2,2,'F');
-  doc.setFillColor(255,255,255);doc.rect(scaleX2+scaleW/2,scaleY2,scaleW/2,2,'F');
-  doc.setDrawColor(26,58,92);doc.setLineWidth(0.3);doc.rect(scaleX2,scaleY2,scaleW,2);
-  sf(5.5,'normal',[26,58,92]);
-  doc.text('0',scaleX2,scaleY2+4.5);
-  doc.text(scaleLabel,scaleX2+scaleW,scaleY2+4.5,{align:'right'});
-  sf(5,'normal',[80,100,120]);
-  doc.text('1 : '+scaleRatio.toLocaleString('id-ID'),scaleX2+scaleW/2,scaleY2-1,{align:'center'});
+  const scaleY2=MAP_Y2+MAP_H2-7;
+  const scaleRatio=Math.round(mPerMm*1000);
+
+  // Gambar 4 segmen hitam-putih
+  const segColors=[[26,58,92],[255,255,255],[26,58,92],[255,255,255]];
+  for(let i=0;i<4;i++){
+    const sx=scaleX2+i*segW;
+    doc.setFillColor(...segColors[i]);
+    doc.rect(sx,scaleY2,segW,2.5,'F');
+  }
+  // Border keseluruhan bar
+  doc.setDrawColor(26,58,92);
+  doc.setLineWidth(0.35);
+  doc.rect(scaleX2,scaleY2,actualBarW,2.5);
+  // Garis pembagi antar segmen
+  for(let i=1;i<4;i++){
+    doc.setLineWidth(0.2);
+    doc.line(scaleX2+i*segW,scaleY2,scaleX2+i*segW,scaleY2+2.5);
+  }
+  // Label nilai di tiap segmen
+  sf(6,'bold',[26,58,92]);
+  const segUnit=niceTotal>=1000?'km':'m';
+  const segDiv=niceTotal>=1000?1000:1;
+  [0,0.25,0.5,0.75,1].forEach((frac,i)=>{
+    const val=(niceTotal*frac/segDiv);
+    const lbl=val%1===0?val.toFixed(0):val.toFixed(1);
+    const xPos=scaleX2+frac*actualBarW;
+    doc.text(i===4?lbl+' '+segUnit:lbl,xPos,scaleY2+6,{align:'center'});
+    // Tick di bawah bar
+    doc.setDrawColor(26,58,92);doc.setLineWidth(0.25);
+    doc.line(xPos,scaleY2+2.5,xPos,scaleY2+3.5);
+  });
+  // Label unit di ujung
+  sf(6,'normal',[26,58,92]);
+  doc.text(segUnit,scaleX2+actualBarW+2,scaleY2+2,{align:'left'});
+  // Skala rasio — lebih prominent
+  sf(6.5,'bold',[26,50,90]);
+  doc.text('1 : '+scaleRatio.toLocaleString('id-ID'),scaleX2,scaleY2-2);
 
   // ── STEP 8: ARAH UTARA ──────────────────────────────────────────────────
-  const nX2=MAP_X+MAP_W-10;
-  const nY2=MAP_Y+12;
-  doc.setDrawColor(26,58,92);doc.setLineWidth(0.5);doc.circle(nX2,nY2,6);
+  const nX2=MAP_X+MAP_W-11;
+  const nY2=MAP_Y2+13;
+  doc.setDrawColor(26,58,92);doc.setLineWidth(0.6);doc.circle(nX2,nY2,6.5);
   doc.setFillColor(26,58,92);
-  doc.triangle(nX2,nY2-5.2,nX2-2.2,nY2+0.8,nX2+2.2,nY2+0.8,'F');
+  doc.triangle(nX2,nY2-5.5,nX2-2.5,nY2+1,nX2+2.5,nY2+1,'F');
   doc.setFillColor(255,255,255);
-  doc.triangle(nX2,nY2+5.2,nX2-2.2,nY2-0.8,nX2+2.2,nY2-0.8,'F');
-  sf(6,'bold',[26,58,92]);
-  doc.text('U',nX2,nY2-7,{align:'center'});
+  doc.triangle(nX2,nY2+5.5,nX2-2.5,nY2-1,nX2+2.5,nY2-1,'F');
+  sf(7,'bold',[26,58,92]);
+  doc.text('U',nX2,nY2-7.5,{align:'center'});
 
-  // Koordinat sistem
+  // Koordinat sistem — pakai MAP_Y2 dan MAP_H2
   sf(5.5,'normal',[90,110,130]);
-  doc.text('WGS 84 · EPSG:4326',MAP_X+4,MAP_Y+MAP_H-1.5);
+  doc.text('WGS 84 · EPSG:4326',MAP_X+4,MAP_Y2+MAP_H2-1.5);
 
-  // ── STEP 9: PANEL KANAN — INFORMASI PETA ────────────────────────────────
+  // ── STEP 9: PANEL KANAN — JUDUL + INFORMASI PETA ────────────────────────
   let py=PANEL_Y;
 
+  // Kotak Judul Peta — bold, prominent, navy background
+  const judulLines=doc.splitTextToSize(judul,PANEL_W-6);
+  const judulH=Math.max(16,judulLines.length*6+8);
+  doc.setFillColor(26,58,92);
+  doc.setDrawColor(26,58,92);
+  doc.setLineWidth(0.4);
+  doc.rect(PANEL_X,py,PANEL_W,judulH,'FD');
+  sf(9,'bold',[255,255,255]);
+  judulLines.slice(0,3).forEach(function(line,i){
+    doc.text(line,PANEL_X+PANEL_W/2,py+7+i*6,{align:'center'});
+  });
+  py+=judulH+2;
+
   // Kotak info
-  const infoH=72;
+  const infoH=65;
   doc.setFillColor(244,247,251);
   doc.setDrawColor(178,195,215);
   doc.setLineWidth(0.3);
