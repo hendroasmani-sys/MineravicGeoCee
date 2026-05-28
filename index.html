@@ -2535,18 +2535,25 @@ async function expMapPDF(){
   const PH=doc.internal.pageSize.getHeight();  // 210mm
 
   // Konstanta layout
-  const KOP_H=20;
-  const FOOT_H=9;
-  const PAD=7;
-  const PANEL_W=76;
-  const GRID_LEFT=14;  // lebar kolom label lat kiri (7pt bold butuh ruang lebih)
+  const OUTER=10;      // jarak bingkai luar ke tepi kertas (mm) — sama semua sisi
+  const KOP_H=20;      // tinggi kop navy
+  const FOOT_H=9;      // tinggi footer navy
+  const PAD=5;         // padding dalam bingkai luar
+  const PANEL_W=76;    // lebar panel kanan
+  const GRID_LEFT=14;  // lebar kolom label lat kiri
   const GRID_BOT=10;   // tinggi baris label lon bawah
-  const MAP_X=PAD+GRID_LEFT;
-  const MAP_Y=KOP_H+PAD;
-  const MAP_W=PW-PANEL_W-PAD*2-GRID_LEFT-3;
-  const MAP_H=PH-KOP_H-FOOT_H-PAD*2-GRID_BOT;
+  // Bingkai luar: dari OUTER ke PW-OUTER dan PH-OUTER
+  const OUTER_X=OUTER;
+  const OUTER_Y=OUTER;
+  const OUTER_W=PW-OUTER*2;
+  const OUTER_H=PH-OUTER*2;
+  // Area dalam bingkai luar
+  const MAP_X=OUTER+PAD+GRID_LEFT;
+  const MAP_Y=OUTER+KOP_H+PAD;
+  const MAP_W=PW-OUTER*2-PANEL_W-PAD*2-GRID_LEFT-3;
+  const MAP_H=PH-OUTER*2-KOP_H-FOOT_H-PAD*2-GRID_BOT;
   const PANEL_X=MAP_X+MAP_W+3;
-  const PANEL_Y=KOP_H+PAD;
+  const PANEL_Y=OUTER+KOP_H+PAD;
   const tglStr=new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'});
 
   // Helper functions
@@ -2561,30 +2568,36 @@ async function expMapPDF(){
     doc.line(x1,y1,x2,y2);
   }
 
-  // ── STEP 4: KOP ─────────────────────────────────────────────────────────
+  // ── STEP 4: BINGKAI LUAR + KOP ─────────────────────────────────────────
+  // Bingkai luar — 1 garis tebal, jarak 10mm dari tepi kertas semua sisi
+  doc.setDrawColor(30,55,95);
+  doc.setLineWidth(1.2);
+  doc.rect(OUTER_X,OUTER_Y,OUTER_W,OUTER_H);
+
+  // KOP navy — di dalam bingkai luar
   doc.setFillColor(26,58,92);
-  doc.rect(0,0,PW,KOP_H,'F');
+  doc.rect(OUTER_X,OUTER_Y,OUTER_W,KOP_H,'F');
 
   // Logo perusahaan (jika ada)
   let logoW=0;
   if(_logoB64){
     try{
-      doc.addImage(_logoB64,'PNG',PAD,2,14,14);
+      doc.addImage(_logoB64,'PNG',OUTER_X+PAD,OUTER_Y+2,14,14);
       logoW=17;
     }catch(e){}
   }
 
   // Nama perusahaan & subtitle
   sf(11,'bold',[255,255,255]);
-  doc.text(author.substring(0,40),PAD+logoW,8);
+  doc.text(author.substring(0,40),OUTER_X+PAD+logoW,OUTER_Y+8);
   sf(7,'normal',[160,195,230]);
-  doc.text('MINERAVIX v5 · AI Geo Insight Engine',PAD+logoW,14);
+  doc.text('MINERAVIX v5 · AI Geo Insight Engine',OUTER_X+PAD+logoW,OUTER_Y+14);
 
   // Judul peta di kanan kop
   sf(10,'bold',[255,255,255]);
-  doc.text(judul.substring(0,55),PW-PAD,8,{align:'right'});
+  doc.text(judul.substring(0,55),OUTER_X+OUTER_W-PAD,OUTER_Y+8,{align:'right'});
   sf(7,'normal',[160,195,230]);
-  doc.text('Dicetak: '+tglStr,PW-PAD,14,{align:'right'});
+  doc.text('Dicetak: '+tglStr,OUTER_X+OUTER_W-PAD,OUTER_Y+14,{align:'right'});
 
   // ── STEP 5: LAYOUT DIMENSI DENGAN RUANG GRID ────────────────────────────
   // Tambah GRID_TOP untuk label lon di atas peta
@@ -2753,24 +2766,11 @@ async function expMapPDF(){
   sf(5.5,'normal',[90,110,130]);
   doc.text('WGS 84 · EPSG:4326',MAP_X+4,MAP_Y2+MAP_H2-1.5);
 
-  // ── STEP 9: PANEL KANAN — JUDUL + INFORMASI PETA ────────────────────────
+  // ── STEP 9: PANEL KANAN — INFORMASI PETA (langsung, tanpa box judul) ────
   let py=PANEL_Y;
 
-  // Kotak Judul Peta — bold, prominent, navy background
-  const judulLines=doc.splitTextToSize(judul,PANEL_W-6);
-  const judulH=Math.max(16,judulLines.length*6+8);
-  doc.setFillColor(26,58,92);
-  doc.setDrawColor(26,58,92);
-  doc.setLineWidth(0.4);
-  doc.rect(PANEL_X,py,PANEL_W,judulH,'FD');
-  sf(9,'bold',[255,255,255]);
-  judulLines.slice(0,3).forEach(function(line,i){
-    doc.text(line,PANEL_X+PANEL_W/2,py+7+i*6,{align:'center'});
-  });
-  py+=judulH+2;
-
-  // Kotak info
-  const infoH=65;
+  // Kotak info — langsung di atas, sejajar bingkai bold peta
+  const infoH=72;
   doc.setFillColor(244,247,251);
   doc.setDrawColor(178,195,215);
   doc.setLineWidth(0.3);
@@ -2884,12 +2884,14 @@ async function expMapPDF(){
   }
 
   // ── STEP 13: FOOTER ─────────────────────────────────────────────────────
+  // Footer di dalam bingkai luar — rata bawah bingkai
+  const FOOT_Y=OUTER_Y+OUTER_H-FOOT_H;
   doc.setFillColor(26,58,92);
-  doc.rect(0,PH-FOOT_H,PW,FOOT_H,'F');
+  doc.rect(OUTER_X,FOOT_Y,OUTER_W,FOOT_H,'F');
   sf(6,'normal',[140,175,215]);
   doc.text(
     'MINERAVIX v5 · '+author+' · Data bersifat informatif — bukan rekomendasi investasi · '+tglStr,
-    PW/2,PH-3,{align:'center'}
+    OUTER_X+OUTER_W/2,FOOT_Y+FOOT_H-2.5,{align:'center'}
   );
 
   // Simpan PDF
