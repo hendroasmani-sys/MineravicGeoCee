@@ -295,7 +295,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color
   <div id="topbar">
     <div class="tb-logo">M</div>
     <div><span class="tb-name">MINERAVIX</span><span class="tb-sep">·</span><span class="tb-sub">GEOCEE</span></div>
-    <div class="tb-tier">v5.7</div>
+    <div class="tb-tier">v5.8</div>
     <div class="tb-space"></div>
     <button class="tb-btn" id="btn-chat" onclick="toggleChat()">⚡ AI Chat</button>
     <button class="tb-btn" onclick="showHelp()" style="margin-left:6px">? Bantuan</button>
@@ -585,7 +585,7 @@ async function boot(){
     await sleep(350);
     $('splash').style.display='none';
     $('app').classList.add('ready');
-    toast('Mineravix v5.7 · GEOCEE','info');
+    toast('Mineravix v5.8 · GEOCEE','info');
     // ── TEKNIK 2: Load hutan lazy setelah peta tampil ────────
     // Delay 1.5 detik agar UI sudah stabil dulu sebelum fetch besar
     setTimeout(loadHutanLazy, 1500);
@@ -735,20 +735,32 @@ function initMap(){
   map.on('click',e=>{
     hideTooltip();
     if(tool!=='rad')return;
-    if(rCirc)map.removeLayer(rCirc);
-    rCirc=L.circle(e.latlng,{radius:radiusKM*1000,color:'#2563EB',weight:1.5,fillColor:'#2563EB',fillOpacity:0.06,dashArray:'6 4'}).addTo(map);
-    const pt=turf.point([e.latlng.lng,e.latlng.lat]),buf=turf.buffer(pt,radiusKM,{units:'kilometers'});
-    window._lastRadiusData={lat:e.latlng.lat,lon:e.latlng.lng,results:[]};
-    clrH();let n=0;
-    ['mineral','wiup','batubara'].forEach(nm=>{
-      if(!LY[nm])return;
-      LY[nm].eachLayer(l=>{try{if(turf.booleanIntersects(buf,l.toGeoJSON())){
-              // Simpan geometry sebelum addRes agar tersedia di export
-              try{const gj=l.toGeoJSON();if(gj&&gj.geometry)l.feature.properties._geometry=gj.geometry;}catch(gx){}
-              addRes(l.feature.properties);n++;}}catch(x){}});
-    });
-    showTab('hasil');toast('Radius '+radiusKM+'km: '+n+' wilayah ditemukan',n>0?'ok':'warn');
+    runRadiusAnalysis(e.latlng.lat,e.latlng.lng,{fromSearch:false});
   });
+}
+
+// ── Analisis radius reusable — dipakai oleh klik manual & search otomatis ──
+function runRadiusAnalysis(lat,lon,opt){
+  opt=opt||{};
+  if(rCirc)map.removeLayer(rCirc);
+  rCirc=L.circle([lat,lon],{radius:radiusKM*1000,color:'#2563EB',weight:1.5,fillColor:'#2563EB',fillOpacity:0.06,dashArray:'6 4'}).addTo(map);
+  const pt=turf.point([lon,lat]),buf=turf.buffer(pt,radiusKM,{units:'kilometers'});
+  window._lastRadiusData={lat:lat,lon:lon,results:[]};
+  clrH();let n=0;
+  ['mineral','wiup','batubara'].forEach(nm=>{
+    if(!LY[nm])return;
+    LY[nm].eachLayer(l=>{try{if(turf.booleanIntersects(buf,l.toGeoJSON())){
+            try{const gj=l.toGeoJSON();if(gj&&gj.geometry)l.feature.properties._geometry=gj.geometry;}catch(gx){}
+            addRes(l.feature.properties);n++;}}catch(x){}});
+  });
+  showTab('hasil');
+  if(opt.fromSearch){
+    if(n>0)toast('Analisis otomatis: '+n+' potensi dalam radius '+radiusKM+'km','ok');
+    else toast('Tidak ada potensi terdeteksi dalam radius '+radiusKM+'km','warn');
+  }else{
+    toast('Radius '+radiusKM+'km: '+n+' wilayah ditemukan',n>0?'ok':'warn');
+  }
+  return n;
 }
 
 function toDMS(lat,lon){
@@ -1561,6 +1573,12 @@ function flyTo(la,lo,nm){
     {closeButton:true,className:'srch-popup'}
   ).openPopup();
   toast('Menuju: '+nm,'info');
+  // ── ANALISIS OTOMATIS dari titik search (Tahap 3) ──────────────────────
+  // Tunggu peta selesai render & layer siap, lalu jalankan analisis radius
+  // otomatis dari titik search. Titik search = titik analisis = konsisten.
+  setTimeout(()=>{
+    try{runRadiusAnalysis(la,lo,{fromSearch:true});}catch(e){console.warn('Auto-analysis skip:',e.message);}
+  },700);
 }
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 document.addEventListener('click',e=>{if(!$('sb-search').contains(e.target))$('srch-res').style.display='none';});
