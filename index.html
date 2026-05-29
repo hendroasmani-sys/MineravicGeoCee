@@ -2687,6 +2687,21 @@ async function expMapPDF(){
     }
   }
 
+  // ── STEP 6b: TITIK ACUAN LOKASI (titik merah di tengah peta) ────────────
+  // Auto-center (STEP 1) sudah pan ke titik radius/search sehingga titik
+  // tersebut berada tepat di tengah peta. Gambar manual di pusat area peta
+  // agar presisi & tidak bergeser saat capture canvas.
+  // Style sama dengan srchMark di layar: isi #EF4444, border #B91C1C.
+  if(hasRadius){
+    const cx=MAP_X+MAP_W/2;
+    const cy=MAP_Y2+MAP_H2/2;
+    // Titik merah solid dengan border merah gelap
+    doc.setDrawColor(185,28,28);   // #B91C1C
+    doc.setLineWidth(0.6);
+    doc.setFillColor(239,68,68);   // #EF4444
+    doc.circle(cx,cy,2.2,'FD');
+  }
+
   // ── STEP 7: SKALA BAR 4 SEGMEN ──────────────────────────────────────────
   const zoomNow2=map?map.getZoom():7;
   const centerLat2=map?map.getCenter().lat:-2.5;
