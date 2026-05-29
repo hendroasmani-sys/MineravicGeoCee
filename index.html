@@ -2490,11 +2490,18 @@ async function expMapPDF(){
     await new Promise(r=>setTimeout(r,600));
   }
 
-  // ── STEP 2: CAPTURE CANVAS PETA ────────────────────────────────────────
+  // ── STEP 2: CAPTURE CANVAS PETA + CROP CENTER (WYSIWYG) ─────────────────
+  // Rasio area peta PDF (lihat STEP 3): MAP_W/MAP_H. Hitung di sini agar
+  // capture layar di-crop center sesuai rasio PDF → tidak ada distorsi,
+  // titik tengah layar = titik tengah PDF. Bagian kiri-kanan layar yang
+  // melebihi rasio PDF akan terpotong (sesuai pilihan crop center).
+  const PDF_MAP_W=297-10*2-76-5*2-14-3; // MAP_W (lihat STEP 3 konstanta)
+  const PDF_MAP_H=210-10*2-20-9-5*2-10-8; // MAP_H - GRID_TOP (area peta efektif)
+  const pdfRatio=PDF_MAP_W/PDF_MAP_H;
   let mapImgData=null;
   let mapBounds=null;
   try{
-    mapBounds=map.getBounds();
+    const fullBounds=map.getBounds();
     const mapEl=document.getElementById('map');
     const origBg=mapEl.style.background;
     mapEl.style.background='#E8EDF2';
@@ -2506,6 +2513,7 @@ async function expMapPDF(){
     const rect=mapEl.getBoundingClientRect();
     const W=Math.round(rect.width)||800;
     const H=Math.round(rect.height)||500;
+    // Gabung semua canvas layar dulu (full viewport)
     const merge=document.createElement('canvas');
     merge.width=W;merge.height=H;
     const ctx=merge.getContext('2d');
@@ -2517,7 +2525,43 @@ async function expMapPDF(){
         ctx.drawImage(c,cr.left-rect.left,cr.top-rect.top);
       }catch(ex){}
     });
-    mapImgData=merge.toDataURL('image/jpeg',0.92);
+
+    // ── CROP CENTER sesuai rasio PDF ──────────────────────────────────────
+    const screenRatio=W/H;
+    let cropX,cropY,cropW,cropH;
+    if(screenRatio>pdfRatio){
+      // Layar lebih lebar → potong kiri-kanan
+      cropH=H;
+      cropW=H*pdfRatio;
+      cropX=(W-cropW)/2;
+      cropY=0;
+    }else{
+      // Layar lebih tinggi → potong atas-bawah
+      cropW=W;
+      cropH=W/pdfRatio;
+      cropX=0;
+      cropY=(H-cropH)/2;
+    }
+    // Canvas hasil crop
+    const cropped=document.createElement('canvas');
+    cropped.width=Math.round(cropW);
+    cropped.height=Math.round(cropH);
+    const cctx=cropped.getContext('2d');
+    cctx.drawImage(merge,cropX,cropY,cropW,cropH,0,0,cropW,cropH);
+    mapImgData=cropped.toDataURL('image/jpeg',0.92);
+
+    // ── Hitung mapBounds hasil crop (untuk grid koordinat) ────────────────
+    // Konversi pixel crop ke lat/lon menggunakan bounds layar penuh
+    const fN=fullBounds.getNorth(),fS=fullBounds.getSouth();
+    const fW=fullBounds.getWest(),fE=fullBounds.getEast();
+    const lonPerPx=(fE-fW)/W;
+    const latPerPx=(fN-fS)/H;
+    const cropWest=fW+cropX*lonPerPx;
+    const cropEast=fW+(cropX+cropW)*lonPerPx;
+    const cropNorth=fN-cropY*latPerPx;
+    const cropSouth=fN-(cropY+cropH)*latPerPx;
+    mapBounds=L.latLngBounds([[cropSouth,cropWest],[cropNorth,cropEast]]);
+
     tiles.forEach(t=>{t.style.visibility='';});
     mapEl.style.background=origBg;
   }catch(ex){
