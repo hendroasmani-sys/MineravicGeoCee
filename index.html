@@ -23,7 +23,7 @@
   --pg:#F4F7FB;--panel:#FFFFFF;--bd:#E2EAF4;--bd2:#CBD5E1;
   --t1:#1A3A5C;--t2:#475569;--t3:#94A3B8;--t4:#CBD5E1;
   --hi:#16A34A;--mi:#D97706;--lo:#DC2626;
-  --coal:#78350F;--mineral:#CA8A04;--wiup:#2563EB;--geo:#64748B;
+  --coal:#78350F;--mineral:#CA8A04;--wiup:#2563EB;--geo:#64748B;--observasi:#1A1A1A;
   --hutan-hl:#DC2626;--hutan-hp:#15803D;--hutan-hk:#7C3AED;
   --hutan-hpt:#D97706;--hutan-hpk:#CA8A04;--hutan-apl:#94A3B8;
   --fw:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;--fm:'Consolas','SF Mono','Courier New',monospace;
@@ -131,7 +131,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color
 .ri-s{font-family:var(--fm);font-size:12px;font-weight:600;flex-shrink:0}
 .ri-m{font-size:10px;color:var(--t3);margin-top:3px;font-family:var(--fm);line-height:1.5}
 .tag{display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:500}
-.tm{background:#FEE2E2;color:#991B1B}.tb2{background:#FEF3C7;color:#78350F}.tg{background:#F1F5F9;color:#475569}.tw{background:#EFF6FF;color:#1D4ED8}
+.tm{background:#FEE2E2;color:#991B1B}.tb2{background:#FEF3C7;color:#78350F}.tg{background:#F1F5F9;color:#475569}.tw{background:#EFF6FF;color:#1D4ED8}.tobs{background:#E5E5E5;color:#1A1A1A}
 .empty{text-align:center;padding:24px 0;color:var(--t3);font-size:11px;line-height:2}
 /* FREEMIUM */
 .fw-box{background:#FFFBEB;border:1px solid #FDE68A;border-radius:var(--rmd);padding:12px;text-align:center;margin-top:8px}
@@ -295,7 +295,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color
   <div id="topbar">
     <div class="tb-logo">M</div>
     <div><span class="tb-name">MINERAVIX</span><span class="tb-sep">·</span><span class="tb-sub">GEOCEE</span></div>
-    <div class="tb-tier">v5.9</div>
+    <div class="tb-tier">v6.0</div>
     <div class="tb-space"></div>
     <button class="tb-btn" id="btn-chat" onclick="toggleChat()">⚡ AI Chat</button>
     <button class="tb-btn" onclick="showHelp()" style="margin-left:6px">? Bantuan</button>
@@ -438,6 +438,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color
         <div class="lg-r"><div class="lg-d" style="background:var(--geo)"></div>Background Geologi</div>
         <div class="lg-r"><div class="lg-d" style="background:var(--wiup)"></div>WIUP (Polygon/Point)</div>
         <div class="lg-r"><div class="lg-d" style="background:#78350F"></div>Potensi Batubara (IUP)</div>
+        <div class="lg-r"><div class="lg-d" style="background:var(--observasi)"></div>Titik Observasi</div>
         <div class="divider" style="margin:5px 0"></div>
         <div class="lg-t">Kawasan Hutan</div>
         <div class="lg-r"><div class="lg-d" style="background:var(--hutan-hl)"></div>Hutan Lindung</div>
@@ -550,6 +551,7 @@ let W={k:40,g:35,a:25},sTimer=null,sAC=null;
 // Hexbin globals — dideklarasikan di sini agar tersedia di seluruh script
 let hexbinOn=false,LY_HX=null,_hxTip=null;
 let radiusKM=1; // radius analisis default 1km (bisa diubah via dropdown)
+let LY_OBS=null,obsCounter=0; // layer titik observasi + counter penamaan
 
 function setSp(p,m){$('spf').style.width=p+'%';$('spm').textContent=m}
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -585,7 +587,7 @@ async function boot(){
     await sleep(350);
     $('splash').style.display='none';
     $('app').classList.add('ready');
-    toast('Mineravix v5.9 · GEOCEE','info');
+    toast('Mineravix v6.0 · GEOCEE','info');
     // ── TEKNIK 2: Load hutan lazy setelah peta tampil ────────
     // Delay 1.5 detik agar UI sudah stabil dulu sebelum fetch besar
     setTimeout(loadHutanLazy, 1500);
@@ -750,6 +752,14 @@ function runRadiusAnalysis(lat,lon,opt){
   const pt=turf.point([lon,lat]),buf=turf.buffer(pt,radiusKM,{units:'kilometers'});
   window._lastRadiusData={lat:lat,lon:lon,results:[]};
   clrH();let n=0;
+  // Masukkan Titik Observasi ke hasil (jika ada & posisinya = titik analisis)
+  if(LY_OBS&&opt.fromSearch){
+    LY_OBS.eachLayer(l=>{try{
+      const p=l.feature.properties;
+      if(p._geometry===undefined){const gj=l.toGeoJSON();if(gj&&gj.geometry)p._geometry=gj.geometry;}
+      addRes(p);
+    }catch(x){}});
+  }
   ['mineral','wiup','batubara'].forEach(nm=>{
     if(!LY[nm])return;
     LY[nm].eachLayer(l=>{try{if(turf.booleanIntersects(buf,l.toGeoJSON())){
@@ -1517,7 +1527,7 @@ function renderH(){
   $('tot-h').textContent=results.length;
   if(!results.length){$('hasil-list').innerHTML='<div class="empty">Belum ada hasil analisis</div>';return;}
   $('hasil-list').innerHTML=results.slice(0,60).map(r=>{
-    const c=scColor(r.SC),tc=r.TIP==='Mineral'?'tm':r.TIP==='Batubara'?'tb2':r.TIP==='Geologi'?'tg':'tw';
+    const c=scColor(r.SC),tc=r.TIP==='Mineral'?'tm':r.TIP==='Batubara'?'tb2':r.TIP==='Geologi'?'tg':r.TIP==='Observasi'?'tobs':'tw';
     const perusLine=r.PER?`<span style="color:var(--t2);font-weight:500">${r.PER.substring(0,34)}</span><br>`:'';
     const staLine=r.STA?` · <span style="color:${r.STA.toLowerCase().includes('aktif')?'var(--hi)':'var(--mi)'}">${r.STA}</span>`:'';
     return`<div class="ri" style="border-left-color:${c}">
@@ -1559,22 +1569,7 @@ async function doSearch(q){
 function pickR(la,lo,nm){$('srch-res').style.display='none';$('srch-inp').value=nm;flyTo(la,lo,nm);}
 function flyTo(la,lo,nm){
   map.setView([la,lo],12);
-  // Hapus marker lama jika ada
-  if(srchMark){try{map.removeLayer(srchMark);}catch(x){}}
-  // Buat marker baru — CircleMarker merah mencolok
-  srchMark=L.circleMarker([la,lo],{
-    renderer:L.canvas(),
-    radius:10,color:'#B91C1C',weight:2.5,
-    fillColor:'#EF4444',fillOpacity:0.9
-  }).addTo(map);
-  // Popup nama lokasi — otomatis terbuka
-  srchMark.bindPopup(
-    '<div style="font-family:var(--fw);font-size:12px;font-weight:500;color:#1A3A5C;min-width:120px">'
-    +'<div style="font-size:10px;color:#94A3B8;margin-bottom:2px">📍 Lokasi Pencarian</div>'
-    +nm
-    +'</div>',
-    {closeButton:true,className:'srch-popup'}
-  ).openPopup();
+  createObservasi(la,lo,nm);
   toast('Menuju: '+nm,'info');
   // ── ANALISIS OTOMATIS dari titik search (Tahap 3) ──────────────────────
   // Tunggu peta selesai render & layer siap, lalu jalankan analisis radius
@@ -1582,6 +1577,55 @@ function flyTo(la,lo,nm){
   setTimeout(()=>{
     try{runRadiusAnalysis(la,lo,{fromSearch:true});}catch(e){console.warn('Auto-analysis skip:',e.message);}
   },700);
+}
+
+// ── TITIK OBSERVASI — polygon segiempat 100×100m statis di canvas ─────────
+// Diperlakukan sebagai objek polygon nyata (seperti WIUP) sehingga saat
+// export PDF ter-capture otomatis di posisi geografis yang persis sama
+// dengan layar. Tidak ada perhitungan koordinat manual yang bisa meleset.
+function createObservasi(la,lo,nm){
+  // Hapus observasi lama (satu titik saja, sesuai keputusan)
+  if(LY_OBS){try{map.removeLayer(LY_OBS);}catch(x){}LY_OBS=null;}
+  if(srchMark){try{map.removeLayer(srchMark);}catch(x){}srchMark=null;}
+  obsCounter++;
+  // Konversi 100m → derajat (kotak 100×100m, half = 50m)
+  const halfM=50;
+  const dLat=halfM/111320;
+  const dLon=halfM/(111320*Math.cos(la*Math.PI/180));
+  const ring=[
+    [lo-dLon,la-dLat],[lo+dLon,la-dLat],
+    [lo+dLon,la+dLat],[lo-dLon,la+dLat],
+    [lo-dLon,la-dLat]
+  ];
+  const obsName='Titik Observasi '+obsCounter;
+  const feature={
+    type:'Feature',
+    properties:{
+      NAMAFOR:obsName,TIPE:'Observasi',
+      KOMODITAS_FINAL:'-',LITHOLOGI:'-',
+      WILAYAH:nm||'-',_obsLat:la,_obsLon:lo,_isObservasi:true
+    },
+    geometry:{type:'Polygon',coordinates:[ring]}
+  };
+  LY_OBS=L.geoJSON(feature,{
+    renderer:L.canvas(),
+    style:{color:'#1A1A1A',weight:2,fillColor:'#1A1A1A',fillOpacity:0.55},
+    onEachFeature:(f,l)=>{
+      l.on('click',e=>{L.DomEvent.stopPropagation(e);openBS(f.properties,l);});
+    }
+  }).addTo(map);
+  // Popup nama observasi
+  try{
+    LY_OBS.bindPopup(
+      '<div style="font-family:var(--fw);font-size:12px;font-weight:600;color:#1A3A5C;min-width:130px">'
+      +'<div style="font-size:10px;color:#94A3B8;margin-bottom:2px">⬛ '+obsName+'</div>'
+      +(nm||'')
+      +'<div style="font-size:10px;color:#64748B;margin-top:3px;font-family:var(--fm)">'
+      +la.toFixed(6)+', '+lo.toFixed(6)+'</div>'
+      +'</div>',
+      {closeButton:true,className:'srch-popup'}
+    ).openPopup();
+  }catch(e){}
 }
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 document.addEventListener('click',e=>{if(!$('sb-search').contains(e.target))$('srch-res').style.display='none';});
@@ -2762,20 +2806,10 @@ async function expMapPDF(){
     }
   }
 
-  // ── STEP 6b: TITIK ACUAN LOKASI (titik merah di tengah peta) ────────────
-  // Auto-center (STEP 1) sudah pan ke titik radius/search sehingga titik
-  // tersebut berada tepat di tengah peta. Gambar manual di pusat area peta
-  // agar presisi & tidak bergeser saat capture canvas.
-  // Style sama dengan srchMark di layar: isi #EF4444, border #B91C1C.
-  if(hasRadius){
-    const cx=MAP_X+MAP_W/2;
-    const cy=MAP_Y2+MAP_H2/2;
-    // Titik merah solid dengan border merah gelap
-    doc.setDrawColor(185,28,28);   // #B91C1C
-    doc.setLineWidth(0.6);
-    doc.setFillColor(239,68,68);   // #EF4444
-    doc.circle(cx,cy,2.2,'FD');
-  }
+  // ── STEP 6b: (dihapus) Titik Observasi kini berupa polygon canvas ───────
+  // Titik Observasi adalah polygon 100×100m hitam di layer canvas, sehingga
+  // ter-capture otomatis bersama WIUP/Mineral di posisi geografis yang
+  // persis sama dengan layar. Tidak perlu lagi menggambar titik manual.
 
   // ── STEP 7: SKALA BAR 4 SEGMEN ──────────────────────────────────────────
   // Solusi B: skala dihitung dari bounds crop AKTUAL (area yang benar-benar
@@ -2928,6 +2962,7 @@ async function expMapPDF(){
     [[100,116,139],'Background Geologi'],
     [[37,99,235],'WIUP (Polygon/Point)'],
     [[120,53,15],'Batubara (IUP)'],
+    [[26,26,26],'Titik Observasi'],
   ];
   let ly=py+13;
   mainLeg.forEach(([c,lbl])=>{
