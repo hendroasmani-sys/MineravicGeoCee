@@ -295,7 +295,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color
   <div id="topbar">
     <div class="tb-logo">M</div>
     <div><span class="tb-name">MINERAVIX</span><span class="tb-sep">·</span><span class="tb-sub">GEOCEE</span></div>
-    <div class="tb-tier">v5.8</div>
+    <div class="tb-tier">v5.9</div>
     <div class="tb-space"></div>
     <button class="tb-btn" id="btn-chat" onclick="toggleChat()">⚡ AI Chat</button>
     <button class="tb-btn" onclick="showHelp()" style="margin-left:6px">? Bantuan</button>
@@ -585,7 +585,7 @@ async function boot(){
     await sleep(350);
     $('splash').style.display='none';
     $('app').classList.add('ready');
-    toast('Mineravix v5.8 · GEOCEE','info');
+    toast('Mineravix v5.9 · GEOCEE','info');
     // ── TEKNIK 2: Load hutan lazy setelah peta tampil ────────
     // Delay 1.5 detik agar UI sudah stabil dulu sebelum fetch besar
     setTimeout(loadHutanLazy, 1500);
@@ -742,6 +742,9 @@ function initMap(){
 // ── Analisis radius reusable — dipakai oleh klik manual & search otomatis ──
 function runRadiusAnalysis(lat,lon,opt){
   opt=opt||{};
+  // Solusi B: center titik ke TENGAH layar agar titik = pusat (konsisten
+  // dengan PDF). Berlaku untuk klik manual maupun search otomatis.
+  map.panTo([lat,lon]);
   if(rCirc)map.removeLayer(rCirc);
   rCirc=L.circle([lat,lon],{radius:radiusKM*1000,color:'#2563EB',weight:1.5,fillColor:'#2563EB',fillOpacity:0.06,dashArray:'6 4'}).addTo(map);
   const pt=turf.point([lon,lat]),buf=turf.buffer(pt,radiusKM,{units:'kilometers'});
@@ -2513,12 +2516,10 @@ async function expMapPDF(){
   toast('Menyiapkan layout peta...','info');
   await new Promise(r=>setTimeout(r,200));
 
-  // ── STEP 1: AUTO-CENTER ke titik radius terakhir ──────────────────────
+  // ── STEP 1: (Solusi B) TIDAK ada panTo ────────────────────────────────
+  // Titik analisis sudah di tengah layar sejak search/klik (setView center).
+  // Capture langsung apa yang dilihat user → layar = PDF (WYSIWYG).
   const hasRadius=window._lastRadiusData&&window._lastRadiusData.lat&&window._lastRadiusData.lon;
-  if(hasRadius){
-    map.panTo([window._lastRadiusData.lat,window._lastRadiusData.lon]);
-    await new Promise(r=>setTimeout(r,600));
-  }
 
   // ── STEP 2: CAPTURE CANVAS PETA + CROP CENTER (WYSIWYG) ─────────────────
   // Rasio area peta PDF (lihat STEP 3): MAP_W/MAP_H. Hitung di sini agar
@@ -2777,13 +2778,22 @@ async function expMapPDF(){
   }
 
   // ── STEP 7: SKALA BAR 4 SEGMEN ──────────────────────────────────────────
-  const zoomNow2=map?map.getZoom():7;
-  const centerLat2=map?map.getCenter().lat:-2.5;
-  const mPerPx=156543.03*Math.cos(centerLat2*Math.PI/180)/Math.pow(2,zoomNow2);
-  const dpi=96;
-  const mmPerPx=25.4/dpi;
-  const mPerMm=mPerPx/mmPerPx;
-  // Target skala bar: 4 segmen, total 40mm
+  // Solusi B: skala dihitung dari bounds crop AKTUAL (area yang benar-benar
+  // di-render ke MAP_W mm), bukan dari zoom layar. Ini membuat skala PDF
+  // akurat terhadap gambar yang tampil — tidak melonggar.
+  let mPerMm;
+  if(mapBounds){
+    const cLat=(mapBounds.getNorth()+mapBounds.getSouth())/2;
+    const lonSpan=mapBounds.getEast()-mapBounds.getWest(); // derajat bujur area crop
+    const meterSpan=lonSpan*111320*Math.cos(cLat*Math.PI/180); // meter area crop
+    mPerMm=meterSpan/MAP_W; // meter per mm di PDF
+  }else{
+    const zoomNow2=map?map.getZoom():7;
+    const centerLat2=map?map.getCenter().lat:-2.5;
+    const mPerPx=156543.03*Math.cos(centerLat2*Math.PI/180)/Math.pow(2,zoomNow2);
+    mPerMm=mPerPx/(25.4/96);
+  }
+  // Target skala bar: 4 segmen, total ~40mm
   const scaleW=40;
   const scaleRealM=scaleW*mPerMm;
   // Bulatkan ke nilai yang nice
