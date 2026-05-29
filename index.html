@@ -295,7 +295,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color
   <div id="topbar">
     <div class="tb-logo">M</div>
     <div><span class="tb-name">MINERAVIX</span><span class="tb-sep">·</span><span class="tb-sub">GEOCEE</span></div>
-    <div class="tb-tier">v5.6</div>
+    <div class="tb-tier">v5.7</div>
     <div class="tb-space"></div>
     <button class="tb-btn" id="btn-chat" onclick="toggleChat()">⚡ AI Chat</button>
     <button class="tb-btn" onclick="showHelp()" style="margin-left:6px">? Bantuan</button>
@@ -419,14 +419,19 @@ html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color
       <div id="map-tooltip"></div>
       <div id="mtb">
         <button class="mb on" id="btn-id"  onclick="setTool('id')">🖱 Identify</button>
-        <button class="mb"    id="btn-rad" onclick="setTool('rad')">⭕ Radius 5km</button>
+        <button class="mb"    id="btn-rad" onclick="setTool('rad')">⭕ Radius</button>
+        <select class="mb" id="sel-radius" onchange="setRadiusKM(this.value)" title="Pilih radius analisis" style="padding:5px 6px;cursor:pointer">
+          <option value="1" selected>1 km</option>
+          <option value="2">2 km</option>
+          <option value="5">5 km</option>
+        </select>
         <button class="mb"    id="btn-hm"  onclick="tglHM()">🔥 Heatmap</button>
         <button class="mb"    id="btn-hx"  onclick="tglHexbin()">⬡ Hexbin</button>
         <button class="mb"    id="btn-rv"  onclick="resetV()">⟳ Reset View</button>
         <button class="mb"    id="btn-geo" onclick="gotoMyLoc()" title="Lokasi saya">📍</button>
         <span id="tlbl"></span>
       </div>
-      <div class="rinfo" id="rinfo">⭕ Mode Radius 5km — klik titik di peta</div>
+      <div class="rinfo" id="rinfo">⭕ Mode Radius 1km — klik titik di peta</div>
       <div id="legend">
         <div class="lg-t">Legenda</div>
         <div class="lg-r"><div class="lg-d" style="background:#CA8A04"></div>Zona Mineral</div>
@@ -544,6 +549,7 @@ let curP=null,curL=null,sessStart=new Date(),lastLat=null,lastLon=null,lastDms='
 let W={k:40,g:35,a:25},sTimer=null,sAC=null;
 // Hexbin globals — dideklarasikan di sini agar tersedia di seluruh script
 let hexbinOn=false,LY_HX=null,_hxTip=null;
+let radiusKM=1; // radius analisis default 1km (bisa diubah via dropdown)
 
 function setSp(p,m){$('spf').style.width=p+'%';$('spm').textContent=m}
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -579,7 +585,7 @@ async function boot(){
     await sleep(350);
     $('splash').style.display='none';
     $('app').classList.add('ready');
-    toast('Mineravix v5.6 · GEOCEE','info');
+    toast('Mineravix v5.7 · GEOCEE','info');
     // ── TEKNIK 2: Load hutan lazy setelah peta tampil ────────
     // Delay 1.5 detik agar UI sudah stabil dulu sebelum fetch besar
     setTimeout(loadHutanLazy, 1500);
@@ -730,8 +736,8 @@ function initMap(){
     hideTooltip();
     if(tool!=='rad')return;
     if(rCirc)map.removeLayer(rCirc);
-    rCirc=L.circle(e.latlng,{radius:5000,color:'#2563EB',weight:1.5,fillColor:'#2563EB',fillOpacity:0.06,dashArray:'6 4'}).addTo(map);
-    const pt=turf.point([e.latlng.lng,e.latlng.lat]),buf=turf.buffer(pt,5,{units:'kilometers'});
+    rCirc=L.circle(e.latlng,{radius:radiusKM*1000,color:'#2563EB',weight:1.5,fillColor:'#2563EB',fillOpacity:0.06,dashArray:'6 4'}).addTo(map);
+    const pt=turf.point([e.latlng.lng,e.latlng.lat]),buf=turf.buffer(pt,radiusKM,{units:'kilometers'});
     window._lastRadiusData={lat:e.latlng.lat,lon:e.latlng.lng,results:[]};
     clrH();let n=0;
     ['mineral','wiup','batubara'].forEach(nm=>{
@@ -741,7 +747,7 @@ function initMap(){
               try{const gj=l.toGeoJSON();if(gj&&gj.geometry)l.feature.properties._geometry=gj.geometry;}catch(gx){}
               addRes(l.feature.properties);n++;}}catch(x){}});
     });
-    showTab('hasil');toast('Radius 5km: '+n+' wilayah ditemukan',n>0?'ok':'warn');
+    showTab('hasil');toast('Radius '+radiusKM+'km: '+n+' wilayah ditemukan',n>0?'ok':'warn');
   });
 }
 
@@ -1202,9 +1208,15 @@ function resetFilter(){$('flt-tipe').value='all';$('flt-wil').value='all';applyF
 function setTool(t){
   tool=t;
   ['id','rad'].forEach(x=>$('btn-'+x).classList.toggle('on',x===t));
-  $('tlbl').textContent=t==='id'?'Mode: Identify':'Mode: Radius 5km';
+  $('tlbl').textContent=t==='id'?'Mode: Identify':'Mode: Radius '+radiusKM+'km';
   $('rinfo').style.display=t==='rad'?'block':'none';
   if(t==='id'&&rCirc){map.removeLayer(rCirc);rCirc=null;}
+}
+function setRadiusKM(v){
+  radiusKM=parseFloat(v)||1;
+  $('rinfo').textContent='⭕ Mode Radius '+radiusKM+'km — klik titik di peta';
+  if(tool==='rad')$('tlbl').textContent='Mode: Radius '+radiusKM+'km';
+  toast('Radius analisis diubah ke '+radiusKM+' km','info');
 }
 function tglHM(){
   hmOn=!hmOn;$('btn-hm').classList.toggle('on',hmOn);
@@ -1718,7 +1730,7 @@ function appTyping(){
   $('ch-msgs').appendChild(d);$('ch-msgs').scrollTop=99999;return d;
 }
 
-function showHelp(){alert('MINERAVIX v4 — Panduan Singkat\n\n🔍 Search: Ketik nama desa/kota atau koordinat lat,lon\n🖱 Identify: Klik polygon untuk info detail\n⭕ Radius: Klik titik → semua area 5km dianalisis\n🔥 Heatmap: Warna peta berdasarkan AI Score\n📂 Upload: Klik tombol Upload di sidebar Layer\n📍 Koordinat: Gerakkan kursor di peta — lihat bar bawah\n💡 Klik nilai koordinat untuk copy ke clipboard\n\n⚠ AI Score bersifat informatif — bukan rekomendasi investasi.\nKlik ⓘ di legend peta untuk membaca disclaimer lengkap.\n\nMineravix v4 Free Tier · PT. Citra Eksplor Energi (GEOCEE)');}
+function showHelp(){alert('MINERAVIX v4 — Panduan Singkat\n\n🔍 Search: Ketik nama desa/kota atau koordinat lat,lon\n🖱 Identify: Klik polygon untuk info detail\n⭕ Radius: Pilih 1/2/5km, klik titik → area dianalisis\n🔥 Heatmap: Warna peta berdasarkan AI Score\n📂 Upload: Klik tombol Upload di sidebar Layer\n📍 Koordinat: Gerakkan kursor di peta — lihat bar bawah\n💡 Klik nilai koordinat untuk copy ke clipboard\n\n⚠ AI Score bersifat informatif — bukan rekomendasi investasi.\nKlik ⓘ di legend peta untuk membaca disclaimer lengkap.\n\nMineravix v4 Free Tier · PT. Citra Eksplor Energi (GEOCEE)');}
 function showDisc(){document.getElementById('disc-modal').classList.add('open');}
 function closeDisc(){document.getElementById('disc-modal').classList.remove('open');}
 function showUpg(){alert('🚀 Upgrade ke Mineravix Pro\n\n• Scoring otomatis seluruh wilayah\n• PDF laporan premium berkop GEOCEE\n• AI Chatbot unlimited\n• Alert perubahan WIUP otomatis\n• Akses online multi-user\n• Custom scoring parameter\n\nHubungi: info@geocee.id');}
@@ -2065,7 +2077,7 @@ async function genPointReport(){
   const aluvialKW=['aluvial','alluvial','aluvium','endapan','pasir lepas'];
   const formasiBersih=formasiData.filter(f=>!aluvialKW.some(k=>(f.LIT||'').toLowerCase().includes(k)));
   const pt=turf.point([lon,lat]);
-  const buf=turf.buffer(pt,5,{units:'kilometers'});
+  const buf=turf.buffer(pt,radiusKM,{units:'kilometers'});
   const hutanStatus=getHutanInRadius(buf);
   const wilayah=allRes.length?allRes[0].WIL||locName:locName;
   const sc=computePointScore(formasiBersih,hutanStatus,wiupData,wilayah);
@@ -2360,7 +2372,7 @@ function clearApiKey(){
 }
 
 /* ============================================================
-   FITUR v5.6: EXPORT LAYOUT PETA PDF — A4 LANDSCAPE REDESIGN
+   FITUR v5.7: EXPORT LAYOUT PETA PDF — A4 LANDSCAPE REDESIGN
    ============================================================ */
 
 // CSS Modal — inject ke head
@@ -2770,9 +2782,27 @@ async function expMapPDF(){
   const actualBarW=niceTotal/mPerMm;
   // 4 segmen
   const segW=actualBarW/4;
-  const scaleX2=MAP_X+4;
-  const scaleY2=MAP_Y2+MAP_H2-7;
   const scaleRatio=Math.round(mPerMm*1000);
+  const segUnit=niceTotal>=1000?'km':'m';
+  const segDiv=niceTotal>=1000?1000:1;
+
+  // ── Kotak latar putih untuk skala (agar tidak tabrakan & mudah dibaca) ──
+  // Tinggi kotak menampung: rasio (atas) + bar + label nilai (bawah)
+  const scBoxX=MAP_X+3;
+  const scBoxW=actualBarW+10;
+  const scBoxH=14;
+  const scBoxY=MAP_Y2+MAP_H2-scBoxH-2;
+  doc.setFillColor(255,255,255);
+  doc.setDrawColor(150,170,190);
+  doc.setLineWidth(0.25);
+  doc.rect(scBoxX,scBoxY,scBoxW,scBoxH,'FD');
+
+  const scaleX2=scBoxX+3;
+  const scaleY2=scBoxY+6;
+
+  // Skala rasio — di dalam kotak, baris atas
+  sf(6.5,'bold',[26,50,90]);
+  doc.text('1 : '+scaleRatio.toLocaleString('id-ID'),scaleX2,scBoxY+3.5);
 
   // Gambar 4 segmen hitam-putih
   const segColors=[[26,58,92],[255,255,255],[26,58,92],[255,255,255]];
@@ -2790,25 +2820,14 @@ async function expMapPDF(){
     doc.setLineWidth(0.2);
     doc.line(scaleX2+i*segW,scaleY2,scaleX2+i*segW,scaleY2+2.5);
   }
-  // Label nilai di tiap segmen
-  sf(6,'bold',[26,58,92]);
-  const segUnit=niceTotal>=1000?'km':'m';
-  const segDiv=niceTotal>=1000?1000:1;
+  // Label nilai di tiap segmen — baris bawah dalam kotak
+  sf(5.5,'bold',[26,58,92]);
   [0,0.25,0.5,0.75,1].forEach((frac,i)=>{
     const val=(niceTotal*frac/segDiv);
     const lbl=val%1===0?val.toFixed(0):val.toFixed(1);
     const xPos=scaleX2+frac*actualBarW;
-    doc.text(i===4?lbl+' '+segUnit:lbl,xPos,scaleY2+6,{align:'center'});
-    // Tick di bawah bar
-    doc.setDrawColor(26,58,92);doc.setLineWidth(0.25);
-    doc.line(xPos,scaleY2+2.5,xPos,scaleY2+3.5);
+    doc.text(i===4?lbl+' '+segUnit:lbl,xPos,scaleY2+5,{align:'center'});
   });
-  // Label unit di ujung
-  sf(6,'normal',[26,58,92]);
-  doc.text(segUnit,scaleX2+actualBarW+2,scaleY2+2,{align:'left'});
-  // Skala rasio — lebih prominent
-  sf(6.5,'bold',[26,50,90]);
-  doc.text('1 : '+scaleRatio.toLocaleString('id-ID'),scaleX2,scaleY2-2);
 
   // ── STEP 8: ARAH UTARA ──────────────────────────────────────────────────
   const nX2=MAP_X+MAP_W-11;
@@ -2821,9 +2840,9 @@ async function expMapPDF(){
   sf(7,'bold',[26,58,92]);
   doc.text('U',nX2,nY2-7.5,{align:'center'});
 
-  // Koordinat sistem — pakai MAP_Y2 dan MAP_H2
+  // Koordinat sistem — pindah ke KANAN BAWAH peta (jauh dari skala bar)
   sf(5.5,'normal',[90,110,130]);
-  doc.text('WGS 84 · EPSG:4326',MAP_X+4,MAP_Y2+MAP_H2-1.5);
+  doc.text('WGS 84 · EPSG:4326',MAP_X+MAP_W-2,MAP_Y2+MAP_H2-1.5,{align:'right'});
 
   // ── STEP 9: PANEL KANAN — INFORMASI PETA (langsung, tanpa box judul) ────
   let py=PANEL_Y;
