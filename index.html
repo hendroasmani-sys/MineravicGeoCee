@@ -298,6 +298,8 @@ html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color
 @media (max-width:768px){
   /* Tombol hamburger muncul */
   #btn-menu{display:block}
+  /* Overlay di z-index 1500, drawer di 1600 — pasti di atas peta & kontrol */
+  #sb-overlay{z-index:1500}
   /* Sidebar jadi drawer geser dari kiri, overlay di atas peta */
   #sidebar{
     position:absolute;top:0;left:0;bottom:0;
@@ -305,7 +307,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color
     transform:translateX(-100%);
     transition:transform .28s cubic-bezier(.25,1,.5,1);
     box-shadow:2px 0 16px rgba(0,0,0,.18);
-    z-index:200;
+    z-index:1600;
   }
   #sidebar.open{transform:translateX(0)}
   /* Peta jadi full lebar (sidebar tidak lagi mendorong) */
@@ -314,16 +316,26 @@ html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color
   #topbar{padding:0 10px;gap:8px}
   .tb-sub,.tb-sep{display:none}
   .tb-name{font-size:13px}
-  .tb-btn{padding:5px 9px;font-size:11px}
-  /* Toolbar peta: bisa scroll horizontal kalau sempit */
-  #mtb{max-width:calc(100% - 20px);overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch}
-  .mb{flex-shrink:0;padding:5px 9px;font-size:11px}
+  .tb-btn{padding:6px 10px;font-size:11px}
+  #btn-menu{font-size:20px;padding:6px 12px}
+  /* (B) Toolbar peta: tombol lebih besar, mudah di-tap, scroll horizontal */
+  #mtb{max-width:calc(100% - 20px);overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;gap:6px}
+  .mb{flex-shrink:0;padding:9px 13px;font-size:12px;min-height:38px;display:flex;align-items:center}
+  #sel-radius{min-height:38px;font-size:12px}
   /* Legenda lebih kecil & bisa di-scroll */
-  #legend{max-width:150px;font-size:10px;max-height:45vh}
+  #legend{max-width:150px;font-size:10px;max-height:38vh}
   /* Chat panel full screen di HP */
   #chat{width:100%}
+  /* (A) Bottom sheet: beri ruang aman bawah (navbar Android) + scroll */
+  #bs{
+    max-height:70vh;overflow-y:auto;
+    padding-bottom:calc(16px + env(safe-area-inset-bottom,0px));
+    -webkit-overflow-scrolling:touch;
+  }
+  .bs-acts{flex-wrap:wrap;gap:8px}
+  .bs-acts .btn{min-height:38px}
   /* Touch target lebih besar */
-  .sb-tab{padding:11px 0}
+  .sb-tab{padding:12px 0}
   .lck{width:18px;height:18px}
 }
 </style>
@@ -340,7 +352,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color
     <button id="btn-menu" onclick="toggleSidebar()" aria-label="Menu">☰</button>
     <div class="tb-logo">M</div>
     <div><span class="tb-name">MINERAVIX</span><span class="tb-sep">·</span><span class="tb-sub">GEOCEE</span></div>
-    <div class="tb-tier">v6.4</div>
+    <div class="tb-tier">v6.5</div>
     <div class="tb-space"></div>
     <button class="tb-btn" id="btn-chat" onclick="toggleChat()">⚡ AI Chat</button>
     <button class="tb-btn" onclick="showHelp()" style="margin-left:6px">? Bantuan</button>
@@ -633,7 +645,7 @@ async function boot(){
     await sleep(350);
     $('splash').style.display='none';
     $('app').classList.add('ready');
-    toast('Mineravix v6.4 · GEOCEE','info');
+    toast('Mineravix v6.5 · GEOCEE','info');
     // ── TEKNIK 2: Load hutan lazy setelah peta tampil ────────
     // Delay 1.5 detik agar UI sudah stabil dulu sebelum fetch besar
     setTimeout(loadHutanLazy, 1500);
@@ -1677,6 +1689,8 @@ async function doSearch(q){
 function pickR(la,lo,nm){$('srch-res').style.display='none';$('srch-inp').value=nm;flyTo(la,lo,nm);}
 function flyTo(la,lo,nm){
   map.setView([la,lo],12);
+  // Di HP: tutup sidebar drawer otomatis agar user langsung lihat peta & hasil
+  if(window.innerWidth<=768)toggleSidebar(false);
   createObservasi(la,lo,nm);
   toast('Menuju: '+nm,'info');
   // ── ANALISIS OTOMATIS dari titik search (Tahap 3) ──────────────────────
@@ -1812,10 +1826,16 @@ function toast(msg,tp='ok'){
 function toggleChat(fo){chatOpen=fo===true?true:!chatOpen;$('chat').classList.toggle('open',chatOpen);$('btn-chat').classList.toggle('active',chatOpen);if(chatOpen)setTimeout(()=>map&&map.invalidateSize(),320);}
 // Toggle sidebar drawer di HP (≤768px). fo=false untuk paksa tutup.
 function toggleSidebar(fo){
-  const sb=$('sidebar'),ov=$('sb-overlay');
-  const open=fo===false?false:!sb.classList.contains('open');
-  sb.classList.toggle('open',open);
-  if(ov)ov.classList.toggle('show',open);
+  try{
+    const sb=document.getElementById('sidebar');
+    const ov=document.getElementById('sb-overlay');
+    if(!sb)return;
+    const open=fo===false?false:!sb.classList.contains('open');
+    sb.classList.toggle('open',open);
+    if(ov)ov.classList.toggle('show',open);
+    // Refresh peta setelah animasi (penting agar tile tidak abu-abu)
+    if(map)setTimeout(()=>{try{map.invalidateSize();}catch(e){}},320);
+  }catch(e){console.warn('toggleSidebar error:',e);}
 }
 function chKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat();}}
 function sendChip(el){$('ch-inp').value=el.textContent;sendChat();}
