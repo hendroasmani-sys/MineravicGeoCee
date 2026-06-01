@@ -295,7 +295,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color
   <div id="topbar">
     <div class="tb-logo">M</div>
     <div><span class="tb-name">MINERAVIX</span><span class="tb-sep">·</span><span class="tb-sub">GEOCEE</span></div>
-    <div class="tb-tier">v6.1</div>
+    <div class="tb-tier">v6.3</div>
     <div class="tb-space"></div>
     <button class="tb-btn" id="btn-chat" onclick="toggleChat()">⚡ AI Chat</button>
     <button class="tb-btn" onclick="showHelp()" style="margin-left:6px">? Bantuan</button>
@@ -587,7 +587,7 @@ async function boot(){
     await sleep(350);
     $('splash').style.display='none';
     $('app').classList.add('ready');
-    toast('Mineravix v6.1 · GEOCEE','info');
+    toast('Mineravix v6.3 · GEOCEE','info');
     // ── TEKNIK 2: Load hutan lazy setelah peta tampil ────────
     // Delay 1.5 detik agar UI sudah stabil dulu sebelum fetch besar
     setTimeout(loadHutanLazy, 1500);
@@ -760,7 +760,8 @@ function runRadiusAnalysis(lat,lon,opt){
       addRes(p);
     }catch(x){}});
   }
-  ['mineral','wiup','batubara'].forEach(nm=>{
+  // Batubara tidak di-scan: sudah terwakili WIUP 2024 (mencakup mineral+batubara)
+  ['mineral','wiup'].forEach(nm=>{
     if(!LY[nm])return;
     LY[nm].eachLayer(l=>{try{if(turf.booleanIntersects(buf,l.toGeoJSON())){
             try{const gj=l.toGeoJSON();if(gj&&gj.geometry)l.feature.properties._geometry=gj.geometry;}catch(gx){}
@@ -857,8 +858,15 @@ async function loadDef(){
         const d=await r.json();
         if(d&&d.features&&d.features.length>0){
           addLayer(d,ef.nm);
-          if(LY[ef.nm]&&LY[ef.nm].getBounds&&LY[ef.nm].getBounds().isValid())
-            map.fitBounds(LY[ef.nm].getBounds().pad(.05));
+          // Batubara: default OFF (sudah terwakili WIUP). Data di-load untuk
+          // referensi, tapi tidak ditampilkan di peta & checkbox tidak dicentang.
+          if(ef.nm==='batubara'){
+            if(LY.batubara){try{map.removeLayer(LY.batubara);}catch(x){}}
+            const ck=$('ck-batubara');if(ck)ck.checked=false;
+          }else{
+            if(LY[ef.nm]&&LY[ef.nm].getBounds&&LY[ef.nm].getBounds().isValid())
+              map.fitBounds(LY[ef.nm].getBounds().pad(.05));
+          }
           toast(ef.nm.toUpperCase()+' auto-loaded: '+d.features.length+' fitur','ok');
         }
       }
@@ -1247,7 +1255,7 @@ function tglHM(){
   hmOn=!hmOn;$('btn-hm').classList.toggle('on',hmOn);
   toast(hmOn?'Mengaktifkan Heatmap...':'Heatmap dinonaktifkan','info');
   // Chunk per layer dengan setTimeout(0) — tidak blokir main thread
-  const layers=['mineral','wiup','batubara'];
+  const layers=['mineral','wiup'];
   let idx=0;
   function applyNext(){
     if(idx>=layers.length){
@@ -1289,10 +1297,63 @@ function gotoMyLoc(){
 
 const KS={'Batubara':90,'Nikel':88,'Tembaga':85,'Emas':80,'Bauksit':72,'Besi':65,'Mangan':60,'Mineral':55,'Geologi':30};
 const LS={'Batupasir':78,'Serpentinit':82,'Batulempung':60,'Granit':55,'Basalt':50,'Batugamping':46,'Andesit':40};
+
+// ── METALOGENESIS: scoring litologi berlapis (Tahap 4) ───────────────────
+// Berdasarkan Peta Metalogeni Indonesia (Badan Geologi/ESDM) + USGS Bulletin
+// 1693 (Cox & Singer) + model deposit USGS. Asosiasi formasi/host rock ↔ tipe
+// endapan. Dicek dari prospektivitas TERTINGGI ke terendah, berhenti di yang
+// pertama cocok (pattern matching berlapis). Skor sudah direview geolog.
+// Tiap entri: [kata-kunci litologi, skor, mineral dominan, mineral pengikut]
+const LITHO_META=[
+  // Ultramafik → Nikel laterit (tertinggi)
+  [['ultramafic','ultramafik','ultrabasa','peridotit','peridotite','dunit','dunite','harzburgit','serpentinit','serpentinite','serpentin'],88,'Nikel (laterit)','Kobalt, Kromit, PGE'],
+  // Ofiolit / kromit podiform
+  [['ofiolit','ophiolite','kromit','chromite','podiform'],85,'Kromit','Nikel, PGE'],
+  // Intrusive intermediate → Porfiri Cu-Au
+  [['diorit','diorite','granodiorit','granodiorite','tonalit','tonalite','monzonit','monzonite','porfiri','porphyry','intrusive: intermediate','intrusive intermediate'],85,'Tembaga-Emas (porfiri)','Molibdenum, Perak'],
+  // Intrusive felsic → Timah
+  [['granit','granite','granitoid','granitic','intrusive: felsic','intrusive felsic','felsic: granitoid','syenit','syenite','pegmatit','pegmatite'],82,'Timah (Sn)','Tungsten, REE'],
+  // Vulkanik intermediate → Emas epitermal
+  [['andesit','andesite','dasit','dacite','riolit','rhyolite','riodasit','trakit','trachyte','lava','piroklastik','pyroclastic','tuf','tuff','tufa','extrusive: intermediate','volcanic','vulkanik','gunungapi','gunung api','vulkaniklastik'],78,'Emas-Perak (epitermal)','Tembaga, Timbal, Seng'],
+  // Skarn (intrusive + karbonat kontak)
+  [['skarn','kontak metasomatik','contact metasomatic'],75,'Tembaga-Emas (skarn)','Besi, Seng, Timbal'],
+  // Batupasir / klastik kasar → Batubara (dinaikkan ke 75 per review)
+  [['batupasir','sandstone','clastic: coarse','clastic: medium','clastic: sandstone','clastic: flysch','flysch','batubara','coal','konglomerat','conglomerate','breksi','breccia','arenit','greywacke'],75,'Batubara','Migas, CBM'],
+  // Metamorf / melange → Emas orogenik
+  [['sekis','schist','filit','phyllite','kuarsit','quartzite','gneiss','genes','metamorf','metamorphic','melange','melan','tectonite','sabak','slate','marmer','marble'],68,'Emas (orogenik)','Antimoni, Arsen'],
+  // Batulempung/serpih kaya alumina lapuk → Bauksit (jika laterit)
+  [['bauksit','bauxite','laterit','laterite','aluminous','kaya alumina'],65,'Bauksit (laterit)','Besi, Alumina'],
+  // Karbonat → Pb-Zn MVT + semen
+  [['batugamping','limestone','gamping','karbonat','carbonate','dolomit','dolomite','dolostone','napal','marl','terumbu','reef','chemical: limestone'],58,'Pb-Zn (MVT) / Semen','Barit, Fluorit'],
+  // Aluvium / placer → Emas aluvial
+  [['aluvium','alluvium','aluvial','alluvial','endapan sungai','endapan danau','danau','rawa','placer','kerakal','kerikil','pasir','gravel','fluvial','colluvium','koluvium'],52,'Emas aluvial','Pasir besi, Timah'],
+  // Basalt / vulkanik mafik
+  [['basalt','basaltik','gabro','gabbro','dolerit','dolerite','diabas','diabase','mafic','mafik','extrusive: mafic','basa'],48,'Tembaga sekunder','Mangan, Besi'],
+  // Serpih / batulempung halus → rendah
+  [['serpih','shale','batulempung','claystone','mudstone','lempung','clay','lanau','siltstone','batulanau','clastic: fine','lumpur'],38,'Prospektivitas rendah','(Source rock migas)'],
+  // Evaporit → rendah
+  [['evaporit','evaporite','gipsum','gypsum','anhidrit','anhydrite','garam','halit','halite','chemical: evaporite'],32,'Mineral industri','-'],
+];
+// Cari skor litologi berlapis. Return {score, dominan, pengikut} atau null.
+function scoreLitologiMeta(litoStr){
+  const s=(litoStr||'').toLowerCase();
+  if(!s.trim())return null;
+  for(const[keys,score,dom,peng]of LITHO_META){
+    for(const k of keys){
+      if(s.includes(k)){return{score:score,dominan:dom,pengikut:peng};}
+    }
+  }
+  return null; // tidak teridentifikasi
+}
+
 function computeScore(p){
   const km=getKomoditas(p).toLowerCase(),lt=(p.LITHOLOGI||p.LITOLOGI||'').toLowerCase(),wl=getWilayah(p).toLowerCase();
   let sK=30;for(const[k,v]of Object.entries(KS)){if(km.includes(k.toLowerCase())){sK=v;break;}}
-  let sG=40;for(const[k,v]of Object.entries(LS)){if(lt.includes(k.toLowerCase())){sG=v;break;}}
+  // Geologi: pakai metalogenesis berlapis dulu, fallback ke LS lama
+  let sG=40;
+  const meta=scoreLitologiMeta(lt);
+  if(meta){sG=meta.score;}
+  else{for(const[k,v]of Object.entries(LS)){if(lt.includes(k.toLowerCase())){sG=v;break;}}}
   let sA=50;
   if(wl.includes('kalimantan'))sA=72;if(wl.includes('sumatera'))sA=67;
   if(wl.includes('selatan'))sA=Math.min(sA+10,100);if(wl.includes('timur'))sA=Math.min(sA+6,100);
@@ -1313,7 +1374,8 @@ function computeScore(p){
 function updW(k,v){W[k]=parseInt(v);$('wv-'+k).textContent=v+'%';}
 function runScore(heat){
   let n=0;
-  ['mineral','wiup','batubara'].forEach(nm=>{
+  // Batubara tidak di-scoring: sudah terwakili WIUP 2024
+  ['mineral','wiup'].forEach(nm=>{
     if(!LY[nm])return;
     LY[nm].eachLayer(l=>{
       try{l.feature.properties._score=computeScore(l.feature.properties);n++;}catch(x){}
@@ -2139,9 +2201,9 @@ async function genPointReport(){
   toast('Generating Point Analysis Report...','info');
   await new Promise(r=>setTimeout(r,200));
   const allRes=window._lastRadiusData.results.length?window._lastRadiusData.results:[...results];
-  const formasiData=allRes.filter(r=>r.TIP==='Mineral'||r.TIP==='Geologi'||r.TIP==='Batubara');
-  // Batubara adalah IUP tambang — dimasukkan ke wiupData untuk seksi laporan NEARBY MINING LICENSES
-  const wiupData=allRes.filter(r=>r.TIP==='WIUP'||r.TIP==='Batubara');
+  const formasiData=allRes.filter(r=>r.TIP==='Mineral'||r.TIP==='Geologi');
+  // Batubara sudah terwakili WIUP 2024 — tidak ada lagi TIP Batubara terpisah
+  const wiupData=allRes.filter(r=>r.TIP==='WIUP');
   const aluvialKW=['aluvial','alluvial','aluvium','endapan','pasir lepas'];
   const formasiBersih=formasiData.filter(f=>!aluvialKW.some(k=>(f.LIT||'').toLowerCase().includes(k)));
   const pt=turf.point([lon,lat]);
