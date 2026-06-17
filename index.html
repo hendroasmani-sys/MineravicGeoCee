@@ -860,7 +860,7 @@ async function loadHutanLazy(){
     // Sequential — tidak paralel agar browser tidak overload memory sekaligus
     for(var hi=0;hi<hutanFiles.length;hi++){
       var hf=hutanFiles[hi];
-      toast('Memuat Kawasan Hutan '+hf.nama+' ('+((hi+1)+'/2)+')...','info');
+      toast('Memuat Kawasan Hutan '+hf.nama+' ('+(hi+1)+'/2)...','info');
       try{
         var hr=await fetchWithTimeout(hf.url,120000);
         if(!hr||!hr.ok){console.warn('Hutan '+hf.nama+' not found (404)');continue;}
