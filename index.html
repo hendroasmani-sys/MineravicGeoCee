@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="Mineravix v5 — AI Geo Insight Engine untuk analisis potensi WIUP dan Batubara Indonesia. Platform GIS berbasis AI oleh PT. Citra Eksplor Energi (GEOCEE).">
+<meta name="description" content="Mineravix v6.7 — AI Geo Insight Engine untuk analisis potensi WIUP dan Batubara Indonesia. Platform GIS berbasis AI oleh PT. Citra Eksplor Energi (GEOCEE).">
 <meta name="theme-color" content="#1A3A5C">
-<title>MINERAVIX v5.4 — AI Geo Insight Engine + Performa Optimal | GEOCEE</title>
+<title>MINERAVIX v6.7 — AI Geo Insight Engine | GEOCEE</title>
 <style id="font-defs">
 /* System font stack — zero network request, instant render */
 :root {
@@ -17,6 +17,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Turf.js/6.5.0/turf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://unpkg.com/leaflet-image@0.4.0/leaflet-image.js"></script>
 <style>
 :root{
   --navy:#1A3A5C;--navy2:#0F2744;--blue:#2563EB;--blue-lt:#EFF6FF;--blue-bd:#BFDBFE;
@@ -113,6 +114,18 @@ html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color
 .btn-d{background:#FEE2E2;color:#991B1B;border:1px solid #FECACA}.btn-d:hover{background:#FCA5A5}
 .btn-u{background:#FEF3C7;color:#78350F;border:1px solid #FDE68A}.btn-u:hover{background:#FDE68A}
 .btn-sm{width:auto;padding:5px 10px;font-size:11px;display:inline-block;margin:0}
+/* MODE ANALISIS */
+.mode-seg{display:flex;gap:0;border:1px solid var(--bd2);border-radius:var(--rmd);overflow:hidden;margin-bottom:6px}
+.mode-btn{flex:1;padding:8px 6px;font-size:11px;font-weight:500;color:var(--t2);background:var(--panel);border:none;cursor:pointer;transition:.15s;text-align:center;line-height:1.3}
+.mode-btn:first-child{border-right:1px solid var(--bd2)}
+.mode-btn:hover:not(.on){background:var(--pg)}
+.mode-btn.on{background:var(--blue-lt);color:#1D4ED8}
+.mode-btn.on.mb-b{background:#EEEDFE;color:#5B21B6}
+.mode-desc{font-size:10px;color:var(--t3);text-align:center;margin-bottom:8px;min-height:13px;font-style:italic}
+.mode-badge{display:inline-block;border-radius:99px;padding:2px 9px;font-size:10px;font-weight:500;font-family:var(--fm);letter-spacing:.03em}
+.mode-badge.ma{background:var(--blue-lt);color:#1D4ED8;border:1px solid var(--blue-bd)}
+.mode-badge.mb{background:#EEEDFE;color:#5B21B6;border:1px solid #C4B5FD}
+
 /* SCORE */
 .scbig{font-family:var(--fm);font-size:44px;font-weight:500;line-height:1;text-align:center;padding:8px 0 4px}
 .sclbl{font-size:10px;color:var(--t3);text-align:center;text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px}
@@ -334,16 +347,64 @@ html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color
   }
   .bs-acts{flex-wrap:wrap;gap:8px}
   .bs-acts .btn{min-height:38px}
-  /* Touch target lebih besar */
-  .sb-tab{padding:12px 0}
+  /* Touch target — font lebih kecil untuk 5 tab */
+  .sb-tab{padding:10px 0;font-size:10px}
   .lck{width:18px;height:18px}
+  /* Sembunyikan tombol Bantuan di mobile — akses via sidebar */
+  #btn-help{display:none}
+  /* Coordinate bar: hanya LAT · LON · ZOOM di layar sempit */
+  #cdms,#cscale,.cproj{display:none}
+}
+
+/* ═══ PRINT PETA LAYAR ═══════════════════════════════════════════════ */
+@media print {
+  /* Sembunyikan semua UI kecuali peta */
+  #topbar,#sidebar,#sb-overlay,#chat,
+  .map-toolbar,.leaflet-control-zoom,
+  .leaflet-control-attribution,
+  #cbar,#bs,#splash,#disc-modal,
+  #api-modal,#upg-modal,#map-export-modal,
+  #point-report-modal,.toast-wrap{
+    display:none !important;
+  }
+  /* Peta full page */
+  body,html{margin:0;padding:0;background:#fff}
+  #app,#body-row,#map{
+    width:100vw !important;
+    height:100vh !important;
+    position:fixed !important;
+    top:0 !important;left:0 !important;
+    margin:0 !important;padding:0 !important;
+  }
+  /* Watermark GEOCEE di pojok kanan bawah */
+  #map::after{
+    content:'Mineravix by GEOCEE  ·  PT. Citra Eksplor Energi  ·  mineravix.geocee.id';
+    position:fixed;
+    bottom:12px;right:14px;
+    font-size:9px;
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    color:rgba(26,58,92,0.75);
+    background:rgba(255,255,255,0.82);
+    padding:3px 8px;
+    border-radius:3px;
+    border:0.5px solid rgba(26,58,92,0.2);
+    z-index:99999;
+    pointer-events:none;
+  }
+  /* Legenda tetap tampil di pojok kiri bawah */
+  #map-legend{
+    display:block !important;
+    position:fixed !important;
+    bottom:12px;left:14px;
+    z-index:99999;
+  }
 }
 </style>
 </head>
 <body>
 <div id="splash">
   <div class="sp-logo">MINERAVIX</div>
-  <div class="sp-sub">AI Geo Insight Engine · V5.5 · Fix Legenda & IUP</div>
+  <div class="sp-sub">AI Geo Insight Engine · v6.7 · GEOCEE</div>
   <div class="sp-bar"><div class="sp-fill" id="spf"></div></div>
   <div class="sp-msg" id="spm">Memuat sistem...</div>
 </div>
@@ -351,11 +412,11 @@ html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color
   <div id="topbar">
     <button id="btn-menu" onclick="toggleSidebar()" aria-label="Menu">☰</button>
     <div class="tb-logo">M</div>
-    <div><span class="tb-name">MINERAVIX</span><span class="tb-sep">·</span><span class="tb-sub">GEOCEE</span></div>
-    <div class="tb-tier">v6.5</div>
+    <div><span class="tb-name">MINERAVIX</span><span class="tb-sep">·</span><span class="tb-sub">by GEOCEE</span></div>
+    <div class="tb-tier">v6.7R</div>
     <div class="tb-space"></div>
     <button class="tb-btn" id="btn-chat" onclick="toggleChat()">⚡ AI Chat</button>
-    <button class="tb-btn" onclick="showHelp()" style="margin-left:6px">? Bantuan</button>
+    <button class="tb-btn" id="btn-help" onclick="showHelp()" style="margin-left:6px">? Bantuan</button>
   </div>
   <div id="body-row">
     <div id="sb-overlay" onclick="toggleSidebar(false)"></div>
@@ -373,6 +434,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color
         <div class="sb-tab"     onclick="showTab('score')">Score</div>
         <div class="sb-tab"     onclick="showTab('hasil')">Hasil</div>
         <div class="sb-tab"     onclick="showTab('export')">Export</div>
+        <div class="sb-tab"     onclick="showTab('geocee')" style="color:#F59E0B;font-weight:600">GEOCEE</div>
       </div>
       <div class="sb-panel on" id="tab-layer">
         <div class="sc">
@@ -427,13 +489,22 @@ html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color
           <div class="sc-title"><div class="sc-dot"></div>Basemap</div>
           <select class="sb-sel" id="sel-basemap" onchange="changeBM(this.value)">
             <option value="light">🗺 Light / Terang (default)</option>
-            <option value="dark">🌙 Dark</option>
-            <option value="sat">🛰 Satelit / Google Earth</option>
+            <option value="osm">🗺 OpenStreetMap (Print-friendly)</option>
+            <option value="dark">🌑 Dark / Gelap</option>
+            <option value="sat">🛰 Satelit (Esri)</option>
             <option value="topo">⛰ Topografi</option>
           </select>
         </div>
       </div>
       <div class="sb-panel" id="tab-score">
+        <div class="sc">
+          <div class="sc-title"><div class="sc-dot"></div>Mode Analisis</div>
+          <div class="mode-seg">
+            <button class="mode-btn on" id="mode-a" onclick="setAnalysisMode('A')">🔍 Cari Lahan Baru</button>
+            <button class="mode-btn mb-b" id="mode-b" onclick="setAnalysisMode('B')">📋 Konsesi Saya</button>
+          </div>
+          <div class="mode-desc" id="mode-desc">Menilai area untuk pengajuan izin baru</div>
+        </div>
         <div class="sc">
           <div class="sc-title"><div class="sc-dot"></div>Bobot Scoring</div>
           <div class="wrow"><label>Komoditas</label><input type="range" min="0" max="100" value="40" step="1" id="w-k" oninput="updW('k',this.value)"><span class="wval" id="wv-k">40%</span></div>
@@ -442,15 +513,16 @@ html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color
           <button class="btn btn-p" onclick="runScore(false)">⚡ Jalankan AI Scoring</button>
           <button class="btn btn-s" onclick="runScore(true)">🔥 Heatmap Semua Layer</button>
         </div>
-        <div class="sc" id="sp" style="display:none">
-          <div class="sc-title"><div class="sc-dot"></div>Skor Area Terpilih</div>
-          <div class="scbig" id="scnum">—</div>
-          <div class="sclbl">TOTAL AI SCORE</div>
-          <div id="scbars"></div>
-          <div class="divider"></div>
-          <div style="font-size:11px;color:var(--t2);line-height:1.7;font-family:var(--fm);white-space:pre-line" id="screko"></div>
+        <div class="sc" id="sp" style="display:none;padding:10px">
+          <div id="sp-body"></div>
         </div>
         <div class="fw-box"><div class="fw-tit">🔒 Fitur Pro</div><div class="fw-sub">Scoring batch + heatmap export + PDF premium di paket Pro.</div><button class="btn btn-u" onclick="showUpg()">⭐ Lihat Paket Pro</button></div>
+        <!-- CTA Konsultasi GEOCEE -->
+        <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:var(--rmd);padding:10px 12px;margin-top:8px">
+          <div style="font-size:11px;font-weight:600;color:#15803D;margin-bottom:4px">Butuh laporan resmi atau Feasibility Study?</div>
+          <div style="font-size:10px;color:#166534;line-height:1.6;margin-bottom:7px">Tim GEOCEE berpengalaman 17 tahun siap membantu studi lanjutan, laporan CPI, atau program pengeboran.</div>
+          <a href="https://wa.me/62811188430" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:6px;padding:7px 10px;border-radius:5px;background:#16A34A;color:#fff;font-size:11px;font-weight:600;text-decoration:none">💬 Konsultasi dengan GEOCEE →</a>
+        </div>
         <div class="disc-inline">⚠ AI Score adalah estimasi berbasis parameter terbuka. Bukan rekomendasi investasi. <span class="disc-link" onclick="showDisc()">Baca disclaimer lengkap</span></div>
       </div>
       <div class="sb-panel" id="tab-hasil">
@@ -462,15 +534,131 @@ html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color
       </div>
       <div class="sb-panel" id="tab-export">
         <div class="sc">
-          <div class="sc-title"><div class="sc-dot"></div>Download</div>
+          <div class="sc-title"><div class="sc-dot"></div>Download & Print</div>
           <button class="btn btn-s" onclick="expCSV()">📄 Download CSV</button>
           <button class="btn btn-p" onclick="expPDF()">🧾 Download Laporan PDF</button>
           <button class="btn btn-p" style="background:var(--hi)" onclick="showMapExportModal()">🗺 Export Layout Peta PDF</button>
           <button class="btn btn-p" style="background:#7C3AED" onclick="showPointReportModal()">📍 Export Point Analysis Report</button>
-          <button class="btn btn-g" onclick="expGJ()">🗺 Export GeoJSON</button>
+          <button class="btn btn-p" style="background:#0F766E" onclick="printMapScreen()">🖨 Print Peta Layar</button>
         </div>
         <div class="sc"><div class="sc-title"><div class="sc-dot"></div>Ringkasan Sesi</div><div id="sess-info"></div></div>
       </div>
+
+      <!-- ═══════════════ TAB GEOCEE ═══════════════ -->
+      <div class="sb-panel" id="tab-geocee">
+
+        <!-- Kartu Direktur -->
+        <div style="background:#1A3A5C;border-radius:8px;padding:12px 14px;margin-bottom:8px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+            <div style="width:38px;height:38px;border-radius:50%;background:#2563EB;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0">HI</div>
+            <div>
+              <div style="font-size:12px;font-weight:700;color:#fff;line-height:1.3">Ir. Hendro Ismanto, S.T</div>
+              <div style="font-size:10px;color:#93C5FD;margin-top:2px">Direktur · Competent Person Indonesia</div>
+            </div>
+          </div>
+          <div style="font-size:10px;color:#7AA3CC;line-height:1.7">PT Citra Eksplor Energi (GEOCEE)<br>Equity Tower Lt.49, SCBD Jakarta Selatan</div>
+          <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.12);font-size:10px;color:#93C5FD;font-style:italic;line-height:1.6">"Mari diskusikan kebutuhan eksplorasi Anda."</div>
+        </div>
+
+        <!-- Rekam Jejak -->
+        <div class="sc" style="margin-bottom:8px">
+          <div class="sc-title"><div class="sc-dot"></div>Rekam Jejak</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px">
+            <div style="background:#F4F7FB;border-radius:6px;padding:8px;text-align:center">
+              <div style="font-size:22px;font-weight:700;color:#1A3A5C;font-family:monospace;line-height:1">17+</div>
+              <div style="font-size:9px;color:#64748B;margin-top:2px;line-height:1.3">tahun pengalaman</div>
+            </div>
+            <div style="background:#F4F7FB;border-radius:6px;padding:8px;text-align:center">
+              <div style="font-size:22px;font-weight:700;color:#1A3A5C;font-family:monospace;line-height:1">50+</div>
+              <div style="font-size:9px;color:#64748B;margin-top:2px;line-height:1.3">proyek selesai</div>
+            </div>
+            <div style="background:#F4F7FB;border-radius:6px;padding:8px;text-align:center">
+              <div style="font-size:22px;font-weight:700;color:#1A3A5C;font-family:monospace;line-height:1">40+</div>
+              <div style="font-size:9px;color:#64748B;margin-top:2px;line-height:1.3">klien korporat</div>
+            </div>
+            <div style="background:#F4F7FB;border-radius:6px;padding:8px;text-align:center">
+              <div style="font-size:22px;font-weight:700;color:#1A3A5C;font-family:monospace;line-height:1">7</div>
+              <div style="font-size:9px;color:#64748B;margin-top:2px;line-height:1.3">komoditas tambang</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Layanan -->
+        <div class="sc" style="margin-bottom:8px">
+          <div class="sc-title"><div class="sc-dot"></div>Layanan Kami</div>
+          <div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">
+            <div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:#EFF6FF;border-radius:5px">
+              <div style="width:22px;height:22px;background:#1D4ED8;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff;flex-shrink:0;letter-spacing:-.3px">FS</div>
+              <span style="font-size:11px;color:#1D4ED8;font-weight:500">Feasibility Study & Estimasi Cadangan</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:#EFF6FF;border-radius:5px">
+              <div style="width:22px;height:22px;background:#1D4ED8;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff;flex-shrink:0">DR</div>
+              <span style="font-size:11px;color:#1D4ED8;font-weight:500">Operasi Pengeboran Eksplorasi</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:#EFF6FF;border-radius:5px">
+              <div style="width:22px;height:22px;background:#1D4ED8;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:#fff;flex-shrink:0">V&V</div>
+              <span style="font-size:11px;color:#1D4ED8;font-weight:500">Verifikasi & Validasi Laporan CPI</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:#EFF6FF;border-radius:5px">
+              <div style="width:22px;height:22px;background:#1D4ED8;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff;flex-shrink:0">GS</div>
+              <span style="font-size:11px;color:#1D4ED8;font-weight:500">Geological & Seismic Modeling</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:#EFF6FF;border-radius:5px">
+              <div style="width:22px;height:22px;background:#1D4ED8;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff;flex-shrink:0">EA</div>
+              <span style="font-size:11px;color:#1D4ED8;font-weight:500">Engineering Advisor (Retainer)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Klien Referensi -->
+        <div class="sc" style="margin-bottom:8px">
+          <div class="sc-title"><div class="sc-dot"></div>Dipercaya Oleh</div>
+          <div style="display:flex;flex-direction:column;gap:0;margin-top:6px">
+            <div style="display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:.5px solid #E2EAF4">
+              <div style="width:7px;height:7px;border-radius:50%;background:#16A34A;flex-shrink:0"></div>
+              <span style="font-size:11px;color:#1A3A5C;flex:1">PT Aneka Tambang (Antam)</span>
+              <span style="font-size:9px;color:#94A3B8;background:#F1F5F9;padding:1px 6px;border-radius:3px">BUMN</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:.5px solid #E2EAF4">
+              <div style="width:7px;height:7px;border-radius:50%;background:#16A34A;flex-shrink:0"></div>
+              <span style="font-size:11px;color:#1A3A5C;flex:1">PT Elnusa Tbk</span>
+              <span style="font-size:9px;color:#2563EB;background:#EFF6FF;padding:1px 6px;border-radius:3px">Listed</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:.5px solid #E2EAF4">
+              <div style="width:7px;height:7px;border-radius:50%;background:#16A34A;flex-shrink:0"></div>
+              <span style="font-size:11px;color:#1A3A5C;flex:1">PT Indo-Rama Synthetics Tbk</span>
+              <span style="font-size:9px;color:#2563EB;background:#EFF6FF;padding:1px 6px;border-radius:3px">Listed</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:7px;padding:5px 0">
+              <div style="width:7px;height:7px;border-radius:50%;background:#16A34A;flex-shrink:0"></div>
+              <span style="font-size:11px;color:#1A3A5C;flex:1">PT Rain Tbk</span>
+              <span style="font-size:9px;color:#2563EB;background:#EFF6FF;padding:1px 6px;border-radius:3px">Listed</span>
+            </div>
+          </div>
+          <div style="font-size:9px;color:#94A3B8;margin-top:5px">+ 40 klien korporat · 2009 – 2026</div>
+        </div>
+
+        <!-- CTA Konsultasi -->
+        <div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:12px 14px;margin-bottom:8px">
+          <div style="font-size:12px;font-weight:600;color:#78350F;margin-bottom:4px">Diskusikan kebutuhan Anda</div>
+          <div style="font-size:11px;color:#92400E;line-height:1.7;margin-bottom:10px">AI Score Mineravix adalah analisis potensi awal. Untuk Feasibility Study, laporan resmi bersertifikat CPI, atau program eksplorasi penuh — tim GEOCEE siap membantu.</div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <a href="https://wa.me/62811188430" target="_blank" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-radius:6px;background:#16A34A;color:#fff;font-size:12px;font-weight:600;text-decoration:none;box-sizing:border-box">
+              <span>💬 WhatsApp GEOCEE</span><span style="font-size:11px;opacity:.85">+62811188430</span>
+            </a>
+            <a href="mailto:info@geocee.id" style="width:100%;display:flex;align-items:center;padding:8px 12px;border-radius:6px;border:1px solid #D97706;background:transparent;color:#92400E;font-size:11px;font-weight:500;text-decoration:none;box-sizing:border-box">
+              ✉ info@geocee.id
+            </a>
+          </div>
+        </div>
+
+        <!-- Disclaimer -->
+        <div style="background:#F8FAFC;border:1px solid #E2EAF4;border-radius:6px;padding:8px 10px;text-align:center">
+          <div style="font-size:9px;color:#94A3B8;line-height:1.7">Mineravix adalah alat analisis potensi awal.<br>Bukan keputusan investasi go / no-go.<br><span style="color:#2563EB;cursor:pointer" onclick="showDisc()">Baca disclaimer lengkap</span></div>
+        </div>
+
+      </div>
+      <!-- ═══════════════ END TAB GEOCEE ═══════════════ -->
     </div>
     <div id="map-wrap">
       <div id="map"></div>
@@ -563,7 +751,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color
         </div>
       </div>
       <div class="ch-msgs" id="ch-msgs">
-        <div class="msg mai"><div class="mn">GEOCEE AI</div>Halo! Saya <b>GEOCEE AI</b>, asisten analisis pertambangan Mineravix v5. Masukkan Gemini API Key Anda via tombol ⚙️ di atas, lalu tanya saya tentang WIUP, Batubara, geologi, atau regulasi IUP.</div>
+        <div class="msg mai"><div class="mn">GEOCEE AI</div>Halo! Saya <b>GEOCEE AI</b>, asisten analisis pertambangan Mineravix v6.7. Masukkan Gemini API Key Anda via tombol ⚙️ di atas, lalu tanya saya tentang WIUP, Batubara, geologi, atau regulasi IUP.</div>
       </div>
       <div class="ch-chips">
         <div class="chip" onclick="sendChip(this)">Apa itu WIUP?</div>
@@ -645,7 +833,7 @@ async function boot(){
     await sleep(350);
     $('splash').style.display='none';
     $('app').classList.add('ready');
-    toast('Mineravix v6.5 · GEOCEE','info');
+    toast('Mineravix v6.7 · GEOCEE','info');
     // ── TEKNIK 2: Load hutan lazy setelah peta tampil ────────
     // Delay 1.5 detik agar UI sudah stabil dulu sebelum fetch besar
     setTimeout(loadHutanLazy, 1500);
@@ -731,11 +919,13 @@ function initMap(){
   }).setView([-2.5,117.5],5);
   L.control.zoom({position:'bottomright'}).addTo(map);
   // Inisialisasi basemap tiles di sini — Leaflet sudah pasti ready
-  const _topt={updateWhenIdle:true,updateWhenZooming:false,keepBuffer:4,maxNativeZoom:18,maxZoom:19};
+  const _topt={updateWhenIdle:true,updateWhenZooming:false,keepBuffer:4,maxNativeZoom:18,maxZoom:19,crossOrigin:true};
   BM.light = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{..._topt,subdomains:'abcd',attribution:'© CartoDB'});
   BM.dark  = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {..._topt,subdomains:'abcd'});
   BM.sat   = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{..._topt});
   BM.topo  = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{..._topt,maxNativeZoom:17,maxZoom:17});
+  // OSM standar — capture-friendly untuk PDF & Print (tidak diblokir CORS)
+  BM.osm   = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{..._topt,subdomains:'abc',attribution:'© OpenStreetMap contributors'});
   BM.light.addTo(map);
   let _mmTick=false;
   map.on('mousemove',e=>{
@@ -1404,31 +1594,44 @@ function scoreLitologiMeta(litoStr){
   return null; // tidak teridentifikasi
 }
 
-function computeScore(p){
+// ── SCORING MURNI GEOLOGI ────────────────────────────────────────────────
+// AI Score = f(Komoditas, Geologi/metalogenesis, Aksesibilitas) − penalti hutan.
+// Bonus status IUP & bonus luas DIHAPUS (riset: status OP tidak membuktikan
+// cadangan ekonomis; luas adalah fakta skala, bukan kualitas geologi).
+// Skor murni & stabil di semua mode analisis.
+// computeScoreDetail() mengembalikan rincian lengkap untuk laporan transparan.
+function computeScoreDetail(p){
   const km=getKomoditas(p).toLowerCase(),lt=(p.LITHOLOGI||p.LITOLOGI||'').toLowerCase(),wl=getWilayah(p).toLowerCase();
+  // Komponen 1: Komoditas
   let sK=30;for(const[k,v]of Object.entries(KS)){if(km.includes(k.toLowerCase())){sK=v;break;}}
-  // Geologi: pakai metalogenesis berlapis dulu, fallback ke LS lama
-  let sG=40;
+  // Komponen 2: Geologi — metalogenesis berlapis dulu, fallback ke LS lama
+  let sG=40;let metaInfo=null;
   const meta=scoreLitologiMeta(lt);
-  if(meta){sG=meta.score;}
+  if(meta){sG=meta.score;metaInfo=meta;}
   else{for(const[k,v]of Object.entries(LS)){if(lt.includes(k.toLowerCase())){sG=v;break;}}}
+  // Komponen 3: Aksesibilitas
   let sA=50;
   if(wl.includes('kalimantan'))sA=72;if(wl.includes('sumatera'))sA=67;
   if(wl.includes('selatan'))sA=Math.min(sA+10,100);if(wl.includes('timur'))sA=Math.min(sA+6,100);
   if(wl.includes('tengah'))sA=Math.min(sA+4,100);if(wl.includes('utara'))sA=Math.min(sA+3,100);
-  // Bonus status IUP aktif
-  const st=getStatus(p).toLowerCase();
-  let bonus=0;
-  if(st.includes('aktif')||st.includes('produksi')||st.includes('operasi'))bonus=8;
-  else if(st.includes('eksplorasi'))bonus=4;
-  else if(st.includes('konstruksi'))bonus=5;
-  // Bonus luas besar (>500 ha)
-  const luasRaw=parseFloat(p.LUAS||p.LUAS_HA||p.SHAPE_Area||0);
-  const luasHa=luasRaw>100000?luasRaw/10000:luasRaw;
-  if(luasHa>5000)bonus+=5; else if(luasHa>1000)bonus+=3; else if(luasHa>500)bonus+=1;
+  // Kontribusi berbobot tiap komponen
+  const cK=W.k/100*sK, cG=W.g/100*sG, cA=W.a/100*sA;
+  const subtotal=cK+cG+cA;
+  // Penalti kawasan hutan (satu-satunya pengurang — fakta hukum, bukan geologi)
   const hutanPen=p._hutanPenalty||0;
-  return Math.round(Math.min(Math.max(W.k/100*sK+W.g/100*sG+W.a/100*sA+bonus-hutanPen,0),100));
+  const total=Math.round(Math.min(Math.max(subtotal-hutanPen,0),100));
+  return {
+    total:total,
+    raw:{k:sK, g:sG, a:sA},                 // skor mentah tiap komponen (0-100)
+    weighted:{k:cK, g:cG, a:cA},            // kontribusi berbobot
+    weights:{k:W.k, g:W.g, a:W.a},
+    subtotal:subtotal,
+    hutanPenalty:hutanPen,
+    hutanTipe:p._hutanKonflik||null,
+    meta:metaInfo                           // {score, dominan, pengikut} atau null
+  };
 }
+function computeScore(p){ return computeScoreDetail(p).total; }
 function updW(k,v){W[k]=parseInt(v);$('wv-'+k).textContent=v+'%';}
 function runScore(heat){
   let n=0;
@@ -1462,22 +1665,116 @@ function runScore(heat){
     },300);
   }
 }
-function scLabel(s){return s>=75?'🟢 Potensi TINGGI — Layak prioritas utama':s>=50?'🟡 Potensi SEDANG — Perlu kajian lanjut':'🔴 Potensi RENDAH — Tidak disarankan';}
+function scLabel(s){return s>=75?'🟢 Potensi TINGGI':s>=50?'🟡 Potensi SEDANG':'🔴 Potensi RENDAH';}
+function scBg(s){return s>=70?'#E1F5EE':s>=45?'#FEF3C7':'#FEE2E2';}
+function scTx(s){return s>=70?'#085041':s>=45?'#78350F':'#991B1B';}
+
+function hutanLabel(t){
+  return {HL:'Hutan Lindung',HK:'Hutan Konservasi/TN',HP:'Hutan Produksi',
+    HPT:'Hutan Produksi Terbatas',HPK:'Hutan Produksi Konversi',APL:'Areal Penggunaan Lain'}[t]||null;
+}
+
+// ── GENERATOR REKOMENDASI BERBASIS ATURAN (tanpa API) ────────────────────
+function buildRekomendasi(d,wiup,p){
+  var parts=[];
+  var lit=(p&&(p.LITHOLOGI||p.LITOLOGI))?String(p.LITHOLOGI||p.LITOLOGI):'';
+  var dom=d.meta?d.meta.dominan:null;
+  if(d.total>=75){
+    parts.push('Prospektivitas tinggi'+(dom?' untuk '+dom.toLowerCase():'')+(lit?' karena litologi '+lit.toLowerCase():'')+'.');
+  }else if(d.total>=50){
+    parts.push('Prospektivitas menengah'+(dom?' untuk '+dom.toLowerCase():'')+(lit?' dengan litologi '+lit.toLowerCase():'')+'.');
+  }else{
+    parts.push('Prospektivitas rendah'+(lit?'; litologi '+lit.toLowerCase()+' kurang mendukung pembentukan endapan ekonomis':'')+'.');
+  }
+  var ht=d.hutanTipe;
+  if(ht==='HL'||ht==='HK'){
+    parts.push('Area berada di '+hutanLabel(ht)+' — dilarang untuk kegiatan pertambangan (UU No.41/1999).');
+  }else if(ht==='HP'){
+    parts.push('Area masuk Hutan Produksi — bila berproduksi wajib memiliki IPPKH (PP No.23/2021).');
+  }else if(ht==='HPT'||ht==='HPK'){
+    parts.push('Area masuk '+hutanLabel(ht)+' — perlu IPPKH untuk operasi produksi.');
+  }
+  if(wiup&&wiup.inside){
+    if(ANALYSIS_MODE==='A'){
+      parts.push('Lokasi sudah dikuasai izin pihak lain ('+wiup.holder+'); disarankan memilih area di luar WIUP yang berlaku.');
+    }else{
+      parts.push('Berada dalam WIUP yang berlaku ('+wiup.holder+').');
+    }
+  }else if(LY.wiup&&map.hasLayer(LY.wiup)){
+    if(ANALYSIS_MODE==='A')parts.push('Area di luar WIUP yang berlaku — terbuka untuk kajian pengajuan izin baru.');
+  }
+  parts.push('Diperlukan eksplorasi geologi lanjutan dan detail untuk mengetahui potensi lebih lanjut.');
+  return parts.join(' ');
+}
+
+function blokStatusIzin(wiup){
+  if(!LY.wiup||!map.hasLayer(LY.wiup))return '';
+  var info='';
+  if(wiup&&wiup.inside){
+    var detail=wiup.holder+(wiup.komoditas&&wiup.komoditas!=='-'?' — '+wiup.komoditas:'')+
+      (wiup.berakhir?' · berlaku s/d '+wiup.berakhir:'');
+    if(ANALYSIS_MODE==='A'){
+      info='<div style="background:#FEE2E2;border-left:3px solid #DC2626;padding:8px 9px;margin-bottom:8px">'+
+        '<div style="font-size:9px;color:#991B1B;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">⚠ Status Izin</div>'+
+        '<div style="font-size:11px;color:#7F1D1D;line-height:1.55">Tumpang tindih <b>'+esc(detail)+'</b>. Tidak dapat diajukan izin baru — disarankan cari lokasi di luar WIUP.</div></div>';
+    }else{
+      info='<div style="background:#EEEDFE;border-left:3px solid #7C3AED;padding:8px 9px;margin-bottom:8px">'+
+        '<div style="font-size:9px;color:#5B21B6;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">📋 Status Izin</div>'+
+        '<div style="font-size:11px;color:#4C1D95;line-height:1.55">Dalam <b>'+esc(detail)+'</b>. Konsesi aktif &amp; sah.</div></div>';
+    }
+  }else{
+    if(ANALYSIS_MODE==='A'){
+      info='<div style="background:#E1F5EE;border-left:3px solid #16A34A;padding:8px 9px;margin-bottom:8px">'+
+        '<div style="font-size:9px;color:#085041;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">✓ Status Izin</div>'+
+        '<div style="font-size:11px;color:#14532D;line-height:1.55">Di luar WIUP yang berlaku — terbuka untuk kajian pengajuan izin baru.</div></div>';
+    }
+  }
+  return info;
+}
+
 function showSP(sc,p){
   $('sp').style.display='block';
-  const el=$('scnum');el.style.color=scColor(sc);animN(el,0,sc,700);
-  const perusInfo=p?getPerusahaan(p):'';
-  const statusInfo=p?getStatus(p):'';
-  const noIUP=p?getNomor(p):'';
-  $('screko').textContent=scLabel(sc)+(p?
-    '\n\nPerusahaan: '+(perusInfo||'-')+
-    '\nKomoditas: '+getKomoditas(p)+
-    '\nLitologi: '+(p.LITHOLOGI||p.LITOLOGI||'-')+
-    '\nWilayah: '+getWilayah(p)+
-    (statusInfo?'\nStatus IUP: '+statusInfo:'')+
-    (noIUP?'\nNomor IUP: '+noIUP:'')
-    :'');
-  $('scbars').innerHTML=[['Komoditas',W.k,'#2563EB'],['Geologi',W.g,'#16A34A'],['Aksesibilitas',W.a,'#D97706']].map(([n,w,c])=>`<div class="scrow"><div class="scrow-h"><span>${n}</span><span style="color:${c}">${w}%</span></div><div class="sctrack"><div class="scfill" style="width:${w}%;background:${c}"></div></div></div>`).join('');
+  var d=p?computeScoreDetail(p):{total:sc,raw:{k:0,g:0,a:0},weighted:{k:0,g:0,a:0},weights:{k:W.k,g:W.g,a:W.a},subtotal:sc,hutanPenalty:0,hutanTipe:null,meta:null};
+  var wiup={inside:false};
+  try{
+    if(p&&p._geometry)wiup=detectWIUPContext({type:'Feature',properties:{},geometry:p._geometry});
+    else if(curL&&curL.toGeoJSON)wiup=detectWIUPContext(curL.toGeoJSON());
+  }catch(e){}
+  var modeBadge=(ANALYSIS_MODE==='A')
+    ?'<span class="mode-badge ma">🔍 Mode: Cari Lahan</span>'
+    :'<span class="mode-badge mb">📋 Mode: Konsesi Saya</span>';
+  function compRow(nm,raw,w,wt,col){
+    return '<div style="margin-bottom:9px"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;font-family:var(--fm)">'+
+      '<span style="color:var(--t2)">'+nm+' '+w+'%</span><span style="color:'+col+'">'+raw+' → '+wt.toFixed(1)+'</span></div>'+
+      '<div class="sctrack"><div class="scfill" style="width:'+raw+'%;background:'+col+'"></div></div></div>';
+  }
+  var html='';
+  html+='<div style="font-size:10px;font-weight:600;color:var(--navy);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Skor Area Terpilih</div>';
+  html+='<div style="text-align:center;margin-bottom:4px">'+modeBadge+'</div>';
+  html+='<div class="scbig" id="scnum" style="color:'+scColor(d.total)+'">'+d.total+'</div>';
+  html+='<div style="font-size:9px;color:var(--t3);text-align:center;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px">Total AI Score · Geologi</div>';
+  html+='<div style="background:'+scBg(d.total)+';border-radius:var(--rmd);padding:6px 9px;margin-bottom:12px;text-align:center"><span style="font-size:11px;font-weight:500;color:'+scTx(d.total)+'">'+scLabel(d.total)+'</span></div>';
+  html+='<div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px">Rincian Komponen</div>';
+  html+=compRow('Komoditas',d.raw.k,d.weights.k,d.weighted.k,'#2563EB');
+  html+=compRow('Geologi',d.raw.g,d.weights.g,d.weighted.g,'#16A34A');
+  html+=compRow('Aksesibilitas',d.raw.a,d.weights.a,d.weighted.a,'#D97706');
+  html+='<div style="border-top:.5px solid var(--bd);margin:10px 0;padding-top:9px">';
+  html+='<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0;font-family:var(--fm)"><span style="color:var(--t2)">Subtotal</span><span style="color:var(--t1)">'+d.subtotal.toFixed(1)+'</span></div>';
+  if(d.hutanPenalty>0){html+='<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0;font-family:var(--fm)"><span style="color:var(--t2)">Penalti '+(d.hutanTipe||'hutan')+'</span><span style="color:#DC2626">−'+d.hutanPenalty+'</span></div>';}
+  html+='</div>';
+  if(d.meta){
+    html+='<div style="background:var(--panel);border:1px solid var(--bd);border-radius:var(--rmd);padding:8px 9px;margin-bottom:8px">'+
+      '<div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Metalogenesis</div>'+
+      '<div style="font-size:11px;color:var(--t2);line-height:1.55">'+(p?esc(String(p.LITHOLOGI||p.LITOLOGI||'-')):'-')+' → <b style="color:var(--t1)">'+esc(d.meta.dominan)+'</b><br>'+
+      (d.meta.pengikut&&d.meta.pengikut!=='-'?'Pengikut: '+esc(d.meta.pengikut)+'<br>':'')+
+      '<span style="color:var(--t3);font-size:10px">Ref: USGS Bull. 1693 · ESDM</span></div></div>';
+  }
+  html+=blokStatusIzin(wiup);
+  html+='<div style="background:var(--panel);border:1px solid var(--bd);border-radius:var(--rmd);padding:8px 9px">'+
+    '<div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Rekomendasi</div>'+
+    '<div style="font-size:11px;color:var(--t2);line-height:1.55">'+esc(buildRekomendasi(d,wiup,p))+'</div></div>';
+  $('sp-body').innerHTML=html;
+  try{var el=$('scnum');if(el)animN(el,0,d.total,700);}catch(e){}
 }
 function animN(el,f,t,d){
   // Cancel RAF lama jika ada — cegah multiple loops bersamaan
@@ -1585,7 +1882,7 @@ function openBS(p,l){
     if(pen>=35)hutanBadge='<span class="tag" style="background:#FEE2E2;color:#991B1B;margin-left:4px">Zona Konflik Hutan</span>';
     else if(pen>=15)hutanBadge='<span class="tag" style="background:#FEF3C7;color:#92400E;margin-left:4px">Perlu Kajian Hutan</span>';
     else if(pen>0)hutanBadge='<span class="tag" style="background:#FEF9C3;color:#854D0E;margin-left:4px">Overlap HPT/HPK</span>';}
-  $('bs-tags').innerHTML=`<span class="tag ${tc}">${tp||'Data'}</span>${hutanBadge}`;
+  $('bs-tags').innerHTML=`<span class="tag ${tc}">${tp||'Data'}</span>${hutanBadge}${modeBadgeBS()}`;
   const perus=getPerusahaan(p),nomor=getNomor(p),status=getStatus(p),luas=getLuas(p);
   // Lapis 3 fallback: jika perusahaan kosong, tambahkan semua properties non-kosong
   let extraFlds=[];
@@ -1655,7 +1952,7 @@ function renderH(){
       <div class="ri-m">${perusLine}${r.KOM} · ${r.WIL}${staLine}<br><span class="tag ${tc}">${r.TIP}</span>${r.LUA&&r.LUA!=='-'?` <span style="color:var(--t3)">${r.LUA}</span>`:''}</div>
     </div>`;}).join('');
 }
-function clrH(){results=[];renderH();updSess();if(rCirc){map.removeLayer(rCirc);rCirc=null;}$('sp').style.display='none';$('scnum').textContent='—';}
+function clrH(){results=[];renderH();updSess();if(rCirc){map.removeLayer(rCirc);rCirc=null;}$('sp').style.display='none';const scnum=$('scnum');if(scnum)scnum.textContent='—';}
 
 function onSI(v){$('srch-clr').style.display=v?'block':'none';clearTimeout(sTimer);if(!v.trim()){$('srch-res').style.display='none';return;}sTimer=setTimeout(()=>doSearch(v.trim()),350);}
 function onSK(e){
@@ -1755,6 +2052,24 @@ function createObservasi(la,lo,nm){
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 document.addEventListener('click',e=>{if(!$('sb-search').contains(e.target))$('srch-res').style.display='none';});
 
+// ── PRINT PETA LAYAR ────────────────────────────────────────────────────
+function printMapScreen(){
+  // Pastikan basemap Print-friendly aktif sebelum print
+  const sel=$('sel-basemap');
+  const prevBM=sel?sel.value:'light';
+  const needSwitch=(prevBM==='light'||prevBM==='dark');
+  if(needSwitch){
+    // Switch sementara ke OSM untuk capture yang lebih baik
+    changeBM('osm');
+    if(sel)sel.value='osm';
+    toast('Basemap diubah ke OpenStreetMap untuk print — lebih sesuai hasil cetak.','info');
+  }
+  // Tunggu tiles load lalu print
+  setTimeout(()=>{
+    window.print();
+  },needSwitch?1800:400);
+}
+
 function expCSV(){
   if(!results.length){toast('Belum ada data','warn');return;}
   const cols=['NO','NAMA_WIUP','PERUSAHAAN','KOMODITAS','WILAYAH','LITOLOGI','TIPE','STATUS_IUP','NOMOR_IUP','LUAS','AI_SCORE'];
@@ -1779,8 +2094,9 @@ async function expPDF(){
   toast('Membuat PDF...','info');
   const{jsPDF}=window.jspdf,doc=new jsPDF('l','mm','a4'),PW=doc.internal.pageSize.getWidth(),PH=doc.internal.pageSize.getHeight();
   doc.setFillColor(26,58,92);doc.rect(0,0,PW,22,'F');
-  doc.setTextColor(255,255,255);doc.setFontSize(16);doc.setFont('helvetica','bold');doc.text('MINERAVIX',14,10);
-  doc.setFontSize(9);doc.setFont('helvetica','normal');doc.text('AI Geo Insight Engine · PT. Citra Eksplor Energi (GEOCEE)',14,16);
+  try{doc.addImage(GEOCEE_LOGO_B64,'PNG',14,4,14,14);}catch(e){}
+  doc.setTextColor(255,255,255);doc.setFontSize(16);doc.setFont('helvetica','bold');doc.text('MINERAVIX',32,10);
+  doc.setFontSize(9);doc.setFont('helvetica','normal');doc.text('by GEOCEE  ·  PT. Citra Eksplor Energi  ·  AI Geo Insight Engine',32,16);
   doc.setTextColor(180,200,220);doc.text('Laporan: '+new Date().toLocaleString('id-ID'),PW-14,16,{align:'right'});
   const avg=results.length?Math.round(results.reduce((s,r)=>s+r.SC,0)/results.length):0;
   doc.setFillColor(244,247,251);doc.rect(14,26,PW-28,14,'F');
@@ -1798,7 +2114,7 @@ async function expPDF(){
     doc.setFont('helvetica','bold');doc.setTextColor(...scc);doc.text(String(sc),xp[7],y);y+=7;
   });
   const pg=doc.internal.getNumberOfPages();
-  for(let p=1;p<=pg;p++){doc.setPage(p);doc.setFillColor(26,58,92);doc.rect(0,PH-10,PW,10,'F');doc.setTextColor(70,100,140);doc.setFontSize(6.5);doc.setFont('helvetica','normal');doc.text('MINERAVIX v4 · GEOCEE · Hal. '+p+' dari '+pg+' · AI Score bersifat informatif — bukan rekomendasi investasi · PT. Citra Eksplor Energi tidak bertanggung jawab atas keputusan berdasarkan data ini',PW/2,PH-5,{align:'center'});}
+  for(let p=1;p<=pg;p++){doc.setPage(p);doc.setFillColor(26,58,92);doc.rect(0,PH-10,PW,10,'F');doc.setTextColor(70,100,140);doc.setFontSize(6.5);doc.setFont('helvetica','normal');doc.text('MINERAVIX v6.7R by GEOCEE · AI Score bersifat informatif — bukan rekomendasi investasi go/no-go',14,PH-5,{align:'left'});doc.text('WA: +62811188430  ·  info@geocee.id',PW-14,PH-5,{align:'right'});}
   doc.save('mineravix_laporan_'+stmp()+'.pdf');toast('PDF berhasil didownload','ok');
 }
 function dlB(c,fn,m){const b=new Blob([c],{type:m}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=fn;a.click();URL.revokeObjectURL(u);}
@@ -1806,11 +2122,11 @@ function stmp(){return new Date().toISOString().slice(0,10).replace(/-/g,'');}
 
 function updSess(){
   const d=Math.round((Date.now()-sessStart)/60000),avg=results.length?Math.round(results.reduce((s,r)=>s+r.SC,0)/results.length):'-';
-  $('sess-info').innerHTML=[['Mulai sesi',sessStart.toLocaleTimeString('id-ID')],['Durasi',d+' menit'],['Wilayah dianalisis',results.length],['Rata-rata Score',avg],['Versi','Mineravix v5']].map(([k,v])=>`<div class="skv"><span class="sk">${k}</span><span class="sv">${v}</span></div>`).join('');
+  $('sess-info').innerHTML=[['Mulai sesi',sessStart.toLocaleTimeString('id-ID')],['Durasi',d+' menit'],['Wilayah dianalisis',results.length],['Rata-rata Score',avg],['Versi','Mineravix v6.7R by GEOCEE']].map(([k,v])=>`<div class="skv"><span class="sk">${k}</span><span class="sv">${v}</span></div>`).join('');
 }
 
 function showTab(nm){
-  const tabs=['layer','score','hasil','export'],tels=document.querySelectorAll('.sb-tab');
+  const tabs=['layer','score','hasil','export','geocee'],tels=document.querySelectorAll('.sb-tab');
   tabs.forEach((t,i)=>{tels[i].classList.toggle('on',t===nm);$('tab-'+t).classList.toggle('on',t===nm);});
   updSess();
 }
@@ -1853,7 +2169,7 @@ async function sendChat(){
   inp.value='';
   appMsg(text,'u');
   // Susun prompt sistem + konteks data aktif
-  let ctx='Kamu adalah GEOCEE AI, asisten analisis pertambangan untuk Mineravix v5 milik PT. Citra Eksplor Energi (GEOCEE). '+
+  let ctx='Kamu adalah GEOCEE AI, asisten analisis pertambangan untuk Mineravix v6.7 milik PT. Citra Eksplor Energi (GEOCEE). '+
     'Fokus wilayah: Kalimantan dan Sumatera. '+
     'Keahlian: WIUP, IUP, Batubara, regulasi ESDM, geologi Indonesia, potensi mineral, kawasan hutan KLHK. '+
     'Regulasi kehutanan: UU No.41/1999, PP No.23/2021. HL/HK/TN dilarang tambang. HP/HPT/HPK perlu IPPKH. '+
@@ -1933,10 +2249,10 @@ function appTyping(){
   $('ch-msgs').appendChild(d);$('ch-msgs').scrollTop=99999;return d;
 }
 
-function showHelp(){alert('MINERAVIX v4 — Panduan Singkat\n\n🔍 Search: Ketik nama desa/kota atau koordinat lat,lon\n🖱 Identify: Klik polygon untuk info detail\n⭕ Radius: Pilih 1/2/5km, klik titik → area dianalisis\n🔥 Heatmap: Warna peta berdasarkan AI Score\n📂 Upload: Klik tombol Upload di sidebar Layer\n📍 Koordinat: Gerakkan kursor di peta — lihat bar bawah\n💡 Klik nilai koordinat untuk copy ke clipboard\n\n⚠ AI Score bersifat informatif — bukan rekomendasi investasi.\nKlik ⓘ di legend peta untuk membaca disclaimer lengkap.\n\nMineravix v4 Free Tier · PT. Citra Eksplor Energi (GEOCEE)');}
+function showHelp(){alert('MINERAVIX v6.7 — Panduan Singkat\n\n🔍 Search: Ketik nama desa/kota atau koordinat lat,lon\n🖱 Identify: Klik polygon untuk info detail\n⭕ Radius: Pilih 1/2/5km, klik titik → area dianalisis\n🔥 Heatmap: Warna peta berdasarkan AI Score\n📂 Upload: Klik tombol Upload di sidebar Layer\n📍 Koordinat: Gerakkan kursor di peta — lihat bar bawah\n💡 Klik nilai koordinat untuk copy ke clipboard\n\n⚠ AI Score bersifat informatif — bukan rekomendasi investasi.\nKlik ⓘ di legend peta untuk membaca disclaimer lengkap.\n\nMineravix v6.7 · PT. Citra Eksplor Energi (GEOCEE)');}
 function showDisc(){document.getElementById('disc-modal').classList.add('open');}
 function closeDisc(){document.getElementById('disc-modal').classList.remove('open');}
-function showUpg(){alert('🚀 Upgrade ke Mineravix Pro\n\n• Scoring otomatis seluruh wilayah\n• PDF laporan premium berkop GEOCEE\n• AI Chatbot unlimited\n• Alert perubahan WIUP otomatis\n• Akses online multi-user\n• Custom scoring parameter\n\nHubungi: info@geocee.id');}
+function showUpg(){alert('🚀 Upgrade ke Mineravix Pro\n\n• Scoring otomatis seluruh wilayah\n• PDF laporan premium berkop GEOCEE\n• AI Chatbot unlimited\n• Alert perubahan WIUP otomatis\n• Akses online multi-user\n• Custom scoring parameter\n\nHubungi GEOCEE:\nWA: +62811188430\nEmail: info@geocee.id');}
 
 /* ── TOOLTIP ──────────────────────────────────────────────── */
 var _ttEl=null;
@@ -2076,6 +2392,82 @@ function getHutanPenalty(tipe){
   if(tipe==='HP')return 15;
   if(['HPT','HPK'].includes(tipe))return 10;
   return 0;
+}
+
+// ── MODE ANALISIS ────────────────────────────────────────────────────────
+// 'A' = Cari Lahan Baru (greenfield): WIUP pihak lain = peringatan, tidak bisa diajukan.
+// 'B' = Konsesi Saya (brownfield): WIUP = informasi, konsesi sah.
+// Tidak memengaruhi angka skor (skor murni geologi). Hanya mengubah nada peringatan.
+var ANALYSIS_MODE='A';
+function setAnalysisMode(m){
+  ANALYSIS_MODE=(m==='B')?'B':'A';
+  try{
+    var a=document.getElementById('mode-a'),b=document.getElementById('mode-b');
+    if(a)a.classList.toggle('on',ANALYSIS_MODE==='A');
+    if(b)b.classList.toggle('on',ANALYSIS_MODE==='B');
+    var d=document.getElementById('mode-desc');
+    if(d)d.textContent=(ANALYSIS_MODE==='A')
+      ?'Menilai area untuk pengajuan izin baru'
+      :'Menilai area dalam konsesi Anda sendiri';
+  }catch(e){}
+  // Jika ada area terpilih, refresh laporan agar nada peringatan ikut berubah
+  if(curP&&document.getElementById('sp')&&document.getElementById('sp').style.display!=='none'){
+    try{showSP(computeScore(curP),curP);}catch(e){}
+  }
+  // Refresh badge mode di bottom sheet bila terbuka
+  try{
+    var bs=document.getElementById('bs');
+    if(bs&&bs.classList.contains('open')&&curP&&curL){openBS(curP,curL);}
+  }catch(e){}
+}
+// Badge mode aktif untuk bottom sheet (read-only)
+function modeBadgeBS(){
+  return (ANALYSIS_MODE==='A')
+    ?'<span class="tag" style="background:var(--blue-lt);color:#1D4ED8;margin-left:4px">🔍 Cari Lahan</span>'
+    :'<span class="tag" style="background:#EEEDFE;color:#5B21B6;margin-left:4px">📋 Konsesi Saya</span>';
+}
+
+// ── DETEKSI KONTEKS WIUP ─────────────────────────────────────────────────
+// Cek apakah sebuah titik/area berada di dalam WIUP. Siap-CSV: input fleksibel.
+// arg bisa berupa:
+//   - [lon,lat]                     (titik dari klik/Radius/input manual)
+//   - {lat,lng}                     (Leaflet latlng)
+//   - GeoJSON Feature/geometry      (polygon area, mis. dari CSV/boundary)
+// Return: {inside:bool, holder, komoditas, status, nomor, berlaku, berakhir, props} atau {inside:false}.
+function detectWIUPContext(arg){
+  var out={inside:false};
+  if(!LY.wiup||!map.hasLayer(LY.wiup))return out; // hanya jalan jika layer WIUP aktif
+  // Normalisasi input jadi GeoJSON geometry untuk turf
+  var probe=null;
+  try{
+    if(Array.isArray(arg)&&arg.length>=2){probe=turf.point([arg[0],arg[1]]);}
+    else if(arg&&typeof arg.lat==='number'&&typeof arg.lng==='number'){probe=turf.point([arg.lng,arg.lat]);}
+    else if(arg&&arg.type==='Feature'){probe=arg;}
+    else if(arg&&arg.type&&arg.coordinates){probe={type:'Feature',properties:{},geometry:arg};}
+    else return out;
+  }catch(e){return out;}
+  var found=null;
+  try{
+    LY.wiup.eachLayer(function(l){
+      if(found||!l.feature)return;
+      try{
+        var gj=l.toGeoJSON();
+        if(turf.booleanIntersects(probe,gj)){found=l.feature;}
+      }catch(te){}
+    });
+  }catch(ee){}
+  if(!found)return out;
+  var p=found.properties||{};
+  return {
+    inside:true,
+    holder:getPerusahaan(p)||getNama(p)||'Pemegang tidak diketahui',
+    komoditas:getKomoditas(p)||'-',
+    status:getStatus(p)||'',
+    nomor:getNomor(p)||'',
+    berlaku:p.tgl_berlak||'',
+    berakhir:p.tgl_akhir||'',
+    props:p
+  };
 }
 function epsg3857toWGS84(x,y){
   const lon=x/20037508.342*180;
@@ -2297,9 +2689,10 @@ async function genPointReport(){
   let y=0;
   // KOP
   doc.setFillColor(26,58,92);doc.rect(0,0,PW,28,'F');
-  sf(16,'bold',[255,255,255]);doc.text('MINERAVIX v5.1',PAD,11);
-  sf(9,'normal',[147,197,253]);doc.text('MINERAL POTENTIAL ANALYSIS REPORT',PAD,17);
-  doc.text('AI Geo Insight Engine - PT. Citra Eksplor Energi (GEOCEE)',PAD,22);
+  try{doc.addImage(GEOCEE_LOGO_B64,'PNG',PAD,5,16,16);}catch(e){}
+  sf(16,'bold',[255,255,255]);doc.text('MINERAVIX v6.7R',PAD+20,11);
+  sf(9,'normal',[147,197,253]);doc.text('MINERAL POTENTIAL ANALYSIS REPORT',PAD+20,17);
+  doc.text('by GEOCEE  ·  PT. Citra Eksplor Energi',PAD+20,22);
   sf(8,'normal',[100,140,180]);doc.text('Generated: '+tgl,PW-PAD,22,{align:'right'});
   y=32;
   // IDENTITAS
@@ -2420,7 +2813,7 @@ async function genPointReport(){
     doc.setPage(p);const PH2=doc.internal.pageSize.getHeight();
     doc.setFillColor(26,58,92);doc.rect(0,PH2-10,PW,10,'F');
     sf(6.5,'normal',[120,160,200]);
-    doc.text('MINERAVIX v5.1 - AI Geo Insight Engine - PT. Citra Eksplor Energi (GEOCEE) - Data is informational only - Page '+p+' of '+pg,PW/2,PH2-4,{align:'center'});
+    doc.text('MINERAVIX v6.7R by GEOCEE  ·  AI Score is informational only — not a go/no-go investment decision',14,PH2-4,{align:'left'});doc.text('WA: +62811188430  |  info@geocee.id',PW/2+30,PH2-4,{align:'left'});
   }
   const fname='mineravix_point_analysis_'+new Date().toISOString().slice(0,10).replace(/-/g,'')+'.pdf';
   doc.save(fname);
@@ -2698,89 +3091,77 @@ async function expMapPDF(){
   toast('Menyiapkan layout peta...','info');
   await new Promise(r=>setTimeout(r,200));
 
-  // ── STEP 1: (Solusi B) TIDAK ada panTo ────────────────────────────────
-  // Titik analisis sudah di tengah layar sejak search/klik (setView center).
-  // Capture langsung apa yang dilihat user → layar = PDF (WYSIWYG).
-  const hasRadius=window._lastRadiusData&&window._lastRadiusData.lat&&window._lastRadiusData.lon;
-
-  // ── STEP 2: CAPTURE CANVAS PETA + CROP CENTER (WYSIWYG) ─────────────────
-  // Rasio area peta PDF (lihat STEP 3): MAP_W/MAP_H. Hitung di sini agar
-  // capture layar di-crop center sesuai rasio PDF → tidak ada distorsi,
-  // titik tengah layar = titik tengah PDF. Bagian kiri-kanan layar yang
-  // melebihi rasio PDF akan terpotong (sesuai pilihan crop center).
-  const PDF_MAP_W=297-10*2-76-5*2-14-3; // MAP_W (lihat STEP 3 konstanta)
-  const PDF_MAP_H=210-10*2-20-9-5*2-10-8; // MAP_H - GRID_TOP (area peta efektif)
+  // ── STEP 1-2: CAPTURE PETA (HIBRIDA: basemap via leaflet-image, fallback grid) ──
+  // Rasio area peta PDF agar capture di-crop center sesuai PDF (tanpa distorsi).
+  const PDF_MAP_W=297-10*2-76-5*2-14-3;
+  const PDF_MAP_H=210-10*2-20-9-5*2-10-8;
   const pdfRatio=PDF_MAP_W/PDF_MAP_H;
   let mapImgData=null;
   let mapBounds=null;
-  try{
-    const fullBounds=map.getBounds();
-    const mapEl=document.getElementById('map');
-    const origBg=mapEl.style.background;
-    mapEl.style.background='#E8EDF2';
-    const tiles=mapEl.querySelectorAll('.leaflet-tile-pane');
-    tiles.forEach(t=>{t.style.visibility='hidden';});
-    await new Promise(r=>setTimeout(r,150));
+  let basemapOK=false;
 
-    const allCanvas=mapEl.querySelectorAll('canvas');
-    const rect=mapEl.getBoundingClientRect();
-    const W=Math.round(rect.width)||800;
-    const H=Math.round(rect.height)||500;
-    // Gabung semua canvas layar dulu (full viewport)
-    const merge=document.createElement('canvas');
-    merge.width=W;merge.height=H;
-    const ctx=merge.getContext('2d');
-    ctx.fillStyle='#E8EDF2';
-    ctx.fillRect(0,0,W,H);
-    allCanvas.forEach(c=>{
-      try{
-        const cr=c.getBoundingClientRect();
-        ctx.drawImage(c,cr.left-rect.left,cr.top-rect.top);
-      }catch(ex){}
-    });
-
-    // ── CROP CENTER sesuai rasio PDF ──────────────────────────────────────
+  // Helper: crop sebuah source-canvas ke rasio PDF (center), return {dataURL,bounds}
+  function cropToPdf(srcCanvas,W,H,fullBounds){
     const screenRatio=W/H;
     let cropX,cropY,cropW,cropH;
-    if(screenRatio>pdfRatio){
-      // Layar lebih lebar → potong kiri-kanan
-      cropH=H;
-      cropW=H*pdfRatio;
-      cropX=(W-cropW)/2;
-      cropY=0;
-    }else{
-      // Layar lebih tinggi → potong atas-bawah
-      cropW=W;
-      cropH=W/pdfRatio;
-      cropX=0;
-      cropY=(H-cropH)/2;
-    }
-    // Canvas hasil crop
+    if(screenRatio>pdfRatio){cropH=H;cropW=H*pdfRatio;cropX=(W-cropW)/2;cropY=0;}
+    else{cropW=W;cropH=W/pdfRatio;cropX=0;cropY=(H-cropH)/2;}
     const cropped=document.createElement('canvas');
-    cropped.width=Math.round(cropW);
-    cropped.height=Math.round(cropH);
+    cropped.width=Math.round(cropW);cropped.height=Math.round(cropH);
     const cctx=cropped.getContext('2d');
-    cctx.drawImage(merge,cropX,cropY,cropW,cropH,0,0,cropW,cropH);
-    mapImgData=cropped.toDataURL('image/jpeg',0.92);
-
-    // ── Hitung mapBounds hasil crop (untuk grid koordinat) ────────────────
-    // Konversi pixel crop ke lat/lon menggunakan bounds layar penuh
-    const fN=fullBounds.getNorth(),fS=fullBounds.getSouth();
-    const fW=fullBounds.getWest(),fE=fullBounds.getEast();
-    const lonPerPx=(fE-fW)/W;
-    const latPerPx=(fN-fS)/H;
-    const cropWest=fW+cropX*lonPerPx;
-    const cropEast=fW+(cropX+cropW)*lonPerPx;
-    const cropNorth=fN-cropY*latPerPx;
-    const cropSouth=fN-(cropY+cropH)*latPerPx;
-    mapBounds=L.latLngBounds([[cropSouth,cropWest],[cropNorth,cropEast]]);
-
-    tiles.forEach(t=>{t.style.visibility='';});
-    mapEl.style.background=origBg;
-  }catch(ex){
-    toast('Gagal capture peta: '+ex.message,'err');
-    return;
+    cctx.fillStyle='#FFFFFF';cctx.fillRect(0,0,cropped.width,cropped.height);
+    cctx.drawImage(srcCanvas,cropX,cropY,cropW,cropH,0,0,cropW,cropH);
+    const fN=fullBounds.getNorth(),fS=fullBounds.getSouth(),fW=fullBounds.getWest(),fE=fullBounds.getEast();
+    const lonPerPx=(fE-fW)/W,latPerPx=(fN-fS)/H;
+    const b=L.latLngBounds([[fN-(cropY+cropH)*latPerPx,fW+cropX*lonPerPx],[fN-cropY*latPerPx,fW+(cropX+cropW)*lonPerPx]]);
+    return {dataURL:cropped.toDataURL('image/jpeg',0.92),bounds:b};
   }
+
+  const fullBounds=map.getBounds();
+  const mapEl=document.getElementById('map');
+  const rect=mapEl.getBoundingClientRect();
+  const SW=Math.round(rect.width)||800, SH=Math.round(rect.height)||500;
+
+  // Percobaan 1: leaflet-image (basemap + polygon). Timeout 6 detik.
+  try{
+    if(typeof leafletImage==='function'){
+      const liCanvas=await new Promise((resolve,reject)=>{
+        const to=setTimeout(()=>reject(new Error('timeout')),6000);
+        try{
+          leafletImage(map,function(err,canvas){
+            clearTimeout(to);
+            if(err||!canvas)reject(err||new Error('no canvas'));else resolve(canvas);
+          });
+        }catch(e){clearTimeout(to);reject(e);}
+      });
+      // Uji apakah canvas bisa diekspor (tidak tainted oleh CORS)
+      const test=cropToPdf(liCanvas,liCanvas.width,liCanvas.height,fullBounds);
+      mapImgData=test.dataURL; mapBounds=test.bounds; basemapOK=true;
+    }
+  }catch(eLI){ basemapOK=false; }
+
+  // Percobaan 2 (fallback): grid bersih — gabung canvas polygon di atas latar putih.
+  if(!basemapOK){
+    try{
+      const tiles=mapEl.querySelectorAll('.leaflet-tile-pane');
+      tiles.forEach(t=>{t.style.visibility='hidden';});
+      await new Promise(r=>setTimeout(r,120));
+      const allCanvas=mapEl.querySelectorAll('canvas');
+      const merge=document.createElement('canvas');
+      merge.width=SW;merge.height=SH;
+      const ctx=merge.getContext('2d');
+      ctx.fillStyle='#FFFFFF';ctx.fillRect(0,0,SW,SH);
+      allCanvas.forEach(c=>{try{const cr=c.getBoundingClientRect();ctx.drawImage(c,cr.left-rect.left,cr.top-rect.top);}catch(ex){}});
+      const r2=cropToPdf(merge,SW,SH,fullBounds);
+      mapImgData=r2.dataURL; mapBounds=r2.bounds;
+      tiles.forEach(t=>{t.style.visibility='';});
+    }catch(ex){
+      toast('Gagal menyiapkan peta: '+ex.message,'err');
+      return;
+    }
+  }
+  if(basemapOK)toast('Basemap berhasil dimuat ke PDF','ok');
+  else toast('Basemap tak tersedia — memakai latar grid bersih','warn');
 
   toast('Menyusun layout PDF...','info');
   await new Promise(r=>setTimeout(r,150));
@@ -2848,7 +3229,7 @@ async function expMapPDF(){
   sf(11,'bold',[255,255,255]);
   doc.text(author.substring(0,40),OUTER_X+PAD+logoW,OUTER_Y+8);
   sf(7,'normal',[160,195,230]);
-  doc.text('MINERAVIX v5 · AI Geo Insight Engine',OUTER_X+PAD+logoW,OUTER_Y+14);
+  doc.text('MINERAVIX v6.7 · AI Geo Insight Engine',OUTER_X+PAD+logoW,OUTER_Y+14);
 
   // Judul peta di kanan kop
   sf(10,'bold',[255,255,255]);
@@ -3044,11 +3425,93 @@ async function expMapPDF(){
   sf(5.5,'normal',[90,110,130]);
   doc.text('WGS 84 · EPSG:4326',MAP_X+MAP_W-2,MAP_Y2+MAP_H2-1.5,{align:'right'});
 
-  // ── STEP 9: PANEL KANAN — INFORMASI PETA (langsung, tanpa box judul) ────
-  let py=PANEL_Y;
+  // ── STEP 9: PANEL KANAN — INSET LOCATOR MAP ─────────────────────────────
+  // Outline Indonesia dari Natural Earth 110m (domain publik), disederhanakan
+  // ke 2 desimal (~1km akurasi) — 3.6KB, vektor, selalu jalan tanpa jaringan.
+  const INDO_OUTLINE=[[[141.0,-2.6],[141.02,-5.86],[141.03,-9.12],[140.14,-8.3],[139.13,-8.1],[138.88,-8.38],[137.61,-8.41],[138.04,-7.6],[138.67,-7.32],[138.41,-6.23],[137.93,-5.39],[135.99,-4.55],[135.16,-4.46],[133.66,-3.54],[133.37,-4.02],[132.98,-4.11],[132.76,-3.75],[132.75,-3.31],[131.99,-2.82],[133.07,-2.46],[133.78,-2.48],[133.7,-2.21],[132.23,-2.21],[131.84,-1.62],[130.94,-1.43],[130.52,-0.94],[131.87,-0.7],[132.38,-0.37],[133.99,-0.78],[134.14,-1.15],[134.42,-2.77],[135.46,-3.37],[136.29,-2.31],[137.44,-1.7],[138.33,-1.7],[139.18,-2.05],[139.93,-2.41],[141.0,-2.6]],[[124.97,-8.89],[125.07,-9.09],[125.09,-9.39],[124.44,-10.14],[123.58,-10.36],[123.46,-10.24],[123.55,-9.9],[123.98,-9.29],[124.97,-8.89]],[[134.21,-6.9],[134.11,-6.14],[134.29,-5.78],[134.5,-5.45],[134.73,-5.74],[134.72,-6.21],[134.21,-6.9]],[[117.88,4.14],[117.31,3.23],[118.05,2.29],[117.88,1.83],[119.0,0.9],[117.81,0.78],[117.48,0.1],[117.52,-0.8],[116.56,-1.49],[116.53,-2.48],[116.15,-4.01],[116.0,-3.66],[114.86,-4.11],[114.47,-3.5],[113.76,-3.44],[113.26,-3.12],[112.07,-3.48],[111.7,-2.99],[111.05,-3.05],[110.22,-2.93],[110.07,-1.59],[109.57,-1.31],[109.09,-0.46],[108.95,0.42],[109.07,1.34],[109.66,2.01],[109.83,1.34],[110.51,0.77],[111.16,0.98],[111.8,0.9],[112.38,1.41],[112.86,1.5],[113.81,1.22],[114.62,1.43],[115.13,2.82],[115.52,3.17],[115.87,4.31],[117.02,4.31],[117.88,4.14]],[[129.37,-2.8],[130.47,-3.09],[130.83,-3.86],[129.99,-3.45],[129.16,-3.36],[128.59,-3.43],[127.9,-3.39],[128.14,-2.84],[129.37,-2.8]],[[126.87,-3.79],[126.18,-3.61],[125.99,-3.18],[127.0,-3.13],[127.25,-3.46],[126.87,-3.79]],[[127.93,2.17],[128.0,1.63],[128.59,1.54],[128.69,1.13],[128.64,0.26],[128.12,0.36],[127.97,-0.25],[128.38,-0.78],[128.1,-0.9],[127.7,-0.27],[127.4,1.01],[127.6,1.81],[127.93,2.17]],[[122.93,0.88],[124.08,0.92],[125.07,1.64],[125.24,1.42],[124.44,0.43],[123.69,0.24],[122.72,0.43],[121.06,0.38],[120.18,0.24],[120.04,-0.52],[120.94,-1.41],[121.48,-0.96],[123.34,-0.62],[123.26,-1.08],[122.82,-0.93],[122.39,-1.52],[121.51,-1.9],[122.45,-3.19],[122.27,-3.53],[123.17,-4.68],[123.16,-5.34],[122.63,-5.63],[122.24,-5.28],[122.72,-4.46],[121.74,-4.85],[121.49,-4.57],[121.62,-4.19],[120.9,-3.6],[120.97,-2.63],[120.31,-2.93],[120.39,-4.1],[120.43,-5.53],[119.8,-5.67],[119.37,-5.38],[119.65,-4.46],[119.5,-3.49],[119.08,-3.49],[118.77,-2.8],[119.18,-2.15],[119.32,-1.35],[119.83,0.15],[120.04,0.57],[120.89,1.31],[121.67,1.01],[122.93,0.88]],[[120.3,-10.26],[118.97,-9.56],[119.9,-9.36],[120.43,-9.67],[120.78,-9.97],[120.72,-10.24],[120.3,-10.26]],[[121.34,-8.54],[122.01,-8.46],[122.9,-8.09],[122.76,-8.65],[121.25,-8.93],[119.92,-8.81],[119.92,-8.44],[120.72,-8.24],[121.34,-8.54]],[[118.26,-8.36],[118.88,-8.28],[119.13,-8.71],[117.97,-8.91],[117.28,-9.04],[116.74,-9.03],[117.08,-8.46],[117.63,-8.45],[117.9,-8.1],[118.26,-8.36]],[[108.49,-6.42],[108.62,-6.78],[110.54,-6.88],[110.76,-6.47],[112.61,-6.95],[112.98,-7.59],[114.48,-7.78],[115.71,-8.37],[114.56,-8.75],[113.46,-8.35],[112.56,-8.38],[111.52,-8.3],[110.59,-8.12],[109.43,-7.74],[108.69,-7.64],[108.28,-7.77],[106.45,-7.35],[106.28,-6.92],[105.37,-6.85],[106.05,-5.9],[107.27,-5.95],[108.07,-6.35],[108.49,-6.42]],[[104.37,-1.08],[104.54,-1.78],[104.89,-2.34],[105.62,-2.43],[106.11,-3.06],[105.86,-4.31],[105.82,-5.85],[104.71,-5.87],[103.87,-5.04],[102.58,-4.22],[102.16,-3.61],[101.4,-2.8],[100.9,-2.05],[100.14,-0.65],[99.26,0.18],[98.97,1.04],[98.6,1.82],[97.7,2.45],[97.18,3.31],[96.42,3.87],[95.38,4.97],[95.29,5.48],[95.94,5.44],[97.48,5.25],[98.37,4.27],[99.14,3.59],[99.69,3.17],[100.64,2.1],[101.66,2.08],[102.5,1.4],[103.08,0.56],[103.84,0.1],[103.44,-0.71],[104.01,-1.06],[104.37,-1.08]]];
+
+  // Dimensi kotak inset di panel kanan
+  const INS_X=PANEL_X, INS_Y=OUTER+KOP_H+PAD;
+  const INS_W=PANEL_W, INS_H=34;
+  // Bbox Indonesia: lon 95.29–141.03, lat -10.36–5.48 (+ sedikit margin)
+  const I_LONMIN=94.5,I_LONMAX=142,I_LATMIN=-11.5,I_LATMAX=6.5;
+  const I_DLON=I_LONMAX-I_LONMIN, I_DLAT=I_LATMAX-I_LATMIN;
+  const INS_PAD=2; // padding dalam kotak inset (mm)
+  const iW=INS_W-INS_PAD*2, iH=INS_H-INS_PAD*2-4; // area gambar (−4 untuk label bawah)
+  function lonToInX(lon){return INS_X+INS_PAD+((lon-I_LONMIN)/I_DLON)*iW;}
+  function latToInY(lat){return INS_Y+INS_PAD+((I_LATMAX-lat)/I_DLAT)*iH;}
+
+  // Kotak latar inset
+  doc.setFillColor(220,232,245);
+  doc.setDrawColor(60,80,110);doc.setLineWidth(0.4);
+  doc.rect(INS_X,INS_Y,INS_W,INS_H,'FD');
+
+  // Label judul inset
+  sf(5.5,'bold',[26,58,92]);
+  doc.text('LOKASI DI INDONESIA',INS_X+INS_PAD,INS_Y+INS_PAD+1.8);
+
+  // Clip ke area gambar (set clip region agar polygon tidak keluar kotak)
+  doc.saveGraphicsState&&doc.saveGraphicsState();
+
+  // Gambar siluet Indonesia — setiap polygon sebagai path tertutup
+  INDO_OUTLINE.forEach(ring=>{
+    if(ring.length<3)return;
+    const pts=ring.map(c=>({x:lonToInX(c[0]),y:latToInY(c[1])}));
+    // Hanya gambar jika polygon >0.3mm (filter pulau mikro)
+    const xs=pts.map(p=>p.x),ys=pts.map(p=>p.y);
+    const wPoly=Math.max(...xs)-Math.min(...xs);
+    const hPoly=Math.max(...ys)-Math.min(...ys);
+    if(wPoly<0.3&&hPoly<0.3)return;
+    // Clip: skip titik di luar kotak
+    const inBox=pts.filter(p=>p.x>=INS_X+1&&p.x<=INS_X+INS_W-1&&p.y>=INS_Y+1&&p.y<=INS_Y+INS_H-3);
+    if(inBox.length<2)return;
+    doc.setFillColor(180,200,170); // hijau zaitun muda — daratan
+    doc.setDrawColor(80,110,80);doc.setLineWidth(0.15);
+    // Gambar polygon via lines
+    doc.lines(
+      pts.slice(1).map((p,i)=>[p.x-pts[i].x, p.y-pts[i].y]),
+      pts[0].x, pts[0].y,
+      [1,1], 'FD', true
+    );
+  });
+
+  doc.restoreGraphicsState&&doc.restoreGraphicsState();
+
+  // Kotak merah penanda area cetak (mapBounds)
+  if(mapBounds){
+    const bW=mapBounds.getWest(),bE=mapBounds.getEast();
+    const bN=mapBounds.getNorth(),bS=mapBounds.getSouth();
+    const rx=lonToInX(bW),ry=latToInY(bN);
+    const rw=lonToInX(bE)-rx, rh=latToInY(bS)-ry;
+    // Shadow merah tipis
+    doc.setFillColor(220,38,38);
+    doc.setGState&&doc.setGState(doc.GState({opacity:0.25}));
+    if(rw>0.3&&rh>0.3)doc.rect(rx,ry,Math.max(rw,0.8),Math.max(rh,0.8),'F');
+    doc.setGState&&doc.setGState(doc.GState({opacity:1}));
+    // Bingkai merah solid
+    doc.setDrawColor(220,38,38);doc.setLineWidth(0.6);
+    if(rw>0.3&&rh>0.3)doc.rect(rx,ry,Math.max(rw,0.8),Math.max(rh,0.8));
+    else{
+      // Titik (area sangat kecil di skala inset) — gambar tanda silang
+      const cx=lonToInX((bW+bE)/2), cy=latToInY((bN+bS)/2);
+      doc.setLineWidth(0.7);
+      doc.line(cx-1.5,cy,cx+1.5,cy);doc.line(cx,cy-1.5,cx,cy+1.5);
+    }
+  }
+
+  // Label "Peta Area" di pojok kanan atas inset
+  if(mapBounds){
+    const centerLon=(mapBounds.getEast()+mapBounds.getWest())/2;
+    const region=centerLon<106?'Sumatera':centerLon<116?'Jawa/Kalimantan':centerLon<122?'Kalimantan/Sulawesi':centerLon<132?'Maluku':centerLon<141?'Papua':'Papua';
+    sf(5,'normal',[26,58,92]);
+    doc.text(region,INS_X+INS_W-INS_PAD,INS_Y+INS_H-1.5,{align:'right'});
+  }
+
+  // ── STEP 10: PANEL KANAN — INFORMASI PETA ───────────────────────────────
+  let py=PANEL_Y+INS_H+3; // mulai di bawah inset
 
   // Kotak info — langsung di atas, sejajar bingkai bold peta
-  const infoH=72;
+  const infoH=44;
   doc.setFillColor(244,247,251);
   doc.setDrawColor(178,195,215);
   doc.setLineWidth(0.3);
@@ -3072,81 +3535,64 @@ async function expMapPDF(){
     ['Pembuat',author],
   ];
 
-  let iy=py+12;
+  let iy=py+11;
   sf(6.5,'normal',[90,110,130]);
   infoRows.forEach(([k,v])=>{
-    if(iy>py+infoH-4)return;
+    if(iy>py+infoH-3)return;
     doc.setFont('helvetica','bold');doc.setTextColor(90,110,130);
     doc.text(k+':',PANEL_X+4,iy);
     doc.setFont('helvetica','normal');doc.setTextColor(26,58,92);
     const vLines=doc.splitTextToSize(String(v),PANEL_W-8);
-    doc.text(vLines[0],PANEL_X+4,iy+4);
-    iy+=9;
+    doc.text(vLines[0],PANEL_X+4,iy+3.5);
+    iy+=7.5;
   });
   py+=infoH+3;
 
-  // ── STEP 10: PANEL KANAN — LEGENDA ──────────────────────────────────────
-  const legH=100;
+  // ── STEP 11: PANEL KANAN — LEGENDA ──────────────────────────────────────
+  const legH=54;
   doc.setFillColor(255,255,255);
-  doc.setDrawColor(178,195,215);
+  doc.setDrawColor(178,195,215);doc.setLineWidth(0.3);
   doc.rect(PANEL_X,py,PANEL_W,legH,'FD');
   sf(7.5,'bold',[26,58,92]);
   doc.text('LEGENDA',PANEL_X+4,py+6.5);
   hl(PANEL_X+3,py+8.5,PANEL_X+PANEL_W-3,py+8.5,[178,195,215],0.3);
 
-  // Layer utama
+  // Layer utama — 4 item
   const mainLeg=[
     [[202,138,4],'Zona Mineral'],
-    [[100,116,139],'Background Geologi'],
-    [[37,99,235],'WIUP (Polygon/Point)'],
+    [[37,99,235],'WIUP'],
     [[120,53,15],'Batubara (IUP)'],
     [[26,26,26],'Titik Observasi'],
   ];
   let ly=py+13;
   mainLeg.forEach(([c,lbl])=>{
-    doc.setFillColor(...c);doc.rect(PANEL_X+4,ly-3.5,5.5,4.5,'F');
-    sf(6.5,'normal',[60,80,100]);doc.text(lbl,PANEL_X+12,ly);
-    ly+=7;
+    doc.setFillColor(...c);doc.rect(PANEL_X+4,ly-3,5,4,'F');
+    sf(6,'normal',[60,80,100]);doc.text(lbl,PANEL_X+11,ly);
+    ly+=5.5;
   });
 
-  // Divider Kawasan Hutan
-  ly+=1;
-  sf(6.5,'bold',[26,58,92]);doc.text('KAWASAN HUTAN',PANEL_X+4,ly);ly+=5;
+  // Kawasan Hutan — 3 item kunci
+  ly+=2;
+  sf(6,'bold',[26,58,92]);doc.text('KAWASAN HUTAN',PANEL_X+4,ly);ly+=5;
   const hutanLeg=[
     [[220,38,38],'Hutan Lindung (HL)'],
-    [[124,58,237],'Hutan Konservasi/TN (HK)'],
-    [[21,128,61],'Hutan Produksi (HP)'],
-    [[217,119,6],'Hutan Prod. Terbatas (HPT)'],
-    [[202,138,4],'Hutan Prod. Konversi (HPK)'],
+    [[21,128,61],'Hutan Produksi (HP/HPT/HPK)'],
     [[148,163,184],'APL / Lainnya'],
   ];
   hutanLeg.forEach(([c,lbl])=>{
-    if(ly>py+legH-4)return;
-    doc.setFillColor(...c);doc.rect(PANEL_X+4,ly-3.5,5.5,4.5,'F');
-    sf(6,'normal',[60,80,100]);doc.text(lbl,PANEL_X+12,ly);
-    ly+=6;
+    doc.setFillColor(...c);doc.rect(PANEL_X+4,ly-3,5,4,'F');
+    sf(6,'normal',[60,80,100]);doc.text(lbl,PANEL_X+11,ly);
+    ly+=5.5;
   });
   py+=legH+3;
 
-  // ── STEP 11: PANEL KANAN — AI SCORE ─────────────────────────────────────
-  const aiH=36;
-  if(py+aiH<PH-FOOT_H-PAD){
-    doc.setFillColor(248,250,255);
+  // ── STEP 12: PANEL KANAN — AI SCORE ─────────────────────────────────────
+  const aiH=10;
+  if(py+aiH<PH-OUTER-FOOT_H-PAD){
+    doc.setFillColor(232,240,255);
     doc.setDrawColor(178,195,215);
     doc.rect(PANEL_X,py,PANEL_W,aiH,'FD');
-    sf(7,'bold',[26,58,92]);doc.text('AI SCORE',PANEL_X+4,py+6);
-    hl(PANEL_X+3,py+8,PANEL_X+PANEL_W-3,py+8,[178,195,215],0.3);
-    const scoreItems=[
-      [[22,163,74],'Score \u226570 \u2014 Potensi TINGGI'],
-      [[217,119,6],'Score 45\u201369 \u2014 Potensi SEDANG'],
-      [[220,38,38],'Score <45 \u2014 Potensi RENDAH'],
-    ];
-    let sy=py+13;
-    scoreItems.forEach(([c,lbl])=>{
-      doc.setFillColor(...c);doc.rect(PANEL_X+4,sy-3.5,5.5,4,'F');
-      sf(6.5,'normal',[60,80,100]);doc.text(lbl,PANEL_X+12,sy);
-      sy+=7;
-    });
+    sf(6,'bold',[26,58,92]);doc.text('AI SCORE  ·  0=Rendah  ·  100=Tinggi',PANEL_X+4,py+6.5);
     py+=aiH+3;
   }
 
@@ -3169,8 +3615,12 @@ async function expMapPDF(){
   doc.rect(OUTER_X,FOOT_Y,OUTER_W,FOOT_H,'F');
   sf(6,'normal',[140,175,215]);
   doc.text(
-    'MINERAVIX v5 · '+author+' · Data bersifat informatif — bukan rekomendasi investasi · '+tglStr,
-    OUTER_X+OUTER_W/2,FOOT_Y+FOOT_H-2.5,{align:'center'}
+    'MINERAVIX v6.7R by GEOCEE · '+author+' · Data bersifat informatif — bukan rekomendasi investasi go/no-go · '+tglStr,
+    OUTER_X+4,FOOT_Y+FOOT_H-2.5,{align:'left'}
+  );
+  doc.text(
+    'WA: +62811188430  ·  info@geocee.id',
+    OUTER_X+OUTER_W-4,FOOT_Y+FOOT_H-2.5,{align:'right'}
   );
 
   // Simpan PDF
