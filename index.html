@@ -1938,7 +1938,7 @@ function openBS(p,l){
     ['Litologi',   p.LITHOLOGI||p.LITOLOGI||null],
     ...extraFlds,
   ].filter(([,v])=>v&&String(v).trim()!==''&&String(v)!=='-');
-  $('bs-grid').innerHTML=flds.map(([k,v])=>`<div class="bs-f"><div class="bs-fl">${k}</div><div class="bs-fv" title="${String(v)}">${String(v).substring(0,28)}</div></div>`).join('');
+  $('bs-grid').innerHTML=flds.map(([k,v])=>`<div class="bs-f"><div class="bs-fl">${esc(k)}</div><div class="bs-fv" title="${esc(String(v))}">${esc(String(v).substring(0,28))}</div></div>`).join('');
   const sc=p._score!==undefined?p._score:computeScore(p);p._score=sc;
   const sn=$('bs-sn');sn.textContent=sc;sn.style.color=scColor(sc);
   // Simpan geometry dari layer agar expGJ bisa export koordinat
@@ -2380,19 +2380,31 @@ const GEOCEE_LOGO_B64="data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUN
    ============================================================ */
 
 function getHutanTipe(p){
-  const ket=(p.Keterangan||p.FUNGSI_KAW||p.NAMOBJ||p.FUNGSI||'').toLowerCase();
+  // Ambil nilai dari semua kemungkinan field nama — Keterangan (file baru Mapshaper),
+  // FUNGSI_KAW / NAMOBJ / FUNGSI (field lama), lalu lowercase untuk matching
+  const raw=(p.Keterangan||p.FUNGSI_KAW||p.NAMOBJ||p.FUNGSI||'');
+  const ket=raw.toLowerCase();
+  // ── Hutan Lindung ────────────────────────────────────────────────────────
   if(ket.includes('lindung'))return 'HL';
+  // ── Hutan Konservasi & sub-tipe (semua diperlakukan sama = HK) ──────────
   if(ket.includes('konservasi'))return 'HK';
-  if(ket.includes('taman nasional')||ket.includes(' tn '))return 'HK';
-  if(ket.includes('suaka')||ket.includes('margasatwa'))return 'HK';
-  if(ket.includes('taman hutan raya')||ket.includes('tahura'))return 'HK';
-  if(ket.includes('taman wisata'))return 'HK';
+  if(ket.includes('taman nasional'))return 'HK';
+  if(ket==='tn'||ket.startsWith('tn ')||ket.endsWith(' tn')||ket.includes(' tn '))return 'HK';
+  if(ket.includes('suaka margasatwa')||ket.includes('suaka alam'))return 'HK';
+  if(ket.includes('margasatwa'))return 'HK';
+  if(ket.includes('taman hutan raya')||ket.includes('tahura')||ket.includes('thr'))return 'HK';
+  if(ket.includes('taman wisata alam')||ket.includes('taman wisata'))return 'HK';
   if(ket.includes('cagar alam'))return 'HK';
-  if(ket.includes('produksi terbatas')||ket.includes('hpt'))return 'HPT';
-  if(ket.includes('produksi konversi')||ket.includes('hpk'))return 'HPK';
+  if(ket.includes('cagar biosfer'))return 'HK';
+  // ── Hutan Produksi sub-tipe (urutan penting: terbatas & konversi sebelum umum) ─
+  if(ket.includes('produksi terbatas')||ket==='hutan produksi terbatas'||ket.includes('hpt'))return 'HPT';
+  if(ket.includes('produksi konversi')||ket==='hutan produksi konversi'||ket.includes('hpk'))return 'HPK';
+  if(ket.includes('hutan produksi')||ket==='hp'||ket.includes(' hp '))return 'HP';
   if(ket.includes('produksi'))return 'HP';
-  if(ket.includes('areal penggunaan lain')||ket.includes('apl'))return 'APL';
-  if(ket.includes('laut')||ket.includes('sungai')||ket.includes('badan air'))return 'AIR';
+  // ── APL ──────────────────────────────────────────────────────────────────
+  if(ket.includes('areal penggunaan lain')||ket==='apl'||ket.includes(' apl '))return 'APL';
+  // ── Badan air (tidak diberi warna hutan utama) ───────────────────────────
+  if(ket.includes('laut')||ket.includes('sungai')||ket.includes('badan air')||ket.includes('danau'))return 'AIR';
   return 'LAIN';
 }
 function getHutanStyle(p){
