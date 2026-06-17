@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="Mineravix v6.7 — AI Geo Insight Engine untuk analisis potensi WIUP dan Batubara Indonesia. Platform GIS berbasis AI oleh PT. Citra Eksplor Energi (GEOCEE).">
+<meta name="description" content="Mineravix v6.7R — AI Geo Insight Engine untuk analisis potensi WIUP dan Batubara Indonesia. Platform GIS berbasis AI oleh PT. Citra Eksplor Energi (GEOCEE).">
 <meta name="theme-color" content="#1A3A5C">
-<title>MINERAVIX v6.7 — AI Geo Insight Engine | GEOCEE</title>
+<title>MINERAVIX v6.7R — AI Geo Insight Engine | GEOCEE</title>
 <style id="font-defs">
 /* System font stack — zero network request, instant render */
 :root {
@@ -404,7 +404,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color
 <body>
 <div id="splash">
   <div class="sp-logo">MINERAVIX</div>
-  <div class="sp-sub">AI Geo Insight Engine · v6.7 · GEOCEE</div>
+  <div class="sp-sub">AI Geo Insight Engine · v6.7R · GEOCEE</div>
   <div class="sp-bar"><div class="sp-fill" id="spf"></div></div>
   <div class="sp-msg" id="spm">Memuat sistem...</div>
 </div>
@@ -516,7 +516,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color
         <div class="sc" id="sp" style="display:none;padding:10px">
           <div id="sp-body"></div>
         </div>
-        <div class="fw-box"><div class="fw-tit">🔒 Fitur Pro</div><div class="fw-sub">Scoring batch + heatmap export + PDF premium di paket Pro.</div><button class="btn btn-u" onclick="showUpg()">⭐ Lihat Paket Pro</button></div>
+
         <!-- CTA Konsultasi GEOCEE -->
         <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:var(--rmd);padding:10px 12px;margin-top:8px">
           <div style="font-size:11px;font-weight:600;color:#15803D;margin-bottom:4px">Butuh laporan resmi atau Feasibility Study?</div>
@@ -751,7 +751,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color
         </div>
       </div>
       <div class="ch-msgs" id="ch-msgs">
-        <div class="msg mai"><div class="mn">GEOCEE AI</div>Halo! Saya <b>GEOCEE AI</b>, asisten analisis pertambangan Mineravix v6.7. Masukkan Gemini API Key Anda via tombol ⚙️ di atas, lalu tanya saya tentang WIUP, Batubara, geologi, atau regulasi IUP.</div>
+        <div class="msg mai"><div class="mn">GEOCEE AI</div>Halo! Saya <b>GEOCEE AI</b>, asisten analisis pertambangan Mineravix v6.7R. Masukkan Gemini API Key Anda via tombol ⚙️ di atas, lalu tanya saya tentang WIUP, Batubara, geologi, atau regulasi IUP.</div>
       </div>
       <div class="ch-chips">
         <div class="chip" onclick="sendChip(this)">Apa itu WIUP?</div>
@@ -833,7 +833,7 @@ async function boot(){
     await sleep(350);
     $('splash').style.display='none';
     $('app').classList.add('ready');
-    toast('Mineravix v6.7 · GEOCEE','info');
+    toast('Mineravix v6.7R · GEOCEE','info');
     // ── TEKNIK 2: Load hutan lazy setelah peta tampil ────────
     // Delay 1.5 detik agar UI sudah stabil dulu sebelum fetch besar
     setTimeout(loadHutanLazy, 1500);
@@ -2191,7 +2191,7 @@ async function sendChat(){
   inp.value='';
   appMsg(text,'u');
   // Susun prompt sistem + konteks data aktif
-  let ctx='Kamu adalah GEOCEE AI, asisten analisis pertambangan untuk Mineravix v6.7 milik PT. Citra Eksplor Energi (GEOCEE). '+
+  let ctx='Kamu adalah GEOCEE AI, asisten analisis pertambangan untuk Mineravix v6.7R milik PT. Citra Eksplor Energi (GEOCEE). '+
     'Fokus wilayah: Kalimantan dan Sumatera. '+
     'Keahlian: WIUP, IUP, Batubara, regulasi ESDM, geologi Indonesia, potensi mineral, kawasan hutan KLHK. '+
     'Regulasi kehutanan: UU No.41/1999, PP No.23/2021. HL/HK/TN dilarang tambang. HP/HPT/HPK perlu IPPKH. '+
@@ -2271,10 +2271,10 @@ function appTyping(){
   $('ch-msgs').appendChild(d);$('ch-msgs').scrollTop=99999;return d;
 }
 
-function showHelp(){alert('MINERAVIX v6.7 — Panduan Singkat\n\n🔍 Search: Ketik nama desa/kota atau koordinat lat,lon\n🖱 Identify: Klik polygon untuk info detail\n⭕ Radius: Pilih 1/2/5km, klik titik → area dianalisis\n🔥 Heatmap: Warna peta berdasarkan AI Score\n📂 Upload: Klik tombol Upload di sidebar Layer\n📍 Koordinat: Gerakkan kursor di peta — lihat bar bawah\n💡 Klik nilai koordinat untuk copy ke clipboard\n\n⚠ AI Score bersifat informatif — bukan rekomendasi investasi.\nKlik ⓘ di legend peta untuk membaca disclaimer lengkap.\n\nMineravix v6.7 · PT. Citra Eksplor Energi (GEOCEE)');}
+function showHelp(){alert('MINERAVIX v6.7R — Panduan Singkat\n\n🔍 Search: Ketik nama desa/kota atau koordinat lat,lon\n🖱 Identify: Klik polygon untuk info detail\n⭕ Radius: Pilih 1/2/5km, klik titik → area dianalisis\n🔥 Heatmap: Warna peta berdasarkan AI Score\n📂 Upload: Klik tombol Upload di sidebar Layer\n📍 Koordinat: Gerakkan kursor di peta — lihat bar bawah\n💡 Klik nilai koordinat untuk copy ke clipboard\n\n⚠ AI Score bersifat informatif — bukan rekomendasi investasi.\nKlik ⓘ di legend peta untuk membaca disclaimer lengkap.\n\nMineravix v6.7R · PT. Citra Eksplor Energi (GEOCEE)');}
 function showDisc(){document.getElementById('disc-modal').classList.add('open');}
 function closeDisc(){document.getElementById('disc-modal').classList.remove('open');}
-function showUpg(){alert('🚀 Upgrade ke Mineravix Pro\n\n• Scoring otomatis seluruh wilayah\n• PDF laporan premium berkop GEOCEE\n• AI Chatbot unlimited\n• Alert perubahan WIUP otomatis\n• Akses online multi-user\n• Custom scoring parameter\n\nHubungi GEOCEE:\nWA: +62811188430\nEmail: info@geocee.id');}
+
 
 /* ── TOOLTIP ──────────────────────────────────────────────── */
 var _ttEl=null;
@@ -3263,7 +3263,7 @@ async function expMapPDF(){
   sf(11,'bold',[255,255,255]);
   doc.text(author.substring(0,40),OUTER_X+PAD+logoW,OUTER_Y+8);
   sf(7,'normal',[160,195,230]);
-  doc.text('MINERAVIX v6.7 · AI Geo Insight Engine',OUTER_X+PAD+logoW,OUTER_Y+14);
+  doc.text('MINERAVIX v6.7R · AI Geo Insight Engine',OUTER_X+PAD+logoW,OUTER_Y+14);
 
   // Judul peta di kanan kop
   sf(10,'bold',[255,255,255]);
