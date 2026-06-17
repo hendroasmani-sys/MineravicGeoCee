@@ -441,7 +441,7 @@ html,body{height:100%;overflow:hidden;font-family:var(--fw);font-size:13px;color
           <div class="sc-title"><div class="sc-dot"></div>Layer Aktif</div>
           <!-- Mineral & BG — toggle only, tidak ada upload manual -->
           <div class="lrow"><input type="checkbox" class="lck" id="ck-mineral" checked onchange="tglLayer('mineral')"><div class="ldot" style="background:var(--mineral)"></div><span class="lname">Zona Mineral</span><span class="lcnt" id="cnt-mineral">0</span></div>
-          <div class="lrow"><input type="checkbox" class="lck" id="ck-bg"      checked onchange="tglLayer('bg')"><div class="ldot" style="background:var(--geo)"></div><span class="lname">Background Geologi</span><span class="lcnt" id="cnt-bg">0</span></div>
+          <div class="lrow"><input type="checkbox" class="lck" id="ck-bg" onchange="tglLayerBG(this)"><div class="ldot" style="background:var(--geo)"></div><span class="lname">Background Geologi</span><span class="lcnt" id="cnt-bg">0</span></div>
           <!-- WIUP — toggle + upload inline -->
           <div class="lrow" style="align-items:center">
             <input type="checkbox" class="lck" id="ck-wiup" onchange="tglLayer('wiup')">
@@ -844,57 +844,54 @@ async function boot(){
 // BM tiles dibuat lazy di dalam initMap() agar Leaflet sudah ready
 let BM={};
 
-// ── TEKNIK 2: LAZY LOAD HUTAN ────────────────────────────────
+// ── LAZY LOAD KAWASAN HUTAN ───────────────────────────────────
 // Dipanggil 1.5 detik setelah peta tampil — tidak blokir splash
 async function loadHutanLazy(){
   if(LY.hutan)return; // sudah ada (upload manual), skip
   const cntEl=$('cnt-hutan');
   if(cntEl)cntEl.textContent='...';
-  toast('Memuat Kawasan Hutan...','info');
+  toast('Memuat Kawasan Hutan — file besar, harap tunggu...','info');
   try{
     const hutanFiles=[
-      'output/Hutan_ZonaMerah_Kalimantan.geojson',
-      'output/Hutan_ZonaMerah_Sumatera.geojson'
+      {url:'output/webdata_HUTAN_Kalimantan.geojson', nama:'Kalimantan'},
+      {url:'output/webdata_HUTAN_Sumatera.geojson',   nama:'Sumatera'}
     ];
-    const hutanRes=await Promise.allSettled(
-      hutanFiles.map(function(url){return fetchWithTimeout(url,25000);})
-    );
     var hutanFeatures=[];
-    var hutanLoaded=0;
-    for(var hi=0;hi<hutanRes.length;hi++){
-      var hr=hutanRes[hi];
-      if(hr.status!=='fulfilled'||!hr.value||!hr.value.ok)continue;
+    // Sequential — tidak paralel agar browser tidak overload memory sekaligus
+    for(var hi=0;hi<hutanFiles.length;hi++){
+      var hf=hutanFiles[hi];
+      toast('Memuat Kawasan Hutan '+hf.nama+' ('+((hi+1)+'/2)+')...','info');
       try{
-        var hd=await hr.value.json();
+        var hr=await fetchWithTimeout(hf.url,120000);
+        if(!hr||!hr.ok){console.warn('Hutan '+hf.nama+' not found (404)');continue;}
+        var hd=await hr.json();
         if(hd&&hd.features&&hd.features.length>0){
           hd.features.forEach(function(f){if(!f.properties)f.properties={};});
           hutanFeatures=hutanFeatures.concat(hd.features);
-          hutanLoaded++;
+          toast('Hutan '+hf.nama+': '+hd.features.length.toLocaleString()+' fitur ✓','ok');
         }
-      }catch(he){console.warn('Hutan parse error:',he.message);}
+      }catch(he){console.warn('Hutan '+hf.nama+' error:',he.message);}
     }
     if(hutanFeatures.length>0){
       var hutanFC={type:'FeatureCollection',features:hutanFeatures};
       addLayer(hutanFC,'hutan');
       var ckH=$('ck-hutan');
       if(ckH)ckH.checked=true;
-      // FIX: Evaluasi zoom SEKARANG setelah addLayer selesai
-      // Tidak tunggu zoomend — karena user mungkin tidak zoom setelah lazy load
       var zNow=map?map.getZoom():5;
       var hintEl=$('hutan-zoom-hint');
       if(zNow>=8){
         if(LY.hutan&&!map.hasLayer(LY.hutan))map.addLayer(LY.hutan);
         if(hintEl)hintEl.style.display='none';
-        toast('Kawasan Hutan: '+hutanFeatures.length+' fitur dimuat','ok');
+        toast('Kawasan Hutan: '+hutanFeatures.length.toLocaleString()+' fitur (Sumatera + Kalimantan)','ok');
       } else {
         if(LY.hutan&&map.hasLayer(LY.hutan))map.removeLayer(LY.hutan);
         if(hintEl){hintEl.style.display='';hintEl.textContent='(aktif zoom≥8)';}
-        toast('Kawasan Hutan siap — zoom ke level 8+ untuk melihat','info');
+        toast('Kawasan Hutan siap ('+hutanFeatures.length.toLocaleString()+' fitur) — zoom ke level 8+ untuk melihat','info');
       }
       if(LY.wiup&&typeof detectOverlapHutan==='function')detectOverlapHutan();
     } else {
       if(cntEl)cntEl.textContent='0';
-      toast('Kawasan Hutan: file tidak ditemukan di repo','warn');
+      toast('Kawasan Hutan: file tidak ditemukan di repo — upload manual via 🌳','warn');
     }
   }catch(e){
     console.warn('loadHutanLazy error:',e.message);
@@ -1053,23 +1050,10 @@ function fetchWithTimeout(url,ms){
 async function loadDef(){
   if(window._defLoaded)return; // idempotent — hanya load sekali
   window._defLoaded=true;
-  // Load BG dan MINERAL paralel, masing-masing max 8 detik
-  const [bgRes,minRes]=await Promise.allSettled([
-    fetchWithTimeout('output/webdata_BG.geojson',8000),
+  // Load MINERAL saja saat startup — BG load on-demand saat user aktifkan
+  const [minRes]=await Promise.allSettled([
     fetchWithTimeout('output/webdata_MINERAL.geojson',8000)
   ]);
-  // BG layer
-  if(bgRes.status==='fulfilled'&&bgRes.value&&bgRes.value.ok){
-    try{
-      const d=await bgRes.value.json();
-      LY.bg=L.geoJSON(d,{
-        renderer:L.canvas(),
-        style:{color:'#CBD5E1',weight:.4,fillColor:'#E2EAF4',fillOpacity:.35},
-        interactive:false
-      }).addTo(map);
-      $('cnt-bg').textContent=d.features?d.features.length:0;
-    }catch(e){console.warn('BG layer skip:',e.message);}
-  }
   // MINERAL layer
   if(minRes.status==='fulfilled'&&minRes.value&&minRes.value.ok){
     try{
@@ -1288,6 +1272,44 @@ function ptColor(nm){
 }
 
 function tglLayer(nm){const ck=$('ck-'+nm);if(!LY[nm])return;if(ck.checked)map.addLayer(LY[nm]);else map.removeLayer(LY[nm]);}
+
+// ── BACKGROUND GEOLOGI — LOAD ON DEMAND ──────────────────────
+// Dipanggil saat user centang checkbox Background Geologi
+async function tglLayerBG(ck){
+  // Jika sudah loaded — toggle show/hide biasa
+  if(LY.bg){
+    if(ck.checked)map.addLayer(LY.bg);
+    else map.removeLayer(LY.bg);
+    return;
+  }
+  // Belum loaded — load sekarang
+  if(!ck.checked){ck.checked=false;return;}
+  ck.disabled=true;
+  $('cnt-bg').textContent='⏳';
+  toast('Memuat Background Geologi 1:250.000 — harap tunggu...','info');
+  try{
+    const res=await fetchWithTimeout('output/webdata_BG.geojson',60000);
+    if(!res||!res.ok)throw new Error('File tidak ditemukan');
+    const d=await res.json();
+    LY.bg=L.geoJSON(d,{
+      renderer:L.canvas(),
+      style:{color:'#CBD5E1',weight:.4,fillColor:'#E2EAF4',fillOpacity:.35},
+      interactive:false
+    }).addTo(map);
+    // Pastikan layer ini di bawah layer lain
+    if(LY.bg)LY.bg.bringToBack();
+    $('cnt-bg').textContent=d.features?d.features.length.toLocaleString():0;
+    toast('Background Geologi: '+(d.features?d.features.length.toLocaleString():0)+' formasi dimuat','ok');
+  }catch(e){
+    console.warn('BG load error:',e.message);
+    $('cnt-bg').textContent='✗';
+    ck.checked=false;
+    toast('Geologi gagal dimuat: '+e.message.substring(0,50),'err');
+  }finally{
+    ck.disabled=false;
+  }
+}
+// ─────────────────────────────────────────────────────────────
 function changeBM(k){
   if(!BM[k]){toast('Basemap tidak tersedia','warn');return;}
   Object.values(BM).forEach(b=>{try{map.removeLayer(b);}catch(x){}});
@@ -2631,7 +2653,7 @@ function computePointScore(formasi,hutanStatus,wiupData,wilayah){
   const baseScore=Math.round(geoScore*0.40+wiupScore*0.40+accScore*0.20);
   let multiplier=1.0,forestLabel='Clear - No Protected Zone',forestNote='No regulatory forest constraint';
   const isRedZone=hutanStatus.hasHL||hutanStatus.hasHK||hutanStatus.hasTN||hutanStatus.hasSM||hutanStatus.hasTHR||hutanStatus.hasTWA;
-  if(!LY.hutan){multiplier=0.70;forestLabel='Forest Data Not Loaded';forestNote='Upload Hutan_ZonaMerah GeoJSON for accurate assessment';}
+  if(!LY.hutan){multiplier=0.70;forestLabel='Forest Data Not Loaded';forestNote='Aktifkan layer Kawasan Hutan di sidebar untuk analisis akurat';}
   else if(isRedZone){
     multiplier=0.00;const zones=[];
     if(hutanStatus.hasHL)zones.push('Hutan Lindung');if(hutanStatus.hasHK)zones.push('Hutan Konservasi');
@@ -2736,7 +2758,7 @@ async function genPointReport(){
   // SECTION 2
   if(y>PH-80){doc.addPage();y=14;}
   y=secTitle(y,'02','FOREST CONSERVATION STATUS');
-  if(!LY.hutan){sf(9,'normal',[150,100,0]);doc.text('[!] Forest layer not loaded. Upload Hutan_ZonaMerah GeoJSON.',PAD+4,y);y+=8;}
+  if(!LY.hutan){sf(9,'normal',[150,100,0]);doc.text('[!] Forest layer not loaded. Aktifkan layer Kawasan Hutan di sidebar untuk analisis akurat.',PAD+4,y);y+=8;}
   else{
     const isRedZone2=hutanStatus.hasHL||hutanStatus.hasTN||hutanStatus.hasSM||hutanStatus.hasTHR||hutanStatus.hasTWA||hutanStatus.hasHK;
     const isYellowZone=!isRedZone2&&(hutanStatus.hasHP||hutanStatus.hasHPT||hutanStatus.hasHPK);
