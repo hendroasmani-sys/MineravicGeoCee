@@ -215,6 +215,13 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   display:flex;border-bottom:1px solid var(--border);
   flex-shrink:0;
 }
+
+/* Bottom-sheet drag handle (mobile only) */
+#sidebar-drag-handle{
+  display:none;justify-content:center;align-items:center;
+  padding:8px 0 4px;cursor:pointer;flex-shrink:0;
+}
+#sidebar-drag-handle .handle-bar{width:36px;height:4px;border-radius:2px;background:var(--border2)}
 .stab{
   flex:1;height:40px;background:transparent;border:none;
   color:var(--text3);font-size:12px;font-family:var(--font-body);
@@ -416,7 +423,22 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
 /* Mobile */
 @media(max-width:768px){
-  #sidebar{display:none}
+  #main{position:relative}
+  #sidebar{
+    display:flex;
+    position:absolute;left:0;right:0;bottom:0;
+    width:100%;min-width:0;height:auto;
+    max-height:78vh;
+    border-left:none;
+    border-top:1px solid var(--border2);
+    border-radius:16px 16px 0 0;
+    box-shadow:0 -8px 30px rgba(0,0,0,0.5);
+    z-index:800;
+    transform:translateY(calc(100% - 68px));
+    transition:transform .3s ease;
+  }
+  #sidebar.sheet-expanded{transform:translateY(0)}
+  #sidebar-drag-handle{display:flex}
   #search-wrap{max-width:100%}
   .logo-by{display:none}
 }
@@ -513,6 +535,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
     <!-- SIDEBAR -->
     <div id="sidebar">
+      <div id="sidebar-drag-handle" onclick="toggleSheet()"><div class="handle-bar"></div></div>
       <div id="sidebar-tabs">
         <button class="stab active" onclick="switchTab('analysis')"><i class="ti ti-chart-bar"></i> Analysis</button>
         <button class="stab" onclick="switchTab('layers')"><i class="ti ti-layers"></i> Layers</button>
@@ -712,9 +735,37 @@ async function loadAllData() {
     }, 600);
 
   } catch(e) {
+    console.error('loadAllData failed:', e);
     setMsg('Gagal memuat data. Cek koneksi internet.');
-    console.error(e);
+    // Don't leave the full-screen overlay stuck forever — degrade gracefully:
+    // hide it after a short delay so the map/search still work (scoring falls
+    // back to defaults when mineralData/wiupData/coalData are null), and show
+    // a small dismissible/retryable banner instead.
+    setTimeout(() => {
+      document.getElementById('loading-overlay').classList.add('hidden');
+      showDataErrorBanner();
+    }, 1500);
   }
+}
+
+function showDataErrorBanner() {
+  if (document.getElementById('data-error-banner')) return;
+  const banner = document.createElement('div');
+  banner.id = 'data-error-banner';
+  banner.style.cssText = 'position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:9998;background:var(--surface);border:1px solid var(--red);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:10px;box-shadow:var(--shadow);font-size:12px;color:var(--text2)';
+  banner.innerHTML = `
+    <i class="ti ti-alert-triangle" style="color:var(--red)"></i>
+    <span>Data peta gagal dimuat. Beberapa fitur mungkin terbatas.</span>
+    <button id="retry-load-btn" style="height:26px;padding:0 10px;background:var(--brand);color:#0A0C10;border:none;border-radius:6px;font-family:var(--font-head);font-weight:600;font-size:11px;cursor:pointer">Coba Lagi</button>
+    <button id="dismiss-error-btn" style="height:26px;width:26px;background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:14px">✕</button>
+  `;
+  document.body.appendChild(banner);
+  document.getElementById('retry-load-btn').onclick = () => {
+    banner.remove();
+    document.getElementById('loading-overlay').classList.remove('hidden');
+    loadAllData();
+  };
+  document.getElementById('dismiss-error-btn').onclick = () => banner.remove();
 }
 
 // ─── RENDER LAYERS ────────────────────────────────────────────────────────────
@@ -880,9 +931,11 @@ function scoreLocation(lat, lon) {
   else if (eksplorasi.length >= 1) iupScore = 62;
   else iupScore = 40;
 
-  // Forest cap: if forScore < 40, cap total
+  // Forest cap: if forScore indicates high forest risk, cap total.
+  // NOTE: threshold set to 50 (not 40) because estimateForestScore()'s lowest
+  // possible floor is 45 (Papua) — a <40 threshold was dead code and never fired.
   const rawTotal = Math.round((geoScore*0.30 + licScore*0.25 + forScore*0.20 + infScore*0.10 + iupScore*0.15));
-  const total = forScore < 40 ? Math.min(rawTotal, 55) : rawTotal;
+  const total = forScore < 50 ? Math.min(rawTotal, 55) : rawTotal;
 
   return {
     geo: geoScore, lic: licScore, for: forScore,
@@ -905,24 +958,34 @@ function getCentroid(coords, type) {
   return [x,y];
 }
 
+// Deterministic pseudo-random in [0,1) seeded by lat/lon, so the same
+// coordinate always produces the same heuristic score (no more score
+// drift on re-click, which would undermine the "Pulse Score" credibility).
+function seededRandom(lat, lon) {
+  let seed = Math.sin(lat * 12.9898 + lon * 78.233) * 43758.5453;
+  return seed - Math.floor(seed);
+}
+
 function estimateForestScore(lat, lon) {
+  const r = seededRandom(lat, lon);
   // Kalimantan: moderate-high forest risk
-  if (lon >= 108 && lon <= 119 && lat >= -4.5 && lat <= 2) return 58 + Math.round(Math.random()*15);
+  if (lon >= 108 && lon <= 119 && lat >= -4.5 && lat <= 2) return 58 + Math.round(r*15);
   // Sulawesi: moderate
-  if (lon >= 119 && lon <= 127 && lat >= -4 && lat <= 2) return 65 + Math.round(Math.random()*12);
+  if (lon >= 119 && lon <= 127 && lat >= -4 && lat <= 2) return 65 + Math.round(r*12);
   // Papua: high risk
-  if (lon >= 130 && lat >= -8 && lat <= 0) return 45 + Math.round(Math.random()*15);
+  if (lon >= 130 && lat >= -8 && lat <= 0) return 45 + Math.round(r*15);
   // Sumatera: moderate-high
-  if (lon >= 95 && lon <= 108 && lat >= -6 && lat <= 6) return 55 + Math.round(Math.random()*15);
+  if (lon >= 95 && lon <= 108 && lat >= -6 && lat <= 6) return 55 + Math.round(r*15);
   // Jawa: low risk (mostly APL)
-  if (lon >= 105 && lon <= 115 && lat >= -9 && lat <= -5) return 72 + Math.round(Math.random()*12);
-  return 60 + Math.round(Math.random()*18);
+  if (lon >= 105 && lon <= 115 && lat >= -9 && lat <= -5) return 72 + Math.round(r*12);
+  return 60 + Math.round(r*18);
 }
 
 function estimateInfraScore(lat, lon) {
+  const r = seededRandom(lat + 1000, lon + 1000); // different seed offset than forest score
   // Coastal proximity bonus (simplified)
   const coastalBonus = (Math.abs(lat) < 5 && (lon < 100 || lon > 125)) ? 8 : 0;
-  const base = 55 + Math.round(Math.random()*25) + coastalBonus;
+  const base = 55 + Math.round(r*25) + coastalBonus;
   return Math.min(90, base);
 }
 
@@ -1032,7 +1095,7 @@ function renderResult(lat, lon, locationName, s) {
     ${renderPillar('lic','Licence Status','ti-license','var(--green-dim)','var(--green)',s.lic,
       s.wiupOverlap > 0 ? `⚠ ${s.wiupOverlap} WIUP overlap terdeteksi` : s.wiupNearby.length === 0 ? 'Area bebas dari WIUP' : `${s.wiupNearby.length} WIUP dalam radius 10km`,
       s.wiupNearby.length > 0 ? s.wiupNearby[0].nama_usaha || '-' : 'Tidak ada',
-      s.licScore>=75?{text:'Bersih',cls:'badge-green'}:s.lic>=55?{text:'Terbatas',cls:'badge-amber'}:{text:'Overlap',cls:'badge-red'}
+      s.lic>=75?{text:'Bersih',cls:'badge-green'}:s.lic>=55?{text:'Terbatas',cls:'badge-amber'}:{text:'Overlap',cls:'badge-red'}
     )}
 
     ${renderPillar('for','Forest Area Risk','ti-trees','var(--red-dim)','var(--red)',s.for,
@@ -1065,19 +1128,19 @@ function renderResult(lat, lon, locationName, s) {
     <!-- Straxio CTA -->
     <div class="straxio-cta">
       <div class="cta-headline"><i class="ti ti-shield-check" style="color:var(--brand)"></i> Upgrade ke Verified Report</div>
-      <div class="cta-sub">Hasil ini bersifat PRELIMINARY. Dapatkan laporan terverifikasi dari Ir. Hendro Ismanto ST (IAGI, BNSP) untuk keputusan investasi.</div>
+      <div class="cta-sub">Hasil ini bersifat PRELIMINARY. Dapatkan laporan terverifikasi dari Ir. Hendro Ismanto ST — Senior Geologist, 31 tahun pengalaman, IAGI · Perhapi — untuk keputusan investasi.</div>
       <button class="cta-btn" onclick="window.open('https://straxio.io','_blank')">
-        <i class="ti ti-external-link"></i> Order Snapshot · USD 99
+        <i class="ti ti-external-link"></i> Order Snapshot · USD 149
       </button>
       <div class="cta-tiers">
         <div class="cta-tier">
           <div class="cta-tier-name">Snapshot</div>
-          <div class="cta-tier-price">$99</div>
+          <div class="cta-tier-price">$149</div>
           <div class="cta-tier-time">Same day</div>
         </div>
         <div class="cta-tier">
           <div class="cta-tier-name">Intelligence</div>
-          <div class="cta-tier-price">$2,000</div>
+          <div class="cta-tier-price">$2,500</div>
           <div class="cta-tier-time">5 hari</div>
         </div>
         <div class="cta-tier">
@@ -1090,7 +1153,7 @@ function renderResult(lat, lon, locationName, s) {
 
     <div class="exec-disclaimer" style="margin-top:10px">
       <i class="ti ti-info-circle" style="font-size:10px"></i>
-      Analisis ini bersifat PRELIMINARY berdasarkan data publik ESDM/P3GL dan MODI. Bukan rekomendasi investasi. Verifikasi lapangan oleh Competent Person wajib dilakukan sebelum pengambilan keputusan. Data: ESDM/P3GL · WIUP 2024 · PT. Citra Eksplor Energi (GEOCEE).
+      Analisis ini bersifat PRELIMINARY berdasarkan data publik ESDM/P3GL dan MODI. Bukan rekomendasi investasi. Verifikasi lapangan oleh Senior Geologist wajib dilakukan sebelum pengambilan keputusan. Data: ESDM/P3GL · WIUP 2024 · PT. Citra Eksplor Energi (GEOCEE).
     </div>
   `;
 
@@ -1226,6 +1289,17 @@ function showState(state) {
   if (state === 'landing') document.getElementById('state-landing').style.display = 'flex';
   if (state === 'analyzing') document.getElementById('state-analyzing').style.display = 'block';
   if (state === 'result') document.getElementById('state-result').style.display = 'block';
+
+  // Mobile bottom-sheet: auto-expand once an analysis starts, collapse back on landing
+  const sidebar = document.getElementById('sidebar');
+  if (window.matchMedia('(max-width:768px)').matches) {
+    if (state === 'landing') sidebar.classList.remove('sheet-expanded');
+    else sidebar.classList.add('sheet-expanded');
+  }
+}
+
+function toggleSheet() {
+  document.getElementById('sidebar').classList.toggle('sheet-expanded');
 }
 
 function switchTab(tab) {
@@ -1275,7 +1349,7 @@ function runExample(lat, lon, name) {
 }
 
 function showInfo() {
-  alert('Mineravix Pulse — Metodologi Scoring\n\nPulse Score™ terdiri dari 5 pillar:\n\n1. Geological Potential (30%) — Kedekatan dan kualitas formasi geologi\n2. Licence Status (25%) — Status WIUP dan overlay perizinan\n3. Forest Area Risk (20%) — Proximity kawasan hutan HL/HK/HP\n4. Infrastructure (10%) — Estimasi aksesibilitas lokasi\n5. Adjacent IUP Context (15%) — Konteks IUP aktif terdekat\n\nSemua analisis bersifat PRELIMINARY berdasarkan data publik ESDM/P3GL dan MODI 2024.\n\nVerifikasi Competent Person diperlukan untuk laporan resmi.\n\nCP: Ir. Hendro Ismanto ST — IAGI · BNSP\nPT. Citra Eksplor Energi (GEOCEE)');
+  alert('Mineravix Pulse — Metodologi Scoring\n\nPulse Score™ terdiri dari 5 pillar:\n\n1. Geological Potential (30%) — Kedekatan dan kualitas formasi geologi\n2. Licence Status (25%) — Status WIUP dan overlay perizinan\n3. Forest Area Risk (20%) — Proximity kawasan hutan HL/HK/HP\n4. Infrastructure (10%) — Estimasi aksesibilitas lokasi\n5. Adjacent IUP Context (15%) — Konteks IUP aktif terdekat\n\nSemua analisis bersifat PRELIMINARY berdasarkan data publik ESDM/P3GL dan MODI 2024.\n\nVerifikasi oleh Senior Geologist diperlukan untuk laporan resmi.\n\nIr. Hendro Ismanto ST\nSenior Geologist · IAGI · Perhapi · 31 tahun pengalaman\nPT. Citra Eksplor Energi (GEOCEE)');
 }
 
 // ─── SEARCH ON ENTER ─────────────────────────────────────────────────────────
