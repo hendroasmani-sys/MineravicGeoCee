@@ -391,6 +391,81 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 @keyframes loadprogress{from{width:0}to{width:100%}}
 .loading-text{font-size:12px;color:var(--text3);margin-top:10px}
 
+/* ─── HERO LANDING OVERLAY ──────────────────────────────────────────── */
+#hero-overlay{
+  position:fixed;inset:0;
+  background:radial-gradient(ellipse at top, rgba(197,160,89,0.08), transparent 60%), rgba(10,12,16,0.97);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:5000;backdrop-filter:blur(10px);
+  transition:opacity .35s, visibility .35s;
+  padding:24px;text-align:center;
+}
+#hero-overlay.hidden{opacity:0;visibility:hidden;pointer-events:none}
+.hero-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  background:var(--brand-dim);border:1px solid var(--brand);
+  border-radius:20px;padding:5px 14px;margin-bottom:22px;
+  font-size:11px;color:var(--brand);font-family:var(--font-mono);
+  text-transform:uppercase;letter-spacing:.08em;
+}
+.hero-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--brand);animation:pulse-dot 1.6s infinite}
+@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.3}}
+.hero-title{
+  font-family:var(--font-head);font-weight:500;
+  font-size:clamp(28px,5vw,52px);line-height:1.15;
+  color:var(--text);max-width:760px;margin-bottom:16px;
+}
+.hero-title .accent{color:var(--brand)}
+.hero-sub{font-size:15px;color:var(--text2);max-width:560px;margin-bottom:32px;line-height:1.6}
+.hero-input-box{
+  width:100%;max-width:640px;background:var(--surface);
+  border:1px solid var(--border2);border-radius:16px;
+  padding:8px;box-shadow:0 20px 60px rgba(0,0,0,0.5);
+}
+.hero-input-row{
+  display:flex;align-items:center;gap:8px;
+  background:var(--bg);border:1px solid var(--border);
+  border-radius:12px;padding:4px 4px 4px 16px;
+}
+.hero-input-row:focus-within{border-color:var(--brand)}
+.hero-input-row input{
+  flex:1;background:transparent;border:none;outline:none;
+  color:var(--text);font-family:var(--font-body);font-size:14px;
+  padding:12px 0;
+}
+.hero-input-row input::placeholder{color:var(--text3)}
+.hero-icon-btn{
+  width:36px;height:36px;flex-shrink:0;
+  background:transparent;border:none;border-radius:8px;
+  color:var(--text3);cursor:pointer;font-size:16px;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .15s;
+}
+.hero-icon-btn:hover{background:var(--surface2);color:var(--text)}
+.hero-submit-btn{
+  height:36px;padding:0 16px;flex-shrink:0;
+  background:var(--brand);color:#0A0C10;border:none;border-radius:8px;
+  font-family:var(--font-head);font-weight:600;font-size:12px;
+  cursor:pointer;transition:background .15s;
+}
+.hero-submit-btn:hover{background:var(--brand2)}
+.hero-input-hints{
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:center;
+  gap:14px;padding:12px 8px 6px;font-size:11px;color:var(--text3);
+}
+.hero-input-hints span{display:flex;align-items:center;gap:5px}
+.hero-samples{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:24px;max-width:640px}
+.hero-sample-chip{
+  display:flex;align-items:center;gap:6px;
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:20px;padding:6px 14px;font-size:12px;color:var(--text2);
+  cursor:pointer;transition:all .15s;
+}
+.hero-sample-chip:hover{border-color:var(--brand);color:var(--brand);background:var(--brand-dim)}
+.hero-skip{margin-top:28px;font-size:12px;color:var(--text3);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.hero-skip:hover{color:var(--text2)}
+.hero-error{font-size:12px;color:var(--red);margin-top:10px;min-height:16px}
+
 /* ─── TOOLTIP ───────────────────────────────────────────────── */
 .leaflet-popup-content-wrapper{
   background:var(--surface)!important;
@@ -453,6 +528,36 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   <div class="loading-text" id="loading-msg">Memuat data geologi Indonesia...</div>
 </div>
 
+<!-- Hero Landing Overlay (first-time visitors only — skipped automatically for returning users) -->
+<div id="hero-overlay" class="hidden">
+  <div class="hero-badge"><span class="dot"></span> Tier 0 Intelligence · GEOCEE</div>
+  <h1 class="hero-title">Pulse-check lokasi tambang <span class="accent">Indonesia</span> dalam 30 detik.</h1>
+  <p class="hero-sub">Masukkan koordinat, nama wilayah, atau unggah batas area (CSV) untuk memulai analisis 5-pillar preliminary.</p>
+
+  <div class="hero-input-box">
+    <div class="hero-input-row">
+      <i class="ti ti-search" style="color:var(--text3);font-size:16px"></i>
+      <input id="hero-search-input" type="text" placeholder="Koordinat, DMS, atau nama wilayah...">
+      <button class="hero-icon-btn" id="hero-upload-btn" title="Unggah CSV poligon area"><i class="ti ti-paperclip"></i></button>
+      <button class="hero-submit-btn" onclick="handleHeroSearch()">Analisis</button>
+    </div>
+    <div class="hero-input-hints">
+      <span><i class="ti ti-map-pin" style="font-size:12px"></i> Decimal / DMS</span>
+      <span><i class="ti ti-file-spreadsheet" style="font-size:12px"></i> CSV Poligon (lat,lon)</span>
+    </div>
+    <div class="hero-error" id="hero-error"></div>
+  </div>
+
+  <div class="hero-samples">
+    <div class="hero-sample-chip" onclick="handleHeroSample(-2.5, 116.0, 'Kec. Satui, Kalimantan Selatan')"><i class="ti ti-map-pin" style="font-size:13px;color:var(--brand)"></i> Kec. Satui, Kalsel</div>
+    <div class="hero-sample-chip" onclick="handleHeroSample(0.5, 123.0, 'Sulawesi Utara — Nikel')"><i class="ti ti-map-pin" style="font-size:13px;color:var(--brand)"></i> Sulut — Nikel</div>
+    <div class="hero-sample-chip" onclick="handleHeroSample(-3.5, 136.0, 'Papua Tengah — Tembaga')"><i class="ti ti-map-pin" style="font-size:13px;color:var(--brand)"></i> Papua — Tembaga</div>
+  </div>
+
+  <div class="hero-skip" onclick="skipHero()">Lewati, langsung ke peta →</div>
+  <input type="file" id="hero-file-input" accept=".csv" style="display:none">
+</div>
+
 <div id="app">
   <!-- TOPBAR -->
   <div id="topbar">
@@ -468,6 +573,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       <button id="search-btn" onclick="handleSearch()">Analisis</button>
     </div>
     <div class="topbar-actions">
+      <button class="tb-btn" onclick="document.getElementById('topbar-file-input').click()"><i class="ti ti-file-spreadsheet"></i> Upload Area</button>
+      <input type="file" id="topbar-file-input" accept=".csv" style="display:none">
       <button class="tb-btn" onclick="showInfo()"><i class="ti ti-info-circle"></i> Metodologi</button>
       <button class="tb-btn primary" onclick="window.open('https://straxio.io','_blank')"><i class="ti ti-shield-check"></i> Straxio Verified</button>
     </div>
@@ -609,14 +716,65 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
 <!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Turf.js: real polygon intersection (replaces centroid-distance heuristic for overlap checks) -->
+<script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
 
 <script>
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const WORKER_URL = 'https://mineravix-proxy.citraeksplorenergi.workers.dev';
 const GITHUB_RAW = 'https://raw.githubusercontent.com/hendroasmani-sys/MineravicGeoCee/main';
 
+// ─── FOREST DATA (lazy-loaded per region) ──────────────────────────────────────
+// Real kawasan-hutan boundary data currently only covers Kalimantan & Sumatera
+// (~10.7MB combined), and only protected/conservation categories (HL, Taman
+// Nasional, Tahura, Taman Wisata Alam, Konservasi) — NOT Hutan Produksi (HP/HPT)
+// yet. To avoid front-loading this on every page visit (like mineral/WIUP data),
+// each region's file is fetched ONLY the first time a user analyzes a point/area
+// that falls inside it, then cached in memory for the rest of the session.
+// Region bounding boxes intentionally match the existing estimateForestScore()
+// heuristic buckets, so behavior stays consistent between real-data and
+// heuristic-fallback regions.
+const FOREST_REGIONS = {
+  kalimantan: {
+    // Real data bounds: lat -5.10..4.41, lon 108.60..119.04 — widened with margin
+    bbox: { lonMin:108, lonMax:120, latMin:-5.5, latMax:5 },
+    url: GITHUB_RAW + '/output/webdata_HUTAN_Kalimantan_v2.geojson'
+  },
+  sumatera: {
+    // Real data bounds: lat -5.98..5.91, lon 95.01..108.36 — widened with margin
+    bbox: { lonMin:94.5, lonMax:109, latMin:-6.5, latMax:6.5 },
+    url: GITHUB_RAW + '/output/webdata_HUTAN_Sumatera_v2.geojson'
+  }
+};
+let forestDataCache = {}; // regionKey -> GeoJSON data | 'error' | undefined (not attempted yet)
+
+function getForestRegion(lat, lon) {
+  for (const [key, r] of Object.entries(FOREST_REGIONS)) {
+    if (lon >= r.bbox.lonMin && lon <= r.bbox.lonMax && lat >= r.bbox.latMin && lat <= r.bbox.latMax) return key;
+  }
+  return null; // not covered by real data yet — heuristic fallback applies
+}
+
+async function ensureForestDataLoaded(lat, lon) {
+  const region = getForestRegion(lat, lon);
+  if (!region) return null;
+  if (forestDataCache[region] && forestDataCache[region] !== 'error') return forestDataCache[region];
+  if (forestDataCache[region] === 'error') return null; // already failed once this session, don't hammer retry on every click
+  try {
+    const res = await fetch(FOREST_REGIONS[region].url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    forestDataCache[region] = data;
+    return data;
+  } catch (e) {
+    console.warn('Forest data load failed for region "' + region + '":', e);
+    forestDataCache[region] = 'error';
+    return null;
+  }
+}
+
 // ─── STATE ────────────────────────────────────────────────────────────────────
-let mapObj, currentBasemap, markerAnalysis;
+let mapObj, currentBasemap, markerAnalysis, areaPolygonLayer;
 let mineralData = null, wiupData = null, coalData = null;
 let mineralLayer = null, wiupLayer = null, coalLayer = null;
 let layerVisible = {mineral:true, wiup:true, coal:true};
@@ -732,6 +890,7 @@ async function loadAllData() {
     // Hide loading
     setTimeout(() => {
       document.getElementById('loading-overlay').classList.add('hidden');
+      maybeShowHero();
     }, 600);
 
   } catch(e) {
@@ -744,6 +903,7 @@ async function loadAllData() {
     setTimeout(() => {
       document.getElementById('loading-overlay').classList.add('hidden');
       showDataErrorBanner();
+      maybeShowHero();
     }, 1500);
   }
 }
@@ -879,35 +1039,83 @@ function popupWIUP(p) {
 }
 
 // ─── SCORING ENGINE ───────────────────────────────────────────────────────────
-function scoreLocation(lat, lon) {
-  const R = 0.09; // ~10km radius in degrees
+// ─── SCORING ENGINE ───────────────────────────────────────────────────────────
+// scoreGeometry() is the shared core: accepts a turf geometry (Point or Polygon)
+// plus a representative lat/lon (centroid) used for the region-based heuristics
+// (forest/infra) that don't have real boundary data to overlap against yet.
+//
+// WIUP & Geological pillars use REAL polygon intersection (turf.booleanIntersects)
+// instead of the old centroid-distance proximity guess — this was a known accuracy
+// gap flagged in the initial audit. To keep performance bounded on the large WIUP
+// dataset (~17MB / thousands of features), turf checks only run on candidates
+// already within a generous distance envelope (R*3) — features far outside that
+// envelope can't plausibly intersect a reasonably-sized target and are skipped.
+// Maps a real "Keterangan" (forest-zone category) value from KLHK data to a
+// risk score. Works uniformly across regions regardless of how many categories
+// that region's dataset actually contains — e.g. Sumatera's file currently only
+// has protected-zone categories (no APL/HP/HPT), so its "no overlap" case just
+// falls through to the conservative default (72) in scoreGeometry, same as
+// before, without needing separate per-region logic.
+function getForestCategoryRisk(keterangan) {
+  const k = (keterangan || '').toLowerCase();
+  // Areal Penggunaan Lain — genuinely outside forest estate, safest category
+  if (k.includes('penggunaan lain')) return { score: 85, level: 'rendah' };
+  // Hutan Produksi family — legal to mine with IPPKH permit, medium risk
+  if (k.includes('produksi')) return { score: 55, level: 'sedang' };
+  // Water bodies — not a forest-estate restriction per se, informational only
+  if (k.includes('laut') || k.includes('sungai') || k.includes('badan air')) return { score: 75, level: 'rendah (badan air)' };
+  // Undefined / not yet classified — genuinely unclear, cautious middle ground
+  if (k.includes('belum terdefinisi')) return { score: 50, level: 'perlu verifikasi' };
+  // Everything else = protected/conservation (Hutan Lindung, Taman Nasional,
+  // Cagar Alam, Suaka Margasatwa, Tahura, Taman Wisata Alam, Hutan Konservasi, etc.)
+  return { score: 18, level: 'tinggi' };
+}
 
-  // Pillar 1: Geological Potential
-  let nearestMineral = null, minDist = 999;
+function scoreGeometry(targetGeom, lat, lon) {
+  const R = 0.09; // ~10km radius in degrees
+  const CANDIDATE_R = R * 3; // ~27km — envelope for turf.booleanIntersects candidates
+
+  // Pillar 1: Geological Potential — real overlap first, fallback to nearest-centroid heuristic
+  let nearestMineral = null, minDist = 999, geoOverlap = false;
+  const geoOverlapCandidates = [];
   if (mineralData) {
     mineralData.features.forEach(f => {
+      if (!f.geometry) return; // some government GIS exports contain null-geometry rows
       const c = f.geometry.coordinates;
-      let centroid = getCentroid(c, f.geometry.type);
+      const centroid = getCentroid(c, f.geometry.type);
       const d = Math.sqrt((centroid[0]-lon)**2 + (centroid[1]-lat)**2);
       if (d < minDist) { minDist = d; nearestMineral = f.properties; }
+      if (d < CANDIDATE_R) geoOverlapCandidates.push({f, d});
     });
+    geoOverlapCandidates.sort((a,b) => a.d - b.d);
+    for (const {f} of geoOverlapCandidates) {
+      let intersects = false;
+      try { intersects = turf.booleanIntersects(targetGeom, f); } catch(e) { /* malformed geometry, skip */ }
+      if (intersects) { nearestMineral = f.properties; geoOverlap = true; break; }
+    }
   }
-  const geoScore = nearestMineral
-    ? Math.max(40, Math.min(95, Math.round(90 - (minDist/R)*30)))
-    : 35;
+  const geoScore = geoOverlap
+    ? 90
+    : nearestMineral
+      ? Math.max(40, Math.min(95, Math.round(90 - (minDist/R)*30)))
+      : 35;
 
-  // Pillar 2: Licence Status (WIUP overlap & proximity)
-  let wiupOverlap = 0, wiupNearby = [], wiupProximity = 999;
+  // Pillar 2: Licence Status — real overlap count (turf) + proximity list (for "nearby" context)
+  let wiupOverlap = 0, wiupNearby = [];
+  const wiupOverlapCandidates = [];
   if (wiupData) {
     wiupData.features.forEach(f => {
+      if (!f.geometry) return;
       const c = f.geometry.coordinates;
-      let centroid = getCentroid(c, f.geometry.type);
+      const centroid = getCentroid(c, f.geometry.type);
       const d = Math.sqrt((centroid[0]-lon)**2 + (centroid[1]-lat)**2);
-      if (d < R) {
-        wiupNearby.push({...f.properties, dist: d});
-        if (d < 0.02) wiupOverlap++;
-        if (d < wiupProximity) wiupProximity = d;
-      }
+      if (d < R) wiupNearby.push({...f.properties, dist: d});
+      if (d < CANDIDATE_R) wiupOverlapCandidates.push(f);
+    });
+    wiupOverlapCandidates.forEach(f => {
+      let intersects = false;
+      try { intersects = turf.booleanIntersects(targetGeom, f); } catch(e) { /* malformed geometry, skip */ }
+      if (intersects) wiupOverlap++;
     });
   }
   let licScore;
@@ -915,9 +1123,45 @@ function scoreLocation(lat, lon) {
   else if (wiupNearby.length === 0) licScore = 82;
   else licScore = Math.max(50, Math.min(85, Math.round(85 - wiupNearby.length * 4)));
 
-  // Pillar 3: Forest Risk (heuristic based on region)
-  // Simplified: use lat/lon to estimate region risk
-  let forScore = estimateForestScore(lat, lon);
+  // Pillar 3: Forest Risk — real polygon-overlap for Kalimantan/Sumatera (once
+  // lazy-loaded), heuristic fallback everywhere else / before data has loaded.
+  // NOTE: real data currently only contains protected/conservation categories
+  // (HL, Taman Nasional, Tahura, Taman Wisata Alam, Konservasi) — NOT Hutan
+  // Produksi (HP/HPT). So a "no overlap" result here means "confirmed outside
+  // mapped protected zones", not "fully safe" — scored accordingly (72, not 85+)
+  // until the HP/HPT-inclusive dataset is added.
+  let forScore, forestMeta;
+  const forestRegion = getForestRegion(lat, lon);
+  const forestData = forestRegion ? forestDataCache[forestRegion] : null;
+  if (forestData && forestData !== 'error') {
+    let forestHit = null;
+    const forestCandidates = [];
+    forestData.features.forEach(f => {
+      if (!f.geometry) return;
+      const c = f.geometry.coordinates;
+      const centroid = getCentroid(c, f.geometry.type);
+      const d = Math.sqrt((centroid[0]-lon)**2 + (centroid[1]-lat)**2);
+      if (d < CANDIDATE_R) forestCandidates.push({f, d});
+    });
+    forestCandidates.sort((a,b) => a.d - b.d);
+    for (const {f} of forestCandidates) {
+      let intersects = false;
+      try { intersects = turf.booleanIntersects(targetGeom, f); } catch(e) { /* malformed geometry, skip */ }
+      if (intersects) { forestHit = f.properties; break; }
+    }
+    if (forestHit) {
+      const cat = forestHit.Keterangan || '';
+      const scoreInfo = getForestCategoryRisk(cat);
+      forScore = scoreInfo.score;
+      forestMeta = { real:true, overlap:true, kategori: cat, riskLevel: scoreInfo.level };
+    } else {
+      forScore = 72; // confirmed outside every mapped zone in this dataset (coverage may be partial — see forestMeta.real)
+      forestMeta = { real:true, overlap:false };
+    }
+  } else {
+    forScore = estimateForestScore(lat, lon);
+    forestMeta = { real:false };
+  }
 
   // Pillar 4: Infrastructure (proximity to coast/lowland heuristic)
   let infScore = estimateInfraScore(lat, lon);
@@ -941,8 +1185,34 @@ function scoreLocation(lat, lon) {
     geo: geoScore, lic: licScore, for: forScore,
     inf: infScore, iup: iupScore, total,
     nearestMineral, wiupNearby: wiupNearby.slice(0,5),
-    wiupOverlap, opProduction, eksplorasi
+    wiupOverlap, opProduction, eksplorasi,
+    geoOverlap, forest: forestMeta
   };
+}
+
+// Point-based scoring (map click, search, quick examples) — unchanged call signature
+async function scoreLocation(lat, lon) {
+  await ensureForestDataLoaded(lat, lon);
+  const targetGeom = turf.point([lon, lat]);
+  return scoreGeometry(targetGeom, lat, lon);
+}
+
+// Polygon-based scoring (CSV upload). polygonLatLon = [[lat,lon], [lat,lon], ...]
+// Returns the same shape as scoreLocation() plus a `centroid` field {lat,lon}.
+async function scoreArea(polygonLatLon) {
+  // GeoJSON/turf expects [lon, lat] and a closed ring (first point === last point)
+  let ring = polygonLatLon.map(([lat, lon]) => [lon, lat]);
+  const first = ring[0], last = ring[ring.length - 1];
+  if (first[0] !== last[0] || first[1] !== last[1]) ring = [...ring, first];
+
+  const targetGeom = turf.polygon([ring]);
+  const centroidPt = turf.centroid(targetGeom);
+  const [centLon, centLat] = centroidPt.geometry.coordinates;
+
+  await ensureForestDataLoaded(centLat, centLon);
+  const result = scoreGeometry(targetGeom, centLat, centLon);
+  result.centroid = { lat: centLat, lon: centLon };
+  return result;
 }
 
 function getCentroid(coords, type) {
@@ -997,6 +1267,9 @@ async function analyzeLocation(lat, lon, locationName) {
     return;
   }
 
+  // Clear any previous polygon-area analysis
+  if (areaPolygonLayer) { mapObj.removeLayer(areaPolygonLayer); areaPolygonLayer = null; }
+
   // Set marker
   if (markerAnalysis) mapObj.removeLayer(markerAnalysis);
   markerAnalysis = L.marker([lat,lon], {
@@ -1012,14 +1285,21 @@ async function analyzeLocation(lat, lon, locationName) {
   showState('analyzing');
   resetSteps();
 
+  // Kick off forest data lazy-load in parallel with the earlier animation
+  // steps, so it doesn't add extra wait time on top of the usual sequence
+  // (only matters the first time a user analyzes a Kalimantan/Sumatera point
+  // in a session — subsequent ones hit the in-memory cache instantly).
+  const forestLoadPromise = ensureForestDataLoaded(lat, lon);
+
   // Run scoring with step animations
   await animateStep('step-geo', 600);
   await animateStep('step-lic', 800);
+  await forestLoadPromise;
   await animateStep('step-for', 700);
   await animateStep('step-inf', 500);
   await animateStep('step-iup', 600);
 
-  const scores = scoreLocation(lat, lon);
+  const scores = await scoreLocation(lat, lon);
   currentResult = {lat, lon, locationName, scores};
 
   // Show result
@@ -1027,6 +1307,52 @@ async function analyzeLocation(lat, lon, locationName) {
   renderResult(lat, lon, locationName, scores);
 
   // Then fetch IA
+  doneStep('step-ia');
+  fetchIA(lat, lon, scores);
+}
+
+// Polygon-based analysis (CSV upload). polygonLatLon = [[lat,lon], [lat,lon], ...]
+async function analyzeArea(polygonLatLon, areaName) {
+  // Validate bounds (Indonesia) — every vertex must be roughly within the country
+  const outOfBounds = polygonLatLon.some(([lat,lon]) => lat < -11 || lat > 6 || lon < 95 || lon > 141);
+  if (outOfBounds) {
+    alert('Beberapa titik pada poligon berada di luar wilayah Indonesia. Periksa kembali file CSV Anda.');
+    return;
+  }
+
+  // Clear any previous point marker
+  if (markerAnalysis) { mapObj.removeLayer(markerAnalysis); markerAnalysis = null; }
+  if (areaPolygonLayer) mapObj.removeLayer(areaPolygonLayer);
+
+  areaPolygonLayer = L.polygon(polygonLatLon, {
+    color:'#C5A059', weight:2, fillColor:'#C5A059', fillOpacity:0.15
+  }).addTo(mapObj);
+  mapObj.fitBounds(areaPolygonLayer.getBounds(), {padding:[60,60]});
+
+  showState('analyzing');
+  resetSteps();
+
+  // Rough centroid just to kick off the forest-data lazy-load early (in
+  // parallel with animation) — the precise centroid is computed inside
+  // scoreArea() via turf and used for the actual scoring.
+  const roughLat = polygonLatLon.reduce((s,[la]) => s+la, 0) / polygonLatLon.length;
+  const roughLon = polygonLatLon.reduce((s,[,lo]) => s+lo, 0) / polygonLatLon.length;
+  const forestLoadPromise = ensureForestDataLoaded(roughLat, roughLon);
+
+  await animateStep('step-geo', 600);
+  await animateStep('step-lic', 800);
+  await forestLoadPromise;
+  await animateStep('step-for', 700);
+  await animateStep('step-inf', 500);
+  await animateStep('step-iup', 600);
+
+  const scores = await scoreArea(polygonLatLon);
+  const { lat, lon } = scores.centroid;
+  currentResult = {lat, lon, locationName: areaName, scores};
+
+  showState('result');
+  renderResult(lat, lon, areaName, scores);
+
   doneStep('step-ia');
   fetchIA(lat, lon, scores);
 }
@@ -1064,6 +1390,11 @@ function resetSteps() {
 
 // ─── RENDER RESULT ────────────────────────────────────────────────────────────
 function renderResult(lat, lon, locationName, s) {
+  // Mark that the user has completed at least one real analysis — this is the
+  // signal used to skip the hero landing overlay on future visits (agreed
+  // criterion: "after 1x completed analysis", not just opening the page).
+  try { localStorage.setItem('mineravix_used', '1'); } catch(e) { /* localStorage unavailable, non-fatal */ }
+
   const loc = locationName || `${lat.toFixed(4)}°, ${lon.toFixed(4)}°`;
   const verdict = s.total >= 75 ? {text:'PROCEED',cls:'badge-green'} :
                   s.total >= 55 ? {text:'MONITOR',cls:'badge-amber'} :
@@ -1099,8 +1430,12 @@ function renderResult(lat, lon, locationName, s) {
     )}
 
     ${renderPillar('for','Forest Area Risk','ti-trees','var(--red-dim)','var(--red)',s.for,
-      s.for>=70?'Area Penggunaan Lain (APL)':s.for>=50?'Proximity kawasan hutan':'Kawasan hutan kritis',
-      s.for>=70?'Risiko rendah':'Perlu verifikasi IPPKH',
+      s.forest.real
+        ? (s.forest.overlap ? `${s.forest.kategori}` : 'Di luar seluruh kawasan terpetakan')
+        : (s.for>=70?'Area Penggunaan Lain (APL)':s.for>=50?'Proximity kawasan hutan':'Kawasan hutan kritis'),
+      s.forest.real
+        ? (s.forest.overlap ? `Risiko ${s.forest.riskLevel} · Data real KLHK` : 'Data real KLHK · sebagian kategori (mis. HP/HPT) mungkin belum tercakup di region ini')
+        : (s.for>=70?'Risiko rendah (estimasi)':'Perlu verifikasi IPPKH'),
       s.for>=70?{text:'Aman',cls:'badge-green'}:s.for>=50?{text:'Monitor',cls:'badge-amber'}:{text:'Berisiko',cls:'badge-red'}
     )}
 
@@ -1213,9 +1548,14 @@ async function fetchIA(lat, lon, scores) {
       komoditas: scores.wiupNearby[0] ? scores.wiupNearby[0].komoditas : null
     },
     hutan: {
-      status: scores.for >= 70 ? 'APL' : 'Proximity kawasan hutan',
-      kategori: scores.for >= 70 ? 'Area Penggunaan Lain' : 'Hutan Produksi / Lindung',
-      risiko: scores.for >= 70 ? 'Rendah' : scores.for >= 50 ? 'Sedang' : 'Tinggi'
+      status: scores.forest.real
+        ? (scores.forest.overlap ? `Overlap ${scores.forest.kategori}` : 'Di luar kawasan lindung/konservasi terpetakan (data real KLHK)')
+        : (scores.for >= 70 ? 'APL (estimasi)' : 'Proximity kawasan hutan (estimasi)'),
+      kategori: scores.forest.real
+        ? (scores.forest.overlap ? scores.forest.kategori : 'Belum ada overlap kawasan lindung terpetakan')
+        : (scores.for >= 70 ? 'Area Penggunaan Lain' : 'Hutan Produksi / Lindung'),
+      risiko: scores.for >= 70 ? 'Rendah' : scores.for >= 50 ? 'Sedang' : 'Tinggi',
+      sumber_data: scores.forest.real ? 'Real polygon-overlap (KLHK, HP/HPT belum tercakup)' : 'Estimasi regional (belum ada data real)'
     },
     infrastruktur: scores.inf >= 70 ? 'Akses jalan tersedia, estimasi jarak ke pelabuhan sedang' : 'Akses terbatas, infrastruktur perlu dibangun'
   };
@@ -1320,15 +1660,56 @@ function locateMe() {
   );
 }
 
+// ─── COORDINATE PARSING (decimal & DMS) ────────────────────────────────────────
+// Supports:
+//   Decimal:  "-2.5, 116.0"  |  "-2.5 116.0"
+//   DMS:      "2°30'00\"S 116°00'00\"E"  |  "2 30 00 S, 116 0 0 E"  |  "S2 30 0 E116 0 0"
+// Returns {lat, lon} or null if the string doesn't look like coordinates at all
+// (so it can safely fall through to place-name geocoding).
+function dmsToDecimal(deg, min, sec, hemi) {
+  let dec = Math.abs(parseFloat(deg)) + (parseFloat(min || 0) / 60) + (parseFloat(sec || 0) / 3600);
+  if (/[SW]/i.test(hemi)) dec = -dec;
+  return dec;
+}
+
+function parseCoordinateInput(val) {
+  val = val.trim();
+
+  // Pattern A: DMS with explicit hemisphere letter (N/S/E/W), symbols optional.
+  // e.g. 2°30'15.5"S 116°10'05.2"E  |  S 2 30 15.5, E 116 10 05.2  |  2 30 15.5 S 116 10 05.2 E
+  const dmsRe = /([NSEW]?)\s*(\d{1,3})[°\s:]+(\d{1,2})['\s:]+(\d{1,2}(?:\.\d+)?)["\s]*([NSEW]?)/gi;
+  const dmsMatches = [...val.matchAll(dmsRe)];
+  if (dmsMatches.length >= 2) {
+    const parts = dmsMatches.slice(0, 2).map(m => {
+      const hemi = (m[1] || m[5] || '').toUpperCase();
+      return { value: dmsToDecimal(m[2], m[3], m[4], hemi), hemi };
+    });
+    // Whichever part carries S/N is latitude, the one with E/W is longitude
+    const latPart = parts.find(p => p.hemi === 'N' || p.hemi === 'S');
+    const lonPart = parts.find(p => p.hemi === 'E' || p.hemi === 'W');
+    if (latPart && lonPart) return { lat: latPart.value, lon: lonPart.value };
+  }
+
+  // Pattern B: plain decimal degrees "lat, lon" or "lat lon"
+  const decRe = /^(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)$/;
+  const decMatch = val.match(decRe);
+  if (decMatch) {
+    const lat = parseFloat(decMatch[1]);
+    const lon = parseFloat(decMatch[2]);
+    // Sanity check: valid lat/lon range (avoids false positives like phone numbers)
+    if (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) return { lat, lon };
+  }
+
+  return null;
+}
+
 function handleSearch() {
   const val = document.getElementById('search-input').value.trim();
   if (!val) return;
-  // Try parse as coordinates
-  const coordMatch = val.match(/(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)/);
-  if (coordMatch) {
-    const lat = parseFloat(coordMatch[1]);
-    const lon = parseFloat(coordMatch[2]);
-    analyzeLocation(lat, lon);
+  // Try parse as coordinates (decimal or DMS)
+  const parsed = parseCoordinateInput(val);
+  if (parsed) {
+    analyzeLocation(parsed.lat, parsed.lon);
     return;
   }
   // Geocode via Nominatim
@@ -1338,9 +1719,10 @@ function handleSearch() {
       if (data.length) {
         analyzeLocation(parseFloat(data[0].lat), parseFloat(data[0].lon), data[0].display_name);
       } else {
-        alert('Lokasi tidak ditemukan. Coba masukkan koordinat langsung (contoh: -2.5, 116.0)');
+        alert('Lokasi tidak ditemukan. Coba masukkan koordinat langsung (contoh: -2.5, 116.0 atau 2°30\'00"S 116°00\'00"E)');
       }
-    });
+    })
+    .catch(() => alert('Gagal menghubungi layanan pencarian lokasi. Cek koneksi internet, atau masukkan koordinat langsung.'));
 }
 
 function runExample(lat, lon, name) {
@@ -1351,6 +1733,122 @@ function runExample(lat, lon, name) {
 function showInfo() {
   alert('Mineravix Pulse — Metodologi Scoring\n\nPulse Score™ terdiri dari 5 pillar:\n\n1. Geological Potential (30%) — Kedekatan dan kualitas formasi geologi\n2. Licence Status (25%) — Status WIUP dan overlay perizinan\n3. Forest Area Risk (20%) — Proximity kawasan hutan HL/HK/HP\n4. Infrastructure (10%) — Estimasi aksesibilitas lokasi\n5. Adjacent IUP Context (15%) — Konteks IUP aktif terdekat\n\nSemua analisis bersifat PRELIMINARY berdasarkan data publik ESDM/P3GL dan MODI 2024.\n\nVerifikasi oleh Senior Geologist diperlukan untuk laporan resmi.\n\nIr. Hendro Ismanto ST\nSenior Geologist · IAGI · Perhapi · 31 tahun pengalaman\nPT. Citra Eksplor Energi (GEOCEE)');
 }
+
+// ─── CSV POLYGON UPLOAD ─────────────────────────────────────────────────────────
+// Expected format: one vertex per row, columns lat,lon (header optional,
+// auto-detected). Minimum 3 rows required to form a valid polygon.
+function parseCsvPolygon(text) {
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+  if (lines.length === 0) throw new Error('File CSV kosong.');
+
+  // Detect & skip a header row (first cell isn't numeric)
+  let rows = lines.map(l => l.split(','));
+  if (rows.length > 0 && isNaN(parseFloat(rows[0][0]))) rows = rows.slice(1);
+
+  const points = [];
+  for (const row of rows) {
+    if (row.length < 2) continue;
+    const lat = parseFloat(row[0]);
+    const lon = parseFloat(row[1]);
+    if (isNaN(lat) || isNaN(lon)) continue;
+    if (lat < -90 || lat > 90 || lon < -180 || lon > 180) continue;
+    points.push([lat, lon]);
+  }
+
+  if (points.length < 3) {
+    throw new Error(`Poligon butuh minimal 3 titik valid (kolom lat,lon). Ditemukan ${points.length} titik valid.`);
+  }
+  return points;
+}
+
+function handleCsvFile(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const polygon = parseCsvPolygon(e.target.result);
+      hideHero();
+      analyzeArea(polygon, `Area Upload: ${file.name} (${polygon.length} titik)`);
+    } catch (err) {
+      alert('Gagal membaca CSV: ' + err.message);
+    }
+  };
+  reader.onerror = () => alert('Gagal membaca file. Coba lagi.');
+  reader.readAsText(file);
+}
+
+document.getElementById('topbar-file-input').addEventListener('change', (e) => {
+  if (e.target.files && e.target.files[0]) handleCsvFile(e.target.files[0]);
+  e.target.value = ''; // allow re-uploading the same file name later
+});
+
+// ─── HERO LANDING OVERLAY ────────────────────────────────────────────────────
+// Shown once to first-time visitors as a focused "single action" entry point.
+// Skipped automatically for returning users who have completed an analysis
+// before (flag set in renderResult()), so it never becomes friction for
+// repeat/power users checking many locations per day.
+function maybeShowHero() {
+  let alreadyUsed = false;
+  try { alreadyUsed = !!localStorage.getItem('mineravix_used'); } catch(e) { /* localStorage unavailable, default to showing hero */ }
+  if (!alreadyUsed) {
+    document.getElementById('hero-overlay').classList.remove('hidden');
+    document.getElementById('hero-search-input').focus();
+  }
+}
+
+function hideHero() {
+  document.getElementById('hero-overlay').classList.add('hidden');
+}
+
+function skipHero() {
+  // User explicitly chose to explore without analyzing yet — don't set the
+  // "used" flag, so the hero still appears next visit until they actually run one.
+  hideHero();
+}
+
+function handleHeroSearch() {
+  const val = document.getElementById('hero-search-input').value.trim();
+  const errEl = document.getElementById('hero-error');
+  errEl.textContent = '';
+  if (!val) return;
+
+  const parsed = parseCoordinateInput(val);
+  if (parsed) {
+    hideHero();
+    document.getElementById('search-input').value = val;
+    analyzeLocation(parsed.lat, parsed.lon);
+    return;
+  }
+
+  fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(val)},Indonesia&format=json&limit=1`)
+    .then(r => r.json())
+    .then(data => {
+      if (data.length) {
+        hideHero();
+        document.getElementById('search-input').value = val;
+        analyzeLocation(parseFloat(data[0].lat), parseFloat(data[0].lon), data[0].display_name);
+      } else {
+        errEl.textContent = 'Lokasi tidak ditemukan. Coba koordinat langsung (contoh: -2.5, 116.0).';
+      }
+    })
+    .catch(() => { errEl.textContent = 'Gagal menghubungi layanan pencarian. Cek koneksi internet.'; });
+}
+
+function handleHeroSample(lat, lon, name) {
+  hideHero();
+  document.getElementById('search-input').value = name;
+  analyzeLocation(lat, lon, name);
+}
+
+document.getElementById('hero-search-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') handleHeroSearch();
+});
+document.getElementById('hero-upload-btn').addEventListener('click', () => {
+  document.getElementById('hero-file-input').click();
+});
+document.getElementById('hero-file-input').addEventListener('change', (e) => {
+  if (e.target.files && e.target.files[0]) handleCsvFile(e.target.files[0]);
+  e.target.value = '';
+});
 
 // ─── SEARCH ON ENTER ─────────────────────────────────────────────────────────
 document.getElementById('search-input').addEventListener('keydown', (e) => {
