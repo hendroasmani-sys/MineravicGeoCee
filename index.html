@@ -30,7 +30,7 @@
   --brand-dim2:rgba(197,160,89,0.2);
   --text:#F0F2F5;
   --text2:#94A3B8;
-  --text3:#64748B;
+  --text3:#7B8CA3;
   --green:#22C55E;
   --green-dim:rgba(34,197,94,0.12);
   --red:#EF4444;
@@ -370,9 +370,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   display:flex;align-items:center;justify-content:center;gap:6px;
 }
 .cta-btn:hover{background:var(--brand2)}
-.cta-tiers{display:flex;gap:6px;margin-top:8px}
-.cta-tier{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:6px 8px;text-align:center}
-.cta-tier-name{font-size:10px;color:var(--text3);margin-bottom:2px}
+.cta-tiers{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+.cta-tier{background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:6px 8px;text-align:center}
+.cta-tier-name{font-size:10px;color:var(--text3);margin-bottom:2px;line-height:1.3}
 .cta-tier-price{font-family:var(--font-head);font-size:12px;font-weight:600;color:var(--text)}
 .cta-tier-time{font-size:9px;color:var(--text3);margin-top:1px}
 
@@ -1465,23 +1465,28 @@ function renderResult(lat, lon, locationName, s) {
       <div class="cta-headline"><i class="ti ti-shield-check" style="color:var(--brand)"></i> Upgrade ke Verified Report</div>
       <div class="cta-sub">Hasil ini bersifat PRELIMINARY. Dapatkan laporan terverifikasi dari Ir. Hendro Ismanto ST — Senior Geologist, 31 tahun pengalaman, IAGI · Perhapi — untuk keputusan investasi.</div>
       <button class="cta-btn" onclick="window.open('https://straxio.io','_blank')">
-        <i class="ti ti-external-link"></i> Order Snapshot · USD 149
+        <i class="ti ti-external-link"></i> Order Snapshot · Rp 3,5jt
       </button>
       <div class="cta-tiers">
         <div class="cta-tier">
           <div class="cta-tier-name">Snapshot</div>
-          <div class="cta-tier-price">$149</div>
+          <div class="cta-tier-price">Rp 3,5jt</div>
           <div class="cta-tier-time">Same day</div>
         </div>
         <div class="cta-tier">
           <div class="cta-tier-name">Intelligence</div>
-          <div class="cta-tier-price">$2,500</div>
+          <div class="cta-tier-price">Rp 35jt</div>
           <div class="cta-tier-time">5 hari</div>
         </div>
         <div class="cta-tier">
+          <div class="cta-tier-name">Resource & Reserve Estimation</div>
+          <div class="cta-tier-price">Rp 300-450jt</div>
+          <div class="cta-tier-time">Sesuai scope</div>
+        </div>
+        <div class="cta-tier">
           <div class="cta-tier-name">Due Diligence</div>
-          <div class="cta-tier-price">$20,000</div>
-          <div class="cta-tier-time">10 hari</div>
+          <div class="cta-tier-price">mulai Rp 500jt</div>
+          <div class="cta-tier-time">Custom quote</div>
         </div>
       </div>
     </div>
