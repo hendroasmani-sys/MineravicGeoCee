@@ -404,11 +404,12 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .hero-badge{
   display:inline-flex;align-items:center;gap:6px;
   background:var(--brand-dim);border:1px solid var(--brand);
-  border-radius:20px;padding:5px 14px;margin-bottom:22px;
+  border-radius:20px;padding:7px 16px;margin-bottom:22px;
   font-size:11px;color:var(--brand);font-family:var(--font-mono);
-  text-transform:uppercase;letter-spacing:.08em;
+  text-transform:uppercase;letter-spacing:.06em;
+  max-width:92%;text-align:center;line-height:1.5;
 }
-.hero-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--brand);animation:pulse-dot 1.6s infinite}
+.hero-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--brand);animation:pulse-dot 1.6s infinite;flex-shrink:0}
 @keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.3}}
 .hero-title{
   font-family:var(--font-head);font-weight:500;
@@ -530,7 +531,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
 <!-- Hero Landing Overlay (first-time visitors only — skipped automatically for returning users) -->
 <div id="hero-overlay" class="hidden">
-  <div class="hero-badge"><span class="dot"></span> Tier 0 Intelligence · GEOCEE</div>
+  <div class="hero-badge"><span class="dot"></span> Tier 0 · Your Gateway to Straxio Intelligence</div>
   <h1 class="hero-title">Pulse-check lokasi tambang <span class="accent">Indonesia</span> dalam 30 detik.</h1>
   <p class="hero-sub">Masukkan koordinat, nama wilayah, atau unggah batas area (CSV) untuk memulai analisis 5-pillar preliminary.</p>
 
