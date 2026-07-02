@@ -2236,7 +2236,16 @@ async function fetchIA(lat, lon, scores) {
 
   const payload = {
     lat, lon,
-    wilayah: usingTier1 ? nm.WILAYAH : usingTier2 ? fo.nama : (nm ? nm.WILAYAH : 'Tidak diketahui'),
+    // BUG FIX: field WILAYAH (mineralData) dan NAMA (geology dataset) BUKAN nama wilayah
+    // administratif tempat fitur itu berada — itu nama lembar-peta survei RBI/ESDM, bisa
+    // sangat berbeda dari lokasi geografis fitur (contoh nyata: entry dgn WILAYAH="UJUNG
+    // PANDANG" isinya komoditas "Besi Laterit Pulau Sebuku", yang ada di Kalimantan Selatan,
+    // bukan Sulawesi — nama itu cuma referensi katalog peta, bukan lokasi). Menaruh field
+    // ini di payload sebagai "wilayah" bikin Claude salah infer lokasi dan cerita ngawur.
+    // Fix: jangan kirim nama wilayah dari field database sama sekali — biar Claude infer
+    // sendiri dari lat/lon (yang selalu akurat, dan Claude cukup andal baca geografi
+    // Indonesia dari koordinat).
+    wilayah: '(tentukan dari koordinat lat/lon — JANGAN gunakan nama formasi/wilayah dari field database lain di payload ini, field tersebut adalah referensi katalog peta survei, bukan lokasi administratif)',
     radius: 10,
     scores: {
       geo: scores.geo, lic: scores.lic,
