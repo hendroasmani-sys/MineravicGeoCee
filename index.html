@@ -1700,11 +1700,30 @@ function renderResult(lat, lon, locationName, s) {
 
     <div class="section-title"><i class="ti ti-sparkles" style="color:var(--brand);font-size:11px"></i> 5-Pillar Intelligence Analysis</div>
 
-    ${renderPillar('geo','Geological Potential','ti-mountain','var(--brand-dim)','var(--brand)',s.geo,
-      s.nearestMineral ? s.nearestMineral.NAMAFOR : 'Tidak ada formasi',
-      s.nearestMineral ? s.nearestMineral.KOMODITAS : '-',
-      s.geo>=75?{text:'Tinggi',cls:'badge-green'}:s.geo>=55?{text:'Sedang',cls:'badge-amber'}:{text:'Rendah',cls:'badge-red'}
-    )}
+    ${(() => {
+      // Label formasi harus ikutin tier yang benar-benar dipakai buat hitung s.geo,
+      // bukan selalu nearestMineral — sebelumnya bug ini bikin label "nyangkut" ke titik
+      // mineral terdekat (dataset lama, 776 fitur, jarang) walau skornya udah dihitung dari
+      // formationOverlap (dataset baru, 40.491 fitur, lebih rapat).
+      let geoLabel, geoSubLabel;
+      if (s.geoOverlap && s.nearestMineral) {
+        geoLabel = s.nearestMineral.NAMAFOR;
+        geoSubLabel = s.nearestMineral.KOMODITAS || '-';
+      } else if (s.formationOverlap) {
+        geoLabel = s.formationOverlap.formasi || 'Formasi tidak diketahui';
+        geoSubLabel = 'Belum ada catatan komoditas terdokumentasi';
+      } else if (s.nearestMineral) {
+        geoLabel = s.nearestMineral.NAMAFOR + ' (terdekat)';
+        geoSubLabel = s.nearestMineral.KOMODITAS || '-';
+      } else {
+        geoLabel = 'Tidak ada formasi';
+        geoSubLabel = '-';
+      }
+      return renderPillar('geo','Geological Potential','ti-mountain','var(--brand-dim)','var(--brand)',s.geo,
+        geoLabel, geoSubLabel,
+        s.geo>=75?{text:'Tinggi',cls:'badge-green'}:s.geo>=55?{text:'Sedang',cls:'badge-amber'}:{text:'Rendah',cls:'badge-red'}
+      );
+    })()}
 
     ${renderPillar('lic','Licence Status','ti-license','var(--green-dim)','var(--green)',s.lic,
       s.wiupOverlap > 0 ? `⚠ ${s.wiupOverlap} WIUP overlap terdeteksi` : s.wiupNearby.length === 0 ? 'Area bebas dari WIUP' : `${s.wiupNearby.length} WIUP dalam radius 10km`,
@@ -1811,21 +1830,30 @@ function renderPillar(key, name, icon, iconBg, iconColor, score, line1, line2, b
 // ─── IA ANALYSIS ──────────────────────────────────────────────────────────────
 async function fetchIA(lat, lon, scores) {
   const nm = scores.nearestMineral;
+  const fo = scores.formationOverlap;
+  // Same tier-consistency fix as the UI label: prefer whichever source actually determined
+  // scores.geo, don't always fall back to nearestMineral (see renderResult()).
+  const usingTier1 = scores.geoOverlap && nm;
+  const usingTier2 = !usingTier1 && fo;
 
   const payload = {
     lat, lon,
-    wilayah: nm ? nm.WILAYAH : 'Tidak diketahui',
+    wilayah: usingTier1 ? nm.WILAYAH : usingTier2 ? fo.nama : (nm ? nm.WILAYAH : 'Tidak diketahui'),
     radius: 10,
     scores: {
       geo: scores.geo, lic: scores.lic,
       for: scores.for, inf: scores.inf,
       iup: scores.iup, total: scores.total
     },
-    formasi: {
-      nama: nm ? nm.NAMAFOR : null,
-      kode: nm ? nm.KODEFOR : null,
-      lithologi: nm ? nm.LITHOLOGI : null,
-      jenis: nm ? nm.JENISBAT : null,
+    formasi: usingTier1 ? {
+      nama: nm.NAMAFOR, kode: nm.KODEFOR, lithologi: nm.LITHOLOGI,
+      jenis: nm.JENISBAT, komoditas: nm.KOMODITAS
+    } : usingTier2 ? {
+      nama: fo.formasi, kode: fo.sandi, lithologi: fo.penyusun,
+      jenis: null, komoditas: null // dataset formasi lengkap belum ada catatan komoditas per-polygon
+    } : {
+      nama: nm ? nm.NAMAFOR : null, kode: nm ? nm.KODEFOR : null,
+      lithologi: nm ? nm.LITHOLOGI : null, jenis: nm ? nm.JENISBAT : null,
       komoditas: nm ? nm.KOMODITAS : null
     },
     wiup: {
