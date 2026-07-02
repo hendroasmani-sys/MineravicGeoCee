@@ -664,6 +664,22 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
           <div class="layer-chip-dot" style="background:#8B5CF6"></div>
           <span>Formasi Geologi</span>
         </div>
+        <div class="layer-chip" id="chip-pltu" onclick="toggleLayer('pltu')">
+          <div class="layer-chip-dot" style="background:#EF4444"></div>
+          <span>PLTU</span>
+        </div>
+        <div class="layer-chip" id="chip-terminal" onclick="toggleLayer('terminal')">
+          <div class="layer-chip-dot" style="background:#0EA5E9"></div>
+          <span>Terminal Khusus</span>
+        </div>
+        <div class="layer-chip" id="chip-bandara" onclick="toggleLayer('bandara')">
+          <div class="layer-chip-dot" style="background:#FACC15"></div>
+          <span>Bandara</span>
+        </div>
+        <div class="layer-chip" id="chip-smelter" onclick="toggleLayer('smelter')">
+          <div class="layer-chip-dot" style="background:#FB923C"></div>
+          <span>Smelter</span>
+        </div>
       </div>
 
       <!-- Zoom -->
@@ -776,6 +792,34 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
             <div class="legend-info">
               <div class="legend-name">Formasi Geologi</div>
               <div class="legend-desc">Cakupan penuh 40.491 formasi se-Indonesia (bukan cuma titik mineral terdokumentasi). Muncul bertahap per pulau saat Anda menganalisis titik di wilayah itu — aktifkan chip-nya dulu, lalu klik peta.</div>
+            </div>
+          </div>
+          <div class="legend-row">
+            <div class="legend-dot circle" style="background:#EF4444"></div>
+            <div class="legend-info">
+              <div class="legend-name">PLTU</div>
+              <div class="legend-desc">95 pembangkit listrik tenaga uap — sumber Global Energy Monitor</div>
+            </div>
+          </div>
+          <div class="legend-row">
+            <div class="legend-dot circle" style="background:#0EA5E9"></div>
+            <div class="legend-info">
+              <div class="legend-name">Terminal Khusus</div>
+              <div class="legend-desc">57 terminal batubara (ekspor/domestik) — sumber Global Energy Monitor</div>
+            </div>
+          </div>
+          <div class="legend-row">
+            <div class="legend-dot circle" style="background:#FACC15"></div>
+            <div class="legend-info">
+              <div class="legend-name">Bandara</div>
+              <div class="legend-desc">83 bandara besar & menengah — sumber OurAirports</div>
+            </div>
+          </div>
+          <div class="legend-row">
+            <div class="legend-dot circle" style="background:#FB923C"></div>
+            <div class="legend-info">
+              <div class="legend-name">Smelter</div>
+              <div class="legend-desc">53 smelter (nikel/bauksit/tembaga/dll) — sumber MODI, Ditjen Minerba ESDM</div>
             </div>
           </div>
           <div class="legend-note">
@@ -975,7 +1019,9 @@ let mapObj, currentBasemap, markerAnalysis, areaPolygonLayer;
 let mineralData = null, wiupData = null, coalData = null;
 let mineralLayer = null, wiupLayer = null, coalLayer = null;
 let geologyLayer = null; // renders currently-loaded region's formation polygons (separate from mineralData/mineralLayer)
-let layerVisible = {mineral:true, wiup:true, coal:true, geology:false};
+let pltuData = null, terminalData = null, bandaraData = null, smelterData = null;
+let pltuLayer = null, terminalLayer = null, bandaraLayer = null, smelterLayer = null;
+let layerVisible = {mineral:true, wiup:true, coal:true, geology:false, pltu:false, terminal:false, bandara:false, smelter:false};
 let currentResult = null;
 let lastAnalysisState = 'landing'; // tracks landing/analyzing/result so switching back to the Analysis tab restores the right view
 
@@ -1063,7 +1109,7 @@ document.addEventListener('click', (e) => {
 
 // ─── LOAD GEOJSON DATA ────────────────────────────────────────────────────────
 async function loadAllData() {
-  const msgs = ['Memuat data geologi Indonesia...','Memuat data WIUP 2024...','Memuat data batubara...','Siap!'];
+  const msgs = ['Memuat data geologi Indonesia...','Memuat data WIUP 2024...','Memuat data batubara...','Memuat data infrastruktur...','Siap!'];
   let mi = 0;
 
   const setMsg = (m) => { document.getElementById('loading-msg').textContent = m; };
@@ -1080,6 +1126,30 @@ async function loadAllData() {
     setMsg(msgs[mi++]);
     const r3 = await fetch(GITHUB_RAW + '/webdata_BATUBARA.json');
     coalData = await r3.json();
+
+    setMsg(msgs[mi++]);
+    // 4 infra point layers are small (~25KB each) — fetch in parallel, tolerate individual
+    // failures (Promise.allSettled) so one missing file doesn't break the other three.
+    const infraUrls = {
+      pltu:     GITHUB_RAW + '/output/infra_pltu.geojson',
+      terminal: GITHUB_RAW + '/output/infra_terminal.geojson',
+      bandara:  GITHUB_RAW + '/output/infra_bandara.geojson',
+      smelter:  GITHUB_RAW + '/output/infra_smelter.geojson'
+    };
+    const infraResults = await Promise.allSettled(
+      Object.entries(infraUrls).map(([key, url]) => fetch(url).then(r => { if (!r.ok) throw new Error('HTTP '+r.status); return r.json(); }).then(d => [key, d]))
+    );
+    for (const res of infraResults) {
+      if (res.status === 'fulfilled') {
+        const [key, data] = res.value;
+        if (key === 'pltu') pltuData = data;
+        else if (key === 'terminal') terminalData = data;
+        else if (key === 'bandara') bandaraData = data;
+        else if (key === 'smelter') smelterData = data;
+      } else {
+        console.warn('Infra layer load failed:', res.reason);
+      }
+    }
 
     setMsg(msgs[mi++]);
 
@@ -1189,6 +1259,43 @@ function renderLayers() {
   // the user analyzes points in new areas (see renderGeologyRegion()). Not added to the map
   // yet since layerVisible.geology defaults to false (chip starts inactive).
   geologyLayer = L.layerGroup();
+
+  // Infra point layers — PLTU, Terminal Khusus Pertambangan, Bandara, Smelter. All start
+  // hidden (layerVisible defaults false) since they're secondary/supplementary layers —
+  // user opts in via chip. Distinct colors per type so they're distinguishable when several
+  // are toggled on together.
+  if (pltuData) {
+    pltuLayer = L.geoJSON(pltuData, {
+      pointToLayer: (f, latlng) => L.circleMarker(latlng, {
+        radius:5, fillColor:'#EF4444', fillOpacity:0.8, color:'#B91C1C', weight:1.5, opacity:0.9
+      }),
+      onEachFeature: (f, l) => l.on('click', (e) => { L.DomEvent.stopPropagation(e); l.bindPopup(popupPltu(f.properties)).openPopup(); })
+    });
+  }
+  if (terminalData) {
+    terminalLayer = L.geoJSON(terminalData, {
+      pointToLayer: (f, latlng) => L.circleMarker(latlng, {
+        radius:5, fillColor:'#0EA5E9', fillOpacity:0.8, color:'#0369A1', weight:1.5, opacity:0.9
+      }),
+      onEachFeature: (f, l) => l.on('click', (e) => { L.DomEvent.stopPropagation(e); l.bindPopup(popupTerminal(f.properties)).openPopup(); })
+    });
+  }
+  if (bandaraData) {
+    bandaraLayer = L.geoJSON(bandaraData, {
+      pointToLayer: (f, latlng) => L.circleMarker(latlng, {
+        radius:5, fillColor:'#FACC15', fillOpacity:0.85, color:'#A16207', weight:1.5, opacity:0.9
+      }),
+      onEachFeature: (f, l) => l.on('click', (e) => { L.DomEvent.stopPropagation(e); l.bindPopup(popupBandara(f.properties)).openPopup(); })
+    });
+  }
+  if (smelterData) {
+    smelterLayer = L.geoJSON(smelterData, {
+      pointToLayer: (f, latlng) => L.circleMarker(latlng, {
+        radius:5, fillColor:'#FB923C', fillOpacity:0.8, color:'#C2410C', weight:1.5, opacity:0.9
+      }),
+      onEachFeature: (f, l) => l.on('click', (e) => { L.DomEvent.stopPropagation(e); l.bindPopup(popupSmelter(f.properties)).openPopup(); })
+    });
+  }
 }
 
 const geologyRenderedRegions = new Set(); // regions already added into geologyLayer, avoid re-adding on repeat visits
@@ -1250,6 +1357,47 @@ function getMineralColor(jenis) {
   return map[jenis] || '#64748B';
 }
 
+function popupPltu(p) {
+  return `<div style="font-size:12px">
+    <div style="font-weight:600;color:#EF4444;margin-bottom:6px;font-family:var(--font-head)">${p.name || 'PLTU'}</div>
+    <div style="color:var(--text2);margin-bottom:3px"><b>Kapasitas:</b> ${p.capacity_mw || '-'} MW${p.unit_count ? ' ('+p.unit_count+' unit)' : ''}</div>
+    <div style="color:var(--text2);margin-bottom:3px"><b>Status:</b> ${p.status || '-'}</div>
+    <div style="color:var(--text3);font-size:10px">Sumber: ${p.source || 'Global Energy Monitor'}</div>
+  </div>`;
+}
+
+function popupTerminal(p) {
+  return `<div style="font-size:12px">
+    <div style="font-weight:600;color:#0EA5E9;margin-bottom:6px;font-family:var(--font-head)">${p.name || 'Terminal Khusus Pertambangan'}</div>
+    <div style="color:var(--text2);margin-bottom:3px"><b>Status:</b> ${p.status || '-'}</div>
+    <div style="color:var(--text2);margin-bottom:3px"><b>Kapasitas:</b> ${p.capacity_mt || '-'} Mt · ${p.terminal_type || '-'}</div>
+    <div style="color:var(--text2);margin-bottom:3px"><b>Produk:</b> ${p.product_type || '-'}</div>
+    <div style="color:var(--text2);margin-bottom:3px"><b>Pemilik:</b> ${p.owner || '-'}</div>
+    <div style="color:var(--text3);font-size:10px">Sumber: ${p.source || 'Global Energy Monitor'}</div>
+  </div>`;
+}
+
+function popupBandara(p) {
+  return `<div style="font-size:12px">
+    <div style="font-weight:600;color:#EAB308;margin-bottom:6px;font-family:var(--font-head)">${p.name || 'Bandara'}</div>
+    <div style="color:var(--text3);font-size:10px;margin-bottom:4px">${p.iata_code || ''} · ${p.icao_code || ''} · ${p.municipality || ''}</div>
+    <div style="color:var(--text2);margin-bottom:3px"><b>Tipe:</b> ${p.type === 'large_airport' ? 'Bandara Besar' : 'Bandara Menengah'}</div>
+    <div style="color:var(--text2);margin-bottom:3px"><b>Layanan Terjadwal:</b> ${p.scheduled_service === 'yes' ? 'Ya' : 'Tidak'}</div>
+    <div style="color:var(--text3);font-size:10px">Sumber: ${p.source || 'OurAirports'}</div>
+  </div>`;
+}
+
+function popupSmelter(p) {
+  return `<div style="font-size:12px">
+    <div style="font-weight:600;color:#FB923C;margin-bottom:6px;font-family:var(--font-head)">${p.nama_perusahaan || 'Smelter'}</div>
+    <div style="color:var(--text3);font-size:10px;margin-bottom:4px">${p.kabupaten_kota || ''} · ${p.provinsi || ''}</div>
+    <div style="color:var(--text2);margin-bottom:3px"><b>Komoditas:</b> ${(p.komoditas||'-').toUpperCase()}</div>
+    <div style="color:var(--text2);margin-bottom:3px"><b>Kapasitas Input:</b> ${p.kapasitas_input_ton ? p.kapasitas_input_ton.toLocaleString('id-ID')+' ton' : '-'}</div>
+    <div style="color:var(--text2);margin-bottom:3px"><b>Mulai Operasi:</b> ${p.tahun_mulai_operasi || '-'}</div>
+    <div style="color:var(--text3);font-size:10px">Sumber: ${p.source || 'MODI, Ditjen Minerba ESDM'}</div>
+  </div>`;
+}
+
 function getWIUPColor(kegiatan) {
   if (kegiatan === 'OPERASI PRODUKSI') return '#22C55E';
   if (kegiatan === 'EKSPLORASI') return '#3B82F6';
@@ -1262,7 +1410,7 @@ function toggleLayer(name) {
   layerVisible[name] = !layerVisible[name];
   const chip = document.getElementById('chip-' + name);
   chip.classList.toggle('active', layerVisible[name]);
-  const layer = {mineral:mineralLayer, wiup:wiupLayer, coal:coalLayer, geology:geologyLayer}[name];
+  const layer = {mineral:mineralLayer, wiup:wiupLayer, coal:coalLayer, geology:geologyLayer, pltu:pltuLayer, terminal:terminalLayer, bandara:bandaraLayer, smelter:smelterLayer}[name];
   if (!layer) return;
   if (layerVisible[name]) mapObj.addLayer(layer);
   else mapObj.removeLayer(layer);
