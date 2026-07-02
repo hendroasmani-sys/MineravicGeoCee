@@ -660,6 +660,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
           <div class="layer-chip-dot" style="background:#F59E0B"></div>
           <span>Batubara</span>
         </div>
+        <div class="layer-chip" id="chip-geology" onclick="toggleLayer('geology')" title="Muncul bertahap per wilayah saat Anda menganalisis titik di sana">
+          <div class="layer-chip-dot" style="background:#8B5CF6"></div>
+          <span>Formasi Geologi</span>
+        </div>
       </div>
 
       <!-- Zoom -->
@@ -767,6 +771,13 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
               <div class="legend-desc">Titik indikasi keterdapatan batubara — sumber MODI 2024</div>
             </div>
           </div>
+          <div class="legend-row">
+            <div class="legend-dot" style="background:#8B5CF6"></div>
+            <div class="legend-info">
+              <div class="legend-name">Formasi Geologi</div>
+              <div class="legend-desc">Cakupan penuh 40.491 formasi se-Indonesia (bukan cuma titik mineral terdokumentasi). Muncul bertahap per pulau saat Anda menganalisis titik di wilayah itu — aktifkan chip-nya dulu, lalu klik peta.</div>
+            </div>
+          </div>
           <div class="legend-note">
             <i class="ti ti-info-circle" style="font-size:11px;margin-right:4px"></i>
             Klik area/titik pada layer di peta untuk detail. Aktifkan/nonaktifkan layer lewat chip di atas peta.
@@ -847,11 +858,95 @@ const FOREST_REGIONS = {
 };
 let forestDataCache = {}; // regionKey -> GeoJSON data | 'error' | undefined (not attempted yet)
 
+// Full-Indonesia geological formation coverage (40,491 polygons total), lazy-loaded per
+// island region to avoid shipping the whole ~80MB dataset up front. Complements mineralData
+// (776 curated known-mineral-occurrence polygons, has KOMODITAS, loaded eagerly) — this
+// dataset has no commodity field but covers virtually all of Indonesia's landmass, so it
+// fills the "known geology, no catalogued occurrence yet" gap in scoreGeometry's Pillar 1.
+const GEOLOGY_REGIONS = {
+  sumatera:      { bbox: { lonMin:94.5,  lonMax:105,   latMin:-6.5, latMax:6.5  }, url: GITHUB_RAW + '/output/geologi_sumatera.geojson' },
+  jawabali:      { bbox: { lonMin:105,   lonMax:117,   latMin:-9,   latMax:-5.4 }, url: GITHUB_RAW + '/output/geologi_jawabali.geojson' },
+  kalimantan:    { bbox: { lonMin:108,   lonMax:120,   latMin:-5.5, latMax:5    }, url: GITHUB_RAW + '/output/geologi_kalimantan.geojson' },
+  sulawesi:      { bbox: { lonMin:118.5, lonMax:125.6, latMin:-6.5, latMax:2    }, url: GITHUB_RAW + '/output/geologi_sulawesi.geojson' },
+  nusatenggara:  { bbox: { lonMin:115,   lonMax:125.6, latMin:-11,  latMax:-6.5 }, url: GITHUB_RAW + '/output/geologi_nusatenggara.geojson' },
+  maluku:        { bbox: { lonMin:124,   lonMax:135,   latMin:-9,   latMax:3    }, url: GITHUB_RAW + '/output/geologi_maluku.geojson' },
+  papua:         { bbox: { lonMin:130,   lonMax:141.5, latMin:-10, latMax:1     }, url: GITHUB_RAW + '/output/geologi_papua.geojson' }
+};
+// Catch-all for polygons whose centroid fell just outside the bbox cuts above (~1.3% of
+// features, mostly coastal/edge formations) — loaded once, kept as a permanent supplementary
+// source alongside whichever primary region matched.
+const GEOLOGY_FALLBACK_URL = GITHUB_RAW + '/output/geologi_lainnya.geojson';
+let geologyDataCache = {};      // regionKey -> GeoJSON data | 'error' | undefined
+let geologyFallbackCache = undefined; // 'lainnya' data | 'error' | undefined
+
 function getForestRegion(lat, lon) {
   for (const [key, r] of Object.entries(FOREST_REGIONS)) {
     if (lon >= r.bbox.lonMin && lon <= r.bbox.lonMax && lat >= r.bbox.latMin && lat <= r.bbox.latMax) return key;
   }
   return null; // not covered by real data yet — heuristic fallback applies
+}
+
+function getGeologyRegion(lat, lon) {
+  for (const [key, r] of Object.entries(GEOLOGY_REGIONS)) {
+    if (lon >= r.bbox.lonMin && lon <= r.bbox.lonMax && lat >= r.bbox.latMin && lat <= r.bbox.latMax) return key;
+  }
+  return null;
+}
+
+// Loads the matching region file (if any) AND the small 'lainnya' catch-all in parallel.
+// Both get merged when queried in getGeologyAt() below, so a point missed by the bbox cut
+// still has a chance to match against the fallback file.
+async function ensureGeologyDataLoaded(lat, lon) {
+  const region = getGeologyRegion(lat, lon);
+  const tasks = [];
+
+  if (region) {
+    if (geologyDataCache[region] === undefined) {
+      tasks.push((async () => {
+        try {
+          const res = await fetch(GEOLOGY_REGIONS[region].url);
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          geologyDataCache[region] = await res.json();
+          renderGeologyRegion(region);
+        } catch (e) {
+          console.warn('Geology data load failed for region "' + region + '":', e);
+          geologyDataCache[region] = 'error';
+        }
+      })());
+    } else if (geologyDataCache[region] !== 'error') {
+      renderGeologyRegion(region); // already cached from a previous point in this region — make sure it's rendered too
+    }
+  }
+
+  if (geologyFallbackCache === undefined) {
+    tasks.push((async () => {
+      try {
+        const res = await fetch(GEOLOGY_FALLBACK_URL);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        geologyFallbackCache = await res.json();
+      } catch (e) {
+        console.warn('Geology fallback ("lainnya") load failed:', e);
+        geologyFallbackCache = 'error';
+      }
+    })());
+  }
+
+  if (tasks.length) await Promise.all(tasks);
+  return region;
+}
+
+// Returns the currently-cached geology FeatureCollections relevant to this point (region +
+// fallback), merged into one array of features. Empty array if nothing loaded/matched yet.
+function getLoadedGeologyFeatures(lat, lon) {
+  const region = getGeologyRegion(lat, lon);
+  const feats = [];
+  if (region && geologyDataCache[region] && geologyDataCache[region] !== 'error') {
+    feats.push(...geologyDataCache[region].features);
+  }
+  if (geologyFallbackCache && geologyFallbackCache !== 'error') {
+    feats.push(...geologyFallbackCache.features);
+  }
+  return feats;
 }
 
 async function ensureForestDataLoaded(lat, lon) {
@@ -876,7 +971,8 @@ async function ensureForestDataLoaded(lat, lon) {
 let mapObj, currentBasemap, markerAnalysis, areaPolygonLayer;
 let mineralData = null, wiupData = null, coalData = null;
 let mineralLayer = null, wiupLayer = null, coalLayer = null;
-let layerVisible = {mineral:true, wiup:true, coal:true};
+let geologyLayer = null; // renders currently-loaded region's formation polygons (separate from mineralData/mineralLayer)
+let layerVisible = {mineral:true, wiup:true, coal:true, geology:false};
 let currentResult = null;
 let lastAnalysisState = 'landing'; // tracks landing/analyzing/result so switching back to the Analysis tab restores the right view
 
@@ -1085,6 +1181,58 @@ function renderLayers() {
       })
     }).addTo(mapObj);
   }
+
+  // Geology (full formation coverage) layer — starts empty, filled in region-by-region as
+  // the user analyzes points in new areas (see renderGeologyRegion()). Not added to the map
+  // yet since layerVisible.geology defaults to false (chip starts inactive).
+  geologyLayer = L.layerGroup();
+}
+
+const geologyRenderedRegions = new Set(); // regions already added into geologyLayer, avoid re-adding on repeat visits
+
+function getGeologyColor(penyusun) {
+  const s = (penyusun || '').toLowerCase();
+  if (s.includes('intrusive')) return '#C5A059';
+  if (s.includes('extrusive') || s.includes('volcanic')) return '#EF4444';
+  if (s.includes('metamorphic')) return '#8B5CF6';
+  if (s.includes('sediment')) return '#3B82F6';
+  return '#64748B'; // undocumented / recent alluvium / quaternary deposits without formal prefix
+}
+
+function popupGeology(p) {
+  return `<div style="font-size:12px">
+    <div style="font-weight:600;color:var(--brand);margin-bottom:6px;font-family:var(--font-head)">${p.formasi || 'Formasi tidak diketahui'}</div>
+    <div style="color:var(--text3);font-size:10px;margin-bottom:4px">${p.sandi || ''} · ${p.nama || ''}</div>
+    <div style="color:var(--text2);margin-bottom:3px"><b>Litologi:</b> ${p.penyusun || '-'}</div>
+    <div style="color:var(--text3);font-size:10px">Sumber: Data Geologi Indonesia (regional, digeneralisasi)</div>
+  </div>`;
+}
+
+// Adds one region's cached geology polygons into the shared geologyLayer group, once per
+// region per session. Safe to call repeatedly — no-ops if already rendered or data not ready.
+function renderGeologyRegion(regionKey) {
+  if (!regionKey || geologyRenderedRegions.has(regionKey)) return;
+  const data = geologyDataCache[regionKey];
+  if (!data || data === 'error') return;
+  const sub = L.geoJSON(data, {
+    style: (f) => ({
+      fillColor: getGeologyColor(f.properties.penyusun),
+      fillOpacity: 0.25,
+      color: getGeologyColor(f.properties.penyusun),
+      weight: 0.6,
+      opacity: 0.6
+    }),
+    onEachFeature: (f, l) => {
+      l.on('click', (e) => {
+        L.DomEvent.stopPropagation(e);
+        l.bindPopup(popupGeology(f.properties)).openPopup();
+      });
+      l.on('mouseover', () => l.setStyle({fillOpacity:0.5, weight:1.2}));
+      l.on('mouseout', () => sub.resetStyle(l));
+    }
+  });
+  sub.addTo(geologyLayer);
+  geologyRenderedRegions.add(regionKey);
 }
 
 function getMineralColor(jenis) {
@@ -1109,7 +1257,7 @@ function toggleLayer(name) {
   layerVisible[name] = !layerVisible[name];
   const chip = document.getElementById('chip-' + name);
   chip.classList.toggle('active', layerVisible[name]);
-  const layer = {mineral:mineralLayer, wiup:wiupLayer, coal:coalLayer}[name];
+  const layer = {mineral:mineralLayer, wiup:wiupLayer, coal:coalLayer, geology:geologyLayer}[name];
   if (!layer) return;
   if (layerVisible[name]) mapObj.addLayer(layer);
   else mapObj.removeLayer(layer);
@@ -1182,7 +1330,11 @@ function scoreGeometry(targetGeom, lat, lon) {
   const R = 0.09; // ~10km radius in degrees
   const CANDIDATE_R = R * 3; // ~27km — envelope for turf.booleanIntersects candidates
 
-  // Pillar 1: Geological Potential — real overlap first, fallback to nearest-centroid heuristic
+  // Pillar 1: Geological Potential — 3-tier: (1) known mineral-occurrence overlap [strongest,
+  // has KOMODITAS], (2) known-formation overlap from the full national geology dataset [we
+  // know the geology here, just no catalogued occurrence — this tier is what fills the huge
+  // gap the old 776-polygon mineralData left across most of the country], (3) nearest-centroid
+  // heuristic decay as last resort.
   let nearestMineral = null, minDist = 999, geoOverlap = false;
   const geoOverlapCandidates = [];
   if (mineralData) {
@@ -1201,11 +1353,26 @@ function scoreGeometry(targetGeom, lat, lon) {
       if (intersects) { nearestMineral = f.properties; geoOverlap = true; break; }
     }
   }
+
+  // Tier 2: no catalogued mineral occurrence at this point — check the full formation dataset.
+  let formationOverlap = null;
+  if (!geoOverlap) {
+    const geologyFeats = getLoadedGeologyFeatures(lat, lon);
+    for (const f of geologyFeats) {
+      if (!f.geometry) continue;
+      let intersects = false;
+      try { intersects = turf.booleanIntersects(targetGeom, f); } catch(e) { /* malformed geometry, skip */ }
+      if (intersects) { formationOverlap = f.properties; break; }
+    }
+  }
+
   const geoScore = geoOverlap
-    ? 90
-    : nearestMineral
-      ? Math.max(40, Math.min(95, Math.round(90 - (minDist/R)*30)))
-      : 35;
+    ? 90                              // Tier 1: known documented mineral occurrence
+    : formationOverlap
+      ? 68                            // Tier 2: known geological formation, no catalogued occurrence yet
+      : nearestMineral
+        ? Math.max(40, Math.min(95, Math.round(90 - (minDist/R)*30)))  // Tier 3: heuristic decay
+        : 35;                         // no data at all reached this point
 
   // Pillar 2: Licence Status — real overlap count (turf) + proximity list (for "nearby" context)
   let wiupOverlap = 0, wiupNearby = [];
@@ -1297,13 +1464,13 @@ function scoreGeometry(targetGeom, lat, lon) {
     inf: infScore, iup: iupScore, total,
     nearestMineral, wiupNearby: wiupNearby.slice(0,5),
     wiupOverlap, opProduction, eksplorasi,
-    geoOverlap, forest: forestMeta
+    geoOverlap, formationOverlap, forest: forestMeta
   };
 }
 
 // Point-based scoring (map click, search, quick examples) — unchanged call signature
 async function scoreLocation(lat, lon) {
-  await ensureForestDataLoaded(lat, lon);
+  await Promise.all([ensureForestDataLoaded(lat, lon), ensureGeologyDataLoaded(lat, lon)]);
   const targetGeom = turf.point([lon, lat]);
   return scoreGeometry(targetGeom, lat, lon);
 }
@@ -1320,7 +1487,7 @@ async function scoreArea(polygonLatLon) {
   const centroidPt = turf.centroid(targetGeom);
   const [centLon, centLat] = centroidPt.geometry.coordinates;
 
-  await ensureForestDataLoaded(centLat, centLon);
+  await Promise.all([ensureForestDataLoaded(centLat, centLon), ensureGeologyDataLoaded(centLat, centLon)]);
   const result = scoreGeometry(targetGeom, centLat, centLon);
   result.centroid = { lat: centLat, lon: centLon };
   return result;
