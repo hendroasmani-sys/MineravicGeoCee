@@ -680,6 +680,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
           <div class="layer-chip-dot" style="background:#FB923C"></div>
           <span>Smelter</span>
         </div>
+        <div class="layer-chip" id="chip-jalan" onclick="toggleLayer('jalan')" title="Muncul bertahap per wilayah saat Anda menganalisis titik di sana">
+          <div class="layer-chip-dot" style="background:#22C55E"></div>
+          <span>Jalan</span>
+        </div>
       </div>
 
       <!-- Zoom -->
@@ -822,6 +826,13 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
               <div class="legend-desc">53 smelter (nikel/bauksit/tembaga/dll) — sumber MODI, Ditjen Minerba ESDM</div>
             </div>
           </div>
+          <div class="legend-row">
+            <div class="legend-dot" style="background:#22C55E"></div>
+            <div class="legend-info">
+              <div class="legend-name">Jalan</div>
+              <div class="legend-desc">Jaringan jalan RBI 1:250.000, digeneralisasi. Muncul bertahap per pulau saat Anda menganalisis titik di wilayah itu — aktifkan chip-nya dulu, lalu klik peta.</div>
+            </div>
+          </div>
           <div class="legend-note">
             <i class="ti ti-info-circle" style="font-size:11px;margin-right:4px"></i>
             Klik area/titik pada layer di peta untuk detail. Aktifkan/nonaktifkan layer lewat chip di atas peta.
@@ -923,6 +934,148 @@ const GEOLOGY_FALLBACK_URL = GITHUB_RAW + '/output/geologi_lainnya.geojson';
 let geologyDataCache = {};      // regionKey -> GeoJSON data | 'error' | undefined
 let geologyFallbackCache = undefined; // 'lainnya' data | 'error' | undefined
 
+// Visual road lines, lazy-loaded per region — separate from the roads_distance_grid.json
+// used for Infrastructure scoring (that's a precomputed distance grid, not real geometry,
+// so it can't be rendered as lines). Same region-split pattern as GEOLOGY_REGIONS.
+const ROADS_REGIONS = {
+  sumatera:      { bbox: { lonMin:94.5,  lonMax:108,   latMin:-6.5, latMax:6.5  }, url: GITHUB_RAW + '/output/jalan_sumatera.geojson' },
+  jawabali:      { bbox: { lonMin:105,   lonMax:117,   latMin:-9,   latMax:-5.4 }, url: GITHUB_RAW + '/output/jalan_jawabali.geojson' },
+  kalimantan:    { bbox: { lonMin:108,   lonMax:120,   latMin:-5.5, latMax:5    }, url: GITHUB_RAW + '/output/jalan_kalimantan.geojson' },
+  sulawesi:      { bbox: { lonMin:118.5, lonMax:125.6, latMin:-6.5, latMax:2    }, url: GITHUB_RAW + '/output/jalan_sulawesi.geojson' },
+  nusatenggara:  { bbox: { lonMin:115,   lonMax:125.6, latMin:-11,  latMax:-6.5 }, url: GITHUB_RAW + '/output/jalan_nusatenggara.geojson' },
+  maluku:        { bbox: { lonMin:124,   lonMax:135,   latMin:-9,   latMax:3    }, url: GITHUB_RAW + '/output/jalan_maluku.geojson' },
+  papua:         { bbox: { lonMin:130,   lonMax:141.5, latMin:-10, latMax:1     }, url: GITHUB_RAW + '/output/jalan_papua.geojson' }
+};
+const ROADS_FALLBACK_URL = GITHUB_RAW + '/output/jalan_lainnya.geojson';
+let roadsDataCache = {};
+let roadsFallbackCache = undefined;
+
+// ─── INFRASTRUCTURE SCORING (real data) ────────────────────────────────────────
+// Precomputed national distance-grids (built offline via KD-tree, see project notes) —
+// separate from the visual road/geology layers above. Loaded once, cached for the session.
+const INFRA_GRID_URLS = {
+  roads:   GITHUB_RAW + '/output/roads_distance_grid.json',
+  listrik: GITHUB_RAW + '/output/listrik_distance_grid.json'
+};
+let roadsGridIndex = null;   // {map, res, originLon, originLat, cutoffKm} | 'error' | null (not attempted)
+let listrikGridIndex = null;
+
+function buildGridIndex(gridJson) {
+  const map = new Map();
+  const res = gridJson.meta.resolution_deg;
+  for (const [lon, lat, dist] of gridJson.cells) {
+    map.set(lon.toFixed(3) + ',' + lat.toFixed(3), dist);
+  }
+  return { map, res, cutoffKm: gridJson.meta.cutoff_km };
+}
+
+async function ensureInfraScoringDataLoaded() {
+  const tasks = [];
+  if (roadsGridIndex === null) {
+    tasks.push((async () => {
+      try {
+        const res = await fetch(INFRA_GRID_URLS.roads);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        roadsGridIndex = buildGridIndex(await res.json());
+      } catch (e) {
+        console.warn('Roads scoring grid load failed:', e);
+        roadsGridIndex = 'error';
+      }
+    })());
+  }
+  if (listrikGridIndex === null) {
+    tasks.push((async () => {
+      try {
+        const res = await fetch(INFRA_GRID_URLS.listrik);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        listrikGridIndex = buildGridIndex(await res.json());
+      } catch (e) {
+        console.warn('Listrik scoring grid load failed:', e);
+        listrikGridIndex = 'error';
+      }
+    })());
+  }
+  if (tasks.length) await Promise.all(tasks);
+}
+
+// Snaps (lat,lon) to the nearest 0.05° grid cell and looks up its precomputed distance.
+// Returns null if the cell isn't in the map (point is beyond the grid's cutoff radius).
+function gridDistanceKm(gridIndex, lat, lon) {
+  if (!gridIndex || gridIndex === 'error') return null;
+  const res = gridIndex.res;
+  const lonIdx = Math.round((lon - 95.0) / res);
+  const latIdx = Math.round((lat - (-11.5)) / res);
+  const key = (95.0 + lonIdx * res).toFixed(3) + ',' + (-11.5 + latIdx * res).toFixed(3);
+  const v = gridIndex.map.get(key);
+  return v === undefined ? null : v;
+}
+
+// Haversine distance (km) to the nearest feature in a small point FeatureCollection
+// (PLTU/Terminal/Bandara/Smelter — all under 100 features, trivial to loop directly).
+function nearestPointKm(data, lat, lon) {
+  if (!data || !data.features || !data.features.length) return null;
+  const R = 6371;
+  const rad = Math.PI / 180;
+  let best = null, bestDist = Infinity;
+  for (const f of data.features) {
+    const [flon, flat] = f.geometry.coordinates;
+    const dLat = (flat - lat) * rad, dLon = (flon - lon) * rad;
+    const a = Math.sin(dLat/2)**2 + Math.cos(lat*rad)*Math.cos(flat*rad)*Math.sin(dLon/2)**2;
+    const d = 2 * R * Math.asin(Math.sqrt(a));
+    if (d < bestDist) { bestDist = d; best = f.properties; }
+  }
+  return { feature: best, distKm: bestDist };
+}
+
+// Linear decay: 100 at/under fullKm, floors at 20 at/beyond zeroKm.
+function distanceToScore(distKm, fullKm, zeroKm) {
+  if (distKm === null) distKm = zeroKm; // no data reached this point — treat as worst-case within range
+  if (distKm <= fullKm) return 100;
+  if (distKm >= zeroKm) return 20;
+  return Math.round(100 - (distKm - fullKm) / (zeroKm - fullKm) * 80);
+}
+
+// Averaged weights across the 3 commodity profiles discussed (batubara/emas/nikel) — a
+// reasonable universal default until per-commodity auto-detection (WIUP → geology fallback)
+// is wired up. Jalan 35 / Terminal 25 / Daya(listrik∪PLTU) 20 / Smelter 11.5 / Bandara 8.5.
+function computeInfraScore(lat, lon) {
+  // Fallback to the old heuristic if the real grids failed to load (e.g. files not yet
+  // uploaded to GitHub) — keeps the app functional rather than scoring everything at floor.
+  if (roadsGridIndex === 'error' || listrikGridIndex === 'error' || roadsGridIndex === null) {
+    return { score: estimateInfraScore(lat, lon), real: false, detail: null };
+  }
+
+  const jalanKm = gridDistanceKm(roadsGridIndex, lat, lon);
+  const listrikKm = gridDistanceKm(listrikGridIndex, lat, lon);
+  const pltu = nearestPointKm(pltuData, lat, lon);
+  const terminal = nearestPointKm(terminalData, lat, lon);
+  const bandara = nearestPointKm(bandaraData, lat, lon);
+  const smelter = nearestPointKm(smelterData, lat, lon);
+
+  const jalanScore = distanceToScore(jalanKm, 2, 50);
+  const listrikScore = distanceToScore(listrikKm, 3, 50);
+  const pltuScore = pltu ? distanceToScore(pltu.distKm, 20, 100) : 20;
+  const dayaScore = Math.max(listrikScore, pltuScore); // OR signal: grid connection or nearby captive power, whichever is closer
+  const terminalScore = terminal ? distanceToScore(terminal.distKm, 15, 120) : 20;
+  const smelterScore = smelter ? distanceToScore(smelter.distKm, 20, 150) : 20;
+  const bandaraScore = bandara ? distanceToScore(bandara.distKm, 30, 300) : 20;
+
+  const score = Math.round(
+    jalanScore*0.35 + terminalScore*0.25 + dayaScore*0.20 + smelterScore*0.115 + bandaraScore*0.085
+  );
+
+  return {
+    score, real: true,
+    detail: {
+      jalan_km: jalanKm, listrik_km: listrikKm,
+      pltu_terdekat: pltu ? { nama: pltu.feature.name, km: Math.round(pltu.distKm*10)/10 } : null,
+      terminal_terdekat: terminal ? { nama: terminal.feature.name, km: Math.round(terminal.distKm*10)/10 } : null,
+      bandara_terdekat: bandara ? { nama: bandara.feature.name, km: Math.round(bandara.distKm*10)/10 } : null,
+      smelter_terdekat: smelter ? { nama: smelter.feature.nama_perusahaan, km: Math.round(smelter.distKm*10)/10 } : null
+    }
+  };
+}
+
 function getForestRegion(lat, lon) {
   for (const [key, r] of Object.entries(FOREST_REGIONS)) {
     if (lon >= r.bbox.lonMin && lon <= r.bbox.lonMax && lat >= r.bbox.latMin && lat <= r.bbox.latMax) return key;
@@ -996,6 +1149,56 @@ function getLoadedGeologyFeatures(lat, lon) {
   return feats;
 }
 
+function getRoadsRegion(lat, lon) {
+  for (const [key, r] of Object.entries(ROADS_REGIONS)) {
+    if (lon >= r.bbox.lonMin && lon <= r.bbox.lonMax && lat >= r.bbox.latMin && lat <= r.bbox.latMax) return key;
+  }
+  return null;
+}
+
+// Loads visual road lines for display only — scoring already has its own data via
+// roads_distance_grid.json / ensureInfraScoringReady() (unrelated to this). Only fetches
+// when the 'jalan' chip is active, since this is purely a display convenience layer.
+async function ensureRoadsDataLoaded(lat, lon) {
+  if (!layerVisible.jalan) return; // don't fetch ~20MB regional files if the user hasn't opted in
+  const region = getRoadsRegion(lat, lon);
+  const tasks = [];
+
+  if (region && roadsDataCache[region] === undefined) {
+    tasks.push((async () => {
+      try {
+        const res = await fetch(ROADS_REGIONS[region].url);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        roadsDataCache[region] = await res.json();
+        renderRoadsRegion(region);
+      } catch (e) {
+        console.warn('Roads data load failed for region "' + region + '":', e);
+        roadsDataCache[region] = 'error';
+      }
+    })());
+  } else if (region && roadsDataCache[region] !== 'error') {
+    renderRoadsRegion(region);
+  }
+
+  if (roadsFallbackCache === undefined) {
+    tasks.push((async () => {
+      try {
+        const res = await fetch(ROADS_FALLBACK_URL);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        roadsFallbackCache = await res.json();
+        renderRoadsRegion('lainnya', roadsFallbackCache);
+      } catch (e) {
+        console.warn('Roads fallback ("lainnya") load failed:', e);
+        roadsFallbackCache = 'error';
+      }
+    })());
+  } else if (roadsFallbackCache && roadsFallbackCache !== 'error') {
+    renderRoadsRegion('lainnya', roadsFallbackCache);
+  }
+
+  if (tasks.length) await Promise.all(tasks);
+}
+
 async function ensureForestDataLoaded(lat, lon) {
   const region = getForestRegion(lat, lon);
   if (!region) return null;
@@ -1021,7 +1224,8 @@ let mineralLayer = null, wiupLayer = null, coalLayer = null;
 let geologyLayer = null; // renders currently-loaded region's formation polygons (separate from mineralData/mineralLayer)
 let pltuData = null, terminalData = null, bandaraData = null, smelterData = null;
 let pltuLayer = null, terminalLayer = null, bandaraLayer = null, smelterLayer = null;
-let layerVisible = {mineral:true, wiup:true, coal:true, geology:false, pltu:false, terminal:false, bandara:false, smelter:false};
+let roadsLayer = null; // renders currently-loaded region's road lines (visual only, separate from scoring's distance-grid)
+let layerVisible = {mineral:true, wiup:true, coal:true, geology:false, pltu:false, terminal:false, bandara:false, smelter:false, jalan:false};
 let currentResult = null;
 let lastAnalysisState = 'landing'; // tracks landing/analyzing/result so switching back to the Analysis tab restores the right view
 
@@ -1296,6 +1500,36 @@ function renderLayers() {
       onEachFeature: (f, l) => l.on('click', (e) => { L.DomEvent.stopPropagation(e); l.bindPopup(popupSmelter(f.properties)).openPopup(); })
     });
   }
+
+  // Roads (visual) layer — starts empty, filled in region-by-region like geologyLayer.
+  roadsLayer = L.layerGroup();
+}
+
+const roadsRenderedRegions = new Set();
+
+function popupJalan(p) {
+  const matLabel = p.material === 2 ? 'Beraspal' : 'Tidak diketahui';
+  return `<div style="font-size:12px">
+    <div style="font-weight:600;color:#22C55E;margin-bottom:4px;font-family:var(--font-head)">Ruas Jalan</div>
+    <div style="color:var(--text2)"><b>Material:</b> ${matLabel}</div>
+    <div style="color:var(--text3);font-size:10px;margin-top:4px">Sumber: Jalan Indonesia 1:250.000 (RBI, digeneralisasi)</div>
+  </div>`;
+}
+
+function renderRoadsRegion(regionKey, explicitData) {
+  if (!regionKey || roadsRenderedRegions.has(regionKey)) return;
+  const data = explicitData || roadsDataCache[regionKey];
+  if (!data || data === 'error') return;
+  const sub = L.geoJSON(data, {
+    style: () => ({ color:'#22C55E', weight:1, opacity:0.5 }),
+    onEachFeature: (f, l) => {
+      l.on('click', (e) => { L.DomEvent.stopPropagation(e); l.bindPopup(popupJalan(f.properties)).openPopup(); });
+      l.on('mouseover', () => l.setStyle({weight:2.5, opacity:0.9}));
+      l.on('mouseout', () => sub.resetStyle(l));
+    }
+  });
+  sub.addTo(roadsLayer);
+  roadsRenderedRegions.add(regionKey);
 }
 
 const geologyRenderedRegions = new Set(); // regions already added into geologyLayer, avoid re-adding on repeat visits
@@ -1410,7 +1644,7 @@ function toggleLayer(name) {
   layerVisible[name] = !layerVisible[name];
   const chip = document.getElementById('chip-' + name);
   chip.classList.toggle('active', layerVisible[name]);
-  const layer = {mineral:mineralLayer, wiup:wiupLayer, coal:coalLayer, geology:geologyLayer, pltu:pltuLayer, terminal:terminalLayer, bandara:bandaraLayer, smelter:smelterLayer}[name];
+  const layer = {mineral:mineralLayer, wiup:wiupLayer, coal:coalLayer, geology:geologyLayer, pltu:pltuLayer, terminal:terminalLayer, bandara:bandaraLayer, smelter:smelterLayer, jalan:roadsLayer}[name];
   if (!layer) return;
   if (layerVisible[name]) mapObj.addLayer(layer);
   else mapObj.removeLayer(layer);
@@ -1596,6 +1830,12 @@ function scoreGeometry(targetGeom, lat, lon) {
 
   // Pillar 4: Infrastructure (proximity to coast/lowland heuristic)
   let infScore = estimateInfraScore(lat, lon);
+  let infDetail = null;
+  {
+    const infraResult = computeInfraScore(lat, lon);
+    infScore = infraResult.score;
+    infDetail = infraResult.detail;
+  }
 
   // Pillar 5: Adjacent IUP Context
   const opProduction = wiupNearby.filter(w => w.kegiatan === 'OPERASI PRODUKSI');
@@ -1617,13 +1857,13 @@ function scoreGeometry(targetGeom, lat, lon) {
     inf: infScore, iup: iupScore, total,
     nearestMineral, wiupNearby: wiupNearby.slice(0,5),
     wiupOverlap, opProduction, eksplorasi,
-    geoOverlap, formationOverlap, forest: forestMeta
+    geoOverlap, formationOverlap, forest: forestMeta, infDetail
   };
 }
 
 // Point-based scoring (map click, search, quick examples) — unchanged call signature
 async function scoreLocation(lat, lon) {
-  await Promise.all([ensureForestDataLoaded(lat, lon), ensureGeologyDataLoaded(lat, lon)]);
+  await Promise.all([ensureForestDataLoaded(lat, lon), ensureGeologyDataLoaded(lat, lon), ensureRoadsDataLoaded(lat, lon), ensureInfraScoringDataLoaded()]);
   const targetGeom = turf.point([lon, lat]);
   return scoreGeometry(targetGeom, lat, lon);
 }
@@ -1640,7 +1880,7 @@ async function scoreArea(polygonLatLon) {
   const centroidPt = turf.centroid(targetGeom);
   const [centLon, centLat] = centroidPt.geometry.coordinates;
 
-  await Promise.all([ensureForestDataLoaded(centLat, centLon), ensureGeologyDataLoaded(centLat, centLon)]);
+  await Promise.all([ensureForestDataLoaded(centLat, centLon), ensureGeologyDataLoaded(centLat, centLon), ensureRoadsDataLoaded(centLat, centLon), ensureInfraScoringDataLoaded()]);
   const result = scoreGeometry(targetGeom, centLat, centLon);
   result.centroid = { lat: centLat, lon: centLon };
   return result;
@@ -1889,11 +2129,21 @@ function renderResult(lat, lon, locationName, s) {
       s.for>=70?{text:'Aman',cls:'badge-green'}:s.for>=50?{text:'Monitor',cls:'badge-amber'}:{text:'Berisiko',cls:'badge-red'}
     )}
 
-    ${renderPillar('inf','Infrastructure','ti-road','var(--blue-dim)','var(--blue)',s.inf,
-      'Estimasi aksesibilitas lokasi',
-      s.inf>=70?'Akses jalan tersedia':'Akses terbatas',
-      s.inf>=70?{text:'Baik',cls:'badge-green'}:s.inf>=50?{text:'Cukup',cls:'badge-amber'}:{text:'Terbatas',cls:'badge-red'}
-    )}
+    ${(() => {
+      const d = s.infDetail;
+      const line1 = d
+        ? (d.jalan_km !== null ? `Jalan terdekat ${Math.round(d.jalan_km*10)/10} km` : 'Estimasi aksesibilitas lokasi')
+        : 'Estimasi aksesibilitas lokasi';
+      const line2 = d
+        ? (d.smelter_terdekat ? `Smelter terdekat: ${d.smelter_terdekat.nama} (${d.smelter_terdekat.km} km)`
+           : d.terminal_terdekat ? `Terminal terdekat: ${d.terminal_terdekat.nama} (${d.terminal_terdekat.km} km)`
+           : (s.inf>=70?'Akses jalan tersedia':'Akses terbatas'))
+        : (s.inf>=70?'Akses jalan tersedia':'Akses terbatas');
+      return renderPillar('inf','Infrastructure','ti-road','var(--blue-dim)','var(--blue)',s.inf,
+        line1, line2,
+        s.inf>=70?{text:'Baik',cls:'badge-green'}:s.inf>=50?{text:'Cukup',cls:'badge-amber'}:{text:'Terbatas',cls:'badge-red'}
+      );
+    })()}
 
     ${renderPillar('iup','Adjacent IUP Context','ti-circles-relation','var(--purple-dim)','var(--purple)',s.iup,
       `${s.opProduction.length} IUP Operasi Produksi`,
@@ -2021,7 +2271,15 @@ async function fetchIA(lat, lon, scores) {
       risiko: scores.for >= 70 ? 'Rendah' : scores.for >= 50 ? 'Sedang' : 'Tinggi',
       sumber_data: scores.forest.real ? 'Real polygon-overlap (KLHK, cakupan penuh: APL/HP/HPT/lindung/konservasi)' : 'Estimasi regional (belum ada data real)'
     },
-    infrastruktur: scores.inf >= 70 ? 'Akses jalan tersedia, estimasi jarak ke pelabuhan sedang' : 'Akses terbatas, infrastruktur perlu dibangun'
+    infrastruktur: scores.infDetail ? {
+      jalan_terdekat_km: scores.infDetail.jalan_km !== null ? Math.round(scores.infDetail.jalan_km*10)/10 : null,
+      jaringan_listrik_terdekat_km: scores.infDetail.listrik_km !== null ? Math.round(scores.infDetail.listrik_km*10)/10 : null,
+      pltu_terdekat: scores.infDetail.pltu_terdekat,
+      terminal_khusus_terdekat: scores.infDetail.terminal_terdekat,
+      bandara_terdekat: scores.infDetail.bandara_terdekat,
+      smelter_terdekat: scores.infDetail.smelter_terdekat,
+      catatan: 'Jarak dihitung dari data real (RBI Jalan 1:250K, jaringan SUTET/SUTT, Global Energy Monitor, OurAirports, MODI Ditjen Minerba)'
+    } : (scores.inf >= 70 ? 'Akses jalan tersedia, estimasi jarak ke pelabuhan sedang' : 'Akses terbatas, infrastruktur perlu dibangun')
   };
 
   try {
