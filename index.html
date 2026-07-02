@@ -2236,16 +2236,9 @@ async function fetchIA(lat, lon, scores) {
 
   const payload = {
     lat, lon,
-    // BUG FIX: field WILAYAH (mineralData) dan NAMA (geology dataset) BUKAN nama wilayah
-    // administratif tempat fitur itu berada — itu nama lembar-peta survei RBI/ESDM, bisa
-    // sangat berbeda dari lokasi geografis fitur (contoh nyata: entry dgn WILAYAH="UJUNG
-    // PANDANG" isinya komoditas "Besi Laterit Pulau Sebuku", yang ada di Kalimantan Selatan,
-    // bukan Sulawesi — nama itu cuma referensi katalog peta, bukan lokasi). Menaruh field
-    // ini di payload sebagai "wilayah" bikin Claude salah infer lokasi dan cerita ngawur.
-    // Fix: jangan kirim nama wilayah dari field database sama sekali — biar Claude infer
-    // sendiri dari lat/lon (yang selalu akurat, dan Claude cukup andal baca geografi
-    // Indonesia dari koordinat).
-    wilayah: '(tentukan dari koordinat lat/lon — JANGAN gunakan nama formasi/wilayah dari field database lain di payload ini, field tersebut adalah referensi katalog peta survei, bukan lokasi administratif)',
+    // Sengaja gak isi nama wilayah dari field database (lihat catatan bug WILAYAH/NAMA di
+    // atas) — biarkan Claude infer sepenuhnya dari koordinat lat/lon yang selalu akurat.
+    wilayah: null,
     radius: 10,
     scores: {
       geo: scores.geo, lic: scores.lic,
@@ -2280,15 +2273,22 @@ async function fetchIA(lat, lon, scores) {
       risiko: scores.for >= 70 ? 'Rendah' : scores.for >= 50 ? 'Sedang' : 'Tinggi',
       sumber_data: scores.forest.real ? 'Real polygon-overlap (KLHK, cakupan penuh: APL/HP/HPT/lindung/konservasi)' : 'Estimasi regional (belum ada data real)'
     },
-    infrastruktur: scores.infDetail ? {
-      jalan_terdekat_km: scores.infDetail.jalan_km !== null ? Math.round(scores.infDetail.jalan_km*10)/10 : null,
-      jaringan_listrik_terdekat_km: scores.infDetail.listrik_km !== null ? Math.round(scores.infDetail.listrik_km*10)/10 : null,
-      pltu_terdekat: scores.infDetail.pltu_terdekat,
-      terminal_khusus_terdekat: scores.infDetail.terminal_terdekat,
-      bandara_terdekat: scores.infDetail.bandara_terdekat,
-      smelter_terdekat: scores.infDetail.smelter_terdekat,
-      catatan: 'Jarak dihitung dari data real (RBI Jalan 1:250K, jaringan SUTET/SUTT, Global Energy Monitor, OurAirports, MODI Ditjen Minerba)'
-    } : (scores.inf >= 70 ? 'Akses jalan tersedia, estimasi jarak ke pelabuhan sedang' : 'Akses terbatas, infrastruktur perlu dibangun')
+    // BUG FIX: field ini di-interpolate LANGSUNG sebagai teks di prompt Worker
+    // (`${d.infrastruktur}`), jadi HARUS string — kalau dikirim objek, hasilnya jadi
+    // literal "[object Object]" di prompt dan Claude sama sekali gak dapat data asli
+    // (baru ketauan gara-gara Claude ngarang total soal lokasi karena gak ada info nyata).
+    infrastruktur: (() => {
+      const d = scores.infDetail;
+      if (!d) return scores.inf >= 70 ? 'Akses jalan tersedia, estimasi jarak ke pelabuhan sedang' : 'Akses terbatas, infrastruktur perlu dibangun';
+      const parts = [];
+      parts.push(d.jalan_km !== null ? `Jalan terdekat ${Math.round(d.jalan_km*10)/10} km` : 'Jalan terdekat >75 km (di luar cakupan data)');
+      parts.push(d.listrik_km !== null ? `jaringan listrik terdekat ${Math.round(d.listrik_km*10)/10} km` : 'jaringan listrik terdekat >75 km (di luar cakupan data)');
+      if (d.pltu_terdekat) parts.push(`PLTU terdekat: ${d.pltu_terdekat.nama} (${d.pltu_terdekat.km} km)`);
+      if (d.terminal_terdekat) parts.push(`Terminal Khusus Pertambangan terdekat: ${d.terminal_terdekat.nama} (${d.terminal_terdekat.km} km)`);
+      if (d.bandara_terdekat) parts.push(`Bandara terdekat: ${d.bandara_terdekat.nama} (${d.bandara_terdekat.km} km)`);
+      if (d.smelter_terdekat) parts.push(`Smelter terdekat: ${d.smelter_terdekat.nama} (${d.smelter_terdekat.km} km)`);
+      return parts.join('; ') + '. Sumber: data real (RBI Jalan 1:250K, jaringan SUTET/SUTT, Global Energy Monitor, OurAirports, MODI Ditjen Minerba).';
+    })()
   };
 
   try {
