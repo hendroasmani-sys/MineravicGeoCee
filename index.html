@@ -864,7 +864,7 @@ let forestDataCache = {}; // regionKey -> GeoJSON data | 'error' | undefined (no
 // dataset has no commodity field but covers virtually all of Indonesia's landmass, so it
 // fills the "known geology, no catalogued occurrence yet" gap in scoreGeometry's Pillar 1.
 const GEOLOGY_REGIONS = {
-  sumatera:      { bbox: { lonMin:94.5,  lonMax:105,   latMin:-6.5, latMax:6.5  }, url: GITHUB_RAW + '/output/geologi_sumatera.geojson' },
+  sumatera:      { bbox: { lonMin:94.5,  lonMax:108,   latMin:-6.5, latMax:6.5  }, url: GITHUB_RAW + '/output/geologi_sumatera.geojson' },
   jawabali:      { bbox: { lonMin:105,   lonMax:117,   latMin:-9,   latMax:-5.4 }, url: GITHUB_RAW + '/output/geologi_jawabali.geojson' },
   kalimantan:    { bbox: { lonMin:108,   lonMax:120,   latMin:-5.5, latMax:5    }, url: GITHUB_RAW + '/output/geologi_kalimantan.geojson' },
   sulawesi:      { bbox: { lonMin:118.5, lonMax:125.6, latMin:-6.5, latMax:2    }, url: GITHUB_RAW + '/output/geologi_sulawesi.geojson' },
@@ -924,11 +924,14 @@ async function ensureGeologyDataLoaded(lat, lon) {
         const res = await fetch(GEOLOGY_FALLBACK_URL);
         if (!res.ok) throw new Error('HTTP ' + res.status);
         geologyFallbackCache = await res.json();
+        renderGeologyRegion('lainnya', geologyFallbackCache);
       } catch (e) {
         console.warn('Geology fallback ("lainnya") load failed:', e);
         geologyFallbackCache = 'error';
       }
     })());
+  } else if (geologyFallbackCache && geologyFallbackCache !== 'error') {
+    renderGeologyRegion('lainnya', geologyFallbackCache);
   }
 
   if (tasks.length) await Promise.all(tasks);
@@ -1209,10 +1212,12 @@ function popupGeology(p) {
 }
 
 // Adds one region's cached geology polygons into the shared geologyLayer group, once per
-// region per session. Safe to call repeatedly — no-ops if already rendered or data not ready.
-function renderGeologyRegion(regionKey) {
+// region per session. `explicitData` lets callers (like the 'lainnya' fallback loader) pass
+// data directly instead of relying on geologyDataCache. Safe to call repeatedly — no-ops if
+// already rendered or data not ready.
+function renderGeologyRegion(regionKey, explicitData) {
   if (!regionKey || geologyRenderedRegions.has(regionKey)) return;
-  const data = geologyDataCache[regionKey];
+  const data = explicitData || geologyDataCache[regionKey];
   if (!data || data === 'error') return;
   const sub = L.geoJSON(data, {
     style: (f) => ({
