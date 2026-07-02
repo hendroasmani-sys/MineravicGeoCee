@@ -30,7 +30,7 @@
   --brand-dim2:rgba(197,160,89,0.2);
   --text:#F0F2F5;
   --text2:#94A3B8;
-  --text3:#7B8CA3;
+  --text3:#8D9CB2;
   --green:#22C55E;
   --green-dim:rgba(34,197,94,0.12);
   --red:#EF4444;
@@ -68,7 +68,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .logo-pulse{color:var(--brand);margin-left:1px}
 .logo-by{font-size:10px;color:var(--text3);margin-left:4px;margin-top:2px;font-weight:400}
 .topbar-sep{width:1px;height:20px;background:var(--border);margin:0 4px}
-#search-wrap{flex:1;max-width:480px;position:relative}
+#search-wrap{flex:1;min-width:0;max-width:480px;position:relative}
 #search-input{
   width:100%;height:34px;
   background:var(--surface2);
@@ -374,7 +374,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .cta-tier{background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:6px 8px;text-align:center}
 .cta-tier-name{font-size:10px;color:var(--text3);margin-bottom:2px;line-height:1.3}
 .cta-tier-price{font-family:var(--font-head);font-size:12px;font-weight:600;color:var(--text)}
-.cta-tier-time{font-size:9px;color:var(--text3);margin-top:1px}
+.cta-tier-time{font-size:10px;color:var(--text3);margin-top:1px}
 
 /* ─── LOADING OVERLAY ───────────────────────────────────────── */
 #loading-overlay{
@@ -466,6 +466,15 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .hero-skip{margin-top:28px;font-size:12px;color:var(--text3);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 .hero-skip:hover{color:var(--text2)}
 .hero-error{font-size:12px;color:var(--red);margin-top:10px;min-height:16px}
+.hero-close-btn{
+  position:absolute;top:20px;right:20px;
+  width:36px;height:36px;
+  background:var(--surface);border:1px solid var(--border);border-radius:50%;
+  color:var(--text3);cursor:pointer;font-size:16px;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .15s;
+}
+.hero-close-btn:hover{background:var(--surface2);color:var(--text);border-color:var(--border2)}
 
 /* ─── TOOLTIP ───────────────────────────────────────────────── */
 .leaflet-popup-content-wrapper{
@@ -489,6 +498,23 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .badge-blue{background:var(--blue-dim);color:var(--blue);border:1px solid rgba(59,130,246,.2)}
 .badge-purple{background:var(--purple-dim);color:var(--purple);border:1px solid rgba(139,92,246,.2)}
 .badge-gray{background:var(--surface3);color:var(--text3);border:1px solid var(--border)}
+
+/* ─── LAYERS / ABOUT SIDEBAR PANELS ──────────────────────────────── */
+.legend-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.legend-row:last-child{border-bottom:none}
+.legend-dot{width:12px;height:12px;border-radius:3px;flex-shrink:0}
+.legend-dot.circle{border-radius:50%}
+.legend-info{flex:1;min-width:0}
+.legend-name{font-size:12px;color:var(--text);font-weight:500}
+.legend-desc{font-size:11px;color:var(--text3);margin-top:1px}
+.legend-note{font-size:11px;color:var(--text3);line-height:1.6;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-top:12px}
+.info-block{margin-bottom:18px}
+.info-block-title{font-size:11px;font-weight:600;color:var(--brand);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
+.info-block-text{font-size:12px;color:var(--text2);line-height:1.7}
+.info-credential{display:flex;align-items:flex-start;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-top:8px}
+.info-credential-icon{width:32px;height:32px;background:var(--brand-dim);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--brand);font-size:15px;flex-shrink:0}
+.info-credential-name{font-size:12px;font-weight:600;color:var(--text)}
+.info-credential-role{font-size:11px;color:var(--text3);margin-top:2px;line-height:1.5}
 
 .divider{height:1px;background:var(--border);margin:10px 0}
 
@@ -515,8 +541,14 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   }
   #sidebar.sheet-expanded{transform:translateY(0)}
   #sidebar-drag-handle{display:flex}
-  #search-wrap{max-width:100%}
+  #search-wrap{max-width:100%;min-width:0}
   .logo-by{display:none}
+  #topbar{padding:0 10px;gap:8px}
+  .topbar-sep{display:none}
+  .topbar-actions{gap:4px}
+  .tb-btn{padding:0 8px}
+  .tb-label{display:none}
+  .hero-close-btn{top:14px;right:14px;width:32px;height:32px}
 }
 </style>
 </head>
@@ -531,6 +563,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
 <!-- Hero Landing Overlay (first-time visitors only — skipped automatically for returning users) -->
 <div id="hero-overlay" class="hidden">
+  <button class="hero-close-btn" onclick="skipHero()" title="Tutup, langsung ke peta"><i class="ti ti-x"></i></button>
   <div class="hero-badge"><span class="dot"></span> Tier 0 · Your Gateway to Straxio Intelligence</div>
   <h1 class="hero-title">Pulse-check lokasi tambang <span class="accent">Indonesia</span> dalam 30 detik.</h1>
   <p class="hero-sub">Masukkan koordinat, nama wilayah, atau unggah batas area (CSV) untuk memulai analisis 5-pillar preliminary.</p>
@@ -555,7 +588,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     <div class="hero-sample-chip" onclick="handleHeroSample(-3.5, 136.0, 'Papua Tengah — Tembaga')"><i class="ti ti-map-pin" style="font-size:13px;color:var(--brand)"></i> Papua — Tembaga</div>
   </div>
 
-  <div class="hero-skip" onclick="skipHero()">Lewati, langsung ke peta →</div>
+  <div class="hero-skip" onclick="skipHero()">Lewati, klik langsung di peta →</div>
   <input type="file" id="hero-file-input" accept=".csv" style="display:none">
 </div>
 
@@ -574,10 +607,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       <button id="search-btn" onclick="handleSearch()">Analisis</button>
     </div>
     <div class="topbar-actions">
-      <button class="tb-btn" onclick="document.getElementById('topbar-file-input').click()"><i class="ti ti-file-spreadsheet"></i> Upload Area</button>
+      <button class="tb-btn" onclick="document.getElementById('topbar-file-input').click()" title="Upload Area"><i class="ti ti-file-spreadsheet"></i> <span class="tb-label">Upload Area</span></button>
       <input type="file" id="topbar-file-input" accept=".csv" style="display:none">
-      <button class="tb-btn" onclick="showInfo()"><i class="ti ti-info-circle"></i> Metodologi</button>
-      <button class="tb-btn primary" onclick="window.open('https://straxio.io','_blank')"><i class="ti ti-shield-check"></i> Straxio Verified</button>
+      <button class="tb-btn" onclick="showInfo()" title="Metodologi"><i class="ti ti-info-circle"></i> <span class="tb-label">Metodologi</span></button>
+      <button class="tb-btn primary" onclick="window.open('https://straxio.io','_blank')" title="Straxio Verified"><i class="ti ti-shield-check"></i> <span class="tb-label">Straxio Verified</span></button>
     </div>
   </div>
 
@@ -710,6 +743,69 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
         <!-- RESULT STATE -->
         <div id="state-result"></div>
 
+        <!-- LAYERS STATE -->
+        <div id="state-layers" style="display:none">
+          <div class="section-title"><i class="ti ti-layers" style="color:var(--brand);font-size:11px"></i> Legenda Layer Peta</div>
+          <div class="legend-row">
+            <div class="legend-dot" style="background:#C5A059"></div>
+            <div class="legend-info">
+              <div class="legend-name">Geologi Mineral</div>
+              <div class="legend-desc">Formasi geologi & jenis batuan (Intrusive/Volcanic/Sedimentary/Metamorphic) — sumber ESDM/P3GL</div>
+            </div>
+          </div>
+          <div class="legend-row">
+            <div class="legend-dot" style="background:#3B82F6"></div>
+            <div class="legend-info">
+              <div class="legend-name">WIUP 2024</div>
+              <div class="legend-desc">Wilayah Izin Usaha Pertambangan — garis putus-putus = Eksplorasi, solid = Operasi Produksi</div>
+            </div>
+          </div>
+          <div class="legend-row">
+            <div class="legend-dot circle" style="background:#F59E0B"></div>
+            <div class="legend-info">
+              <div class="legend-name">Batubara</div>
+              <div class="legend-desc">Titik indikasi keterdapatan batubara — sumber MODI 2024</div>
+            </div>
+          </div>
+          <div class="legend-note">
+            <i class="ti ti-info-circle" style="font-size:11px;margin-right:4px"></i>
+            Klik area/titik pada layer di peta untuk detail. Aktifkan/nonaktifkan layer lewat chip di atas peta.
+          </div>
+          <div class="legend-note">
+            <i class="ti ti-trees" style="font-size:11px;margin-right:4px"></i>
+            Data kawasan hutan (KLHK) real saat ini mencakup <b>Kalimantan & Sumatera</b>, dengan kategori lengkap (APL, Hutan Produksi/Terbatas/Konversi, Hutan Lindung, Taman Nasional, dan kawasan konservasi lain). Region lain masih memakai estimasi heuristik.
+          </div>
+        </div>
+
+        <!-- ABOUT STATE -->
+        <div id="state-about" style="display:none">
+          <div class="info-block">
+            <div class="info-block-title">Tentang Mineravix Pulse</div>
+            <div class="info-block-text">Mineravix Pulse adalah alat pulse-check cepat (30 detik) untuk menilai potensi tambang di lokasi mana pun di Indonesia, berbasis data publik ESDM/P3GL, WIUP 2024, dan MODI. Hasil bersifat PRELIMINARY dan bukan pengganti kajian lapangan resmi.</div>
+          </div>
+          <div class="info-block">
+            <div class="info-block-title">Metodologi Pulse Score™</div>
+            <div class="info-block-text">Skor gabungan dari 5 pillar tertimbang:</div>
+            <div class="legend-note" style="margin-top:8px">
+              Geological Potential 30% · Licence Status 25% · Forest Area Risk 20% · Infrastructure 10% · Adjacent IUP Context 15%
+            </div>
+          </div>
+          <div class="info-block">
+            <div class="info-block-title">Penyedia</div>
+            <div class="info-credential">
+              <div class="info-credential-icon"><i class="ti ti-certificate"></i></div>
+              <div>
+                <div class="info-credential-name">Ir. Hendro Ismanto ST</div>
+                <div class="info-credential-role">Senior Geologist · IAGI · Perhapi · 31 tahun pengalaman<br>PT. Citra Eksplor Energi (GEOCEE)</div>
+              </div>
+            </div>
+          </div>
+          <div class="exec-disclaimer">
+            <i class="ti ti-info-circle" style="font-size:10px"></i>
+            Analisis PRELIMINARY berdasarkan data publik. Bukan rekomendasi investasi. Verifikasi lapangan oleh Senior Geologist wajib sebelum pengambilan keputusan.
+          </div>
+        </div>
+
       </div>
     </div>
   </div>
@@ -727,9 +823,11 @@ const GITHUB_RAW = 'https://raw.githubusercontent.com/hendroasmani-sys/Mineravic
 
 // ─── FOREST DATA (lazy-loaded per region) ──────────────────────────────────────
 // Real kawasan-hutan boundary data currently only covers Kalimantan & Sumatera
-// (~10.7MB combined), and only protected/conservation categories (HL, Taman
-// Nasional, Tahura, Taman Wisata Alam, Konservasi) — NOT Hutan Produksi (HP/HPT)
-// yet. To avoid front-loading this on every page visit (like mineral/WIUP data),
+// (~35MB combined). As of the v2 files, coverage includes the FULL category
+// spectrum per point — APL, Hutan Produksi/Terbatas/Konversi (HP/HPT), Hutan
+// Lindung, Taman Nasional, Cagar Alam, Suaka Margasatwa, Tahura, Taman Wisata
+// Alam (incl. marine variants), and water bodies — not just protected zones.
+// To avoid front-loading this on every page visit (like mineral/WIUP data),
 // each region's file is fetched ONLY the first time a user analyzes a point/area
 // that falls inside it, then cached in memory for the rest of the session.
 // Region bounding boxes intentionally match the existing estimateForestScore()
@@ -780,6 +878,7 @@ let mineralData = null, wiupData = null, coalData = null;
 let mineralLayer = null, wiupLayer = null, coalLayer = null;
 let layerVisible = {mineral:true, wiup:true, coal:true};
 let currentResult = null;
+let lastAnalysisState = 'landing'; // tracks landing/analyzing/result so switching back to the Analysis tab restores the right view
 
 // ─── BASEMAP TILES ────────────────────────────────────────────────────────────
 const BASEMAPS = {
@@ -1052,23 +1151,30 @@ function popupWIUP(p) {
 // already within a generous distance envelope (R*3) — features far outside that
 // envelope can't plausibly intersect a reasonably-sized target and are skipped.
 // Maps a real "Keterangan" (forest-zone category) value from KLHK data to a
-// risk score. Works uniformly across regions regardless of how many categories
-// that region's dataset actually contains — e.g. Sumatera's file currently only
-// has protected-zone categories (no APL/HP/HPT), so its "no overlap" case just
-// falls through to the conservative default (72) in scoreGeometry, same as
-// before, without needing separate per-region logic.
+// risk score. Works uniformly across regions and across the full category
+// spectrum (APL, HP/HPT, protected/conservation, water bodies) present in
+// the v2 datasets.
 function getForestCategoryRisk(keterangan) {
   const k = (keterangan || '').toLowerCase();
   // Areal Penggunaan Lain — genuinely outside forest estate, safest category
   if (k.includes('penggunaan lain')) return { score: 85, level: 'rendah' };
-  // Hutan Produksi family — legal to mine with IPPKH permit, medium risk
+  // Hutan Produksi family (HP/HPT/Konversi) — legal to mine with IPPKH permit, medium risk
   if (k.includes('produksi')) return { score: 55, level: 'sedang' };
-  // Water bodies — not a forest-estate restriction per se, informational only
-  if (k.includes('laut') || k.includes('sungai') || k.includes('badan air')) return { score: 75, level: 'rendah (badan air)' };
   // Undefined / not yet classified — genuinely unclear, cautious middle ground
   if (k.includes('belum terdefinisi')) return { score: 50, level: 'perlu verifikasi' };
+  // Genuine water body — informational only, not a forest-estate restriction.
+  // BUG FIX: must be an exact match, not a loose substring on "laut" — several
+  // PROTECTED marine categories (Taman Nasional Laut, Cagar Alam Laut, Suaka
+  // Margasatwa Laut, Hutan Suaka Wisata Laut, Taman Wisata Alam/Hutan Wisata
+  // Laut) also contain the word "laut" and were being misclassified as safe
+  // water bodies by the old `k.includes('laut')` check instead of falling
+  // through to the protected-category default below (~3,350 features across
+  // Kalimantan+Sumatera were affected).
+  if (k === 'laut / sungai / badan air') return { score: 75, level: 'rendah (badan air)' };
   // Everything else = protected/conservation (Hutan Lindung, Taman Nasional,
-  // Cagar Alam, Suaka Margasatwa, Tahura, Taman Wisata Alam, Hutan Konservasi, etc.)
+  // Cagar Alam, Suaka Margasatwa, Tahura, Taman Wisata Alam, Hutan Konservasi,
+  // Taman Buru, and their marine "... Laut" variants — all still forest-estate
+  // protected categories, not plain water bodies).
   return { score: 18, level: 'tinggi' };
 }
 
@@ -1126,11 +1232,15 @@ function scoreGeometry(targetGeom, lat, lon) {
 
   // Pillar 3: Forest Risk — real polygon-overlap for Kalimantan/Sumatera (once
   // lazy-loaded), heuristic fallback everywhere else / before data has loaded.
-  // NOTE: real data currently only contains protected/conservation categories
-  // (HL, Taman Nasional, Tahura, Taman Wisata Alam, Konservasi) — NOT Hutan
-  // Produksi (HP/HPT). So a "no overlap" result here means "confirmed outside
-  // mapped protected zones", not "fully safe" — scored accordingly (72, not 85+)
-  // until the HP/HPT-inclusive dataset is added.
+  // As of v2, real data covers the FULL category spectrum (APL, HP/HPT,
+  // protected/conservation, water bodies) for these two regions — see
+  // getForestCategoryRisk(). That changes what "no overlap" means: since APL
+  // itself is now a mapped polygon category, a genuine "no overlap" at a point
+  // inside the region's bbox is no longer the common "safely outside protected
+  // zones" case it used to be — it now more likely signals a real gap/edge in
+  // source-polygon coverage (e.g. right at a tile boundary) than confirmed
+  // safety. Scored conservatively (60, down from the old 72) to reflect that
+  // reduced confidence rather than implying "as good as APL".
   let forScore, forestMeta;
   const forestRegion = getForestRegion(lat, lon);
   const forestData = forestRegion ? forestDataCache[forestRegion] : null;
@@ -1156,7 +1266,7 @@ function scoreGeometry(targetGeom, lat, lon) {
       forScore = scoreInfo.score;
       forestMeta = { real:true, overlap:true, kategori: cat, riskLevel: scoreInfo.level };
     } else {
-      forScore = 72; // confirmed outside every mapped zone in this dataset (coverage may be partial — see forestMeta.real)
+      forScore = 60; // no polygon found at all in a full-category-coverage region — likely a data-edge gap, not confirmed-safe APL (see comment above)
       forestMeta = { real:true, overlap:false };
     }
   } else {
@@ -1435,7 +1545,7 @@ function renderResult(lat, lon, locationName, s) {
         ? (s.forest.overlap ? `${s.forest.kategori}` : 'Di luar seluruh kawasan terpetakan')
         : (s.for>=70?'Area Penggunaan Lain (APL)':s.for>=50?'Proximity kawasan hutan':'Kawasan hutan kritis'),
       s.forest.real
-        ? (s.forest.overlap ? `Risiko ${s.forest.riskLevel} · Data real KLHK` : 'Data real KLHK · sebagian kategori (mis. HP/HPT) mungkin belum tercakup di region ini')
+        ? (s.forest.overlap ? `Risiko ${s.forest.riskLevel} · Data real KLHK` : 'Tidak ada overlap polygon terpetakan di titik ini (kemungkinan celah data di tepi cakupan)')
         : (s.for>=70?'Risiko rendah (estimasi)':'Perlu verifikasi IPPKH'),
       s.for>=70?{text:'Aman',cls:'badge-green'}:s.for>=50?{text:'Monitor',cls:'badge-amber'}:{text:'Berisiko',cls:'badge-red'}
     )}
@@ -1561,7 +1671,7 @@ async function fetchIA(lat, lon, scores) {
         ? (scores.forest.overlap ? scores.forest.kategori : 'Belum ada overlap kawasan lindung terpetakan')
         : (scores.for >= 70 ? 'Area Penggunaan Lain' : 'Hutan Produksi / Lindung'),
       risiko: scores.for >= 70 ? 'Rendah' : scores.for >= 50 ? 'Sedang' : 'Tinggi',
-      sumber_data: scores.forest.real ? 'Real polygon-overlap (KLHK, HP/HPT belum tercakup)' : 'Estimasi regional (belum ada data real)'
+      sumber_data: scores.forest.real ? 'Real polygon-overlap (KLHK, cakupan penuh: APL/HP/HPT/lindung/konservasi)' : 'Estimasi regional (belum ada data real)'
     },
     infrastruktur: scores.inf >= 70 ? 'Akses jalan tersedia, estimasi jarak ke pelabuhan sedang' : 'Akses terbatas, infrastruktur perlu dibangun'
   };
@@ -1632,9 +1742,14 @@ function showState(state) {
   document.getElementById('state-landing').style.display = 'none';
   document.getElementById('state-analyzing').style.display = 'none';
   document.getElementById('state-result').style.display = 'none';
+  document.getElementById('state-layers').style.display = 'none';
+  document.getElementById('state-about').style.display = 'none';
   if (state === 'landing') document.getElementById('state-landing').style.display = 'flex';
   if (state === 'analyzing') document.getElementById('state-analyzing').style.display = 'block';
   if (state === 'result') document.getElementById('state-result').style.display = 'block';
+
+  // Remember this so switchTab('analysis') can restore it after visiting Layers/About
+  if (state === 'landing' || state === 'analyzing' || state === 'result') lastAnalysisState = state;
 
   // Mobile bottom-sheet: auto-expand once an analysis starts, collapse back on landing
   const sidebar = document.getElementById('sidebar');
@@ -1652,6 +1767,23 @@ function switchTab(tab) {
   document.querySelectorAll('.stab').forEach((t,i) => {
     t.classList.toggle('active', ['analysis','layers','about'][i] === tab);
   });
+
+  if (tab === 'analysis') {
+    // Restore whichever analysis state (landing/analyzing/result) was last active
+    showState(lastAnalysisState);
+    return;
+  }
+
+  // Layers / About: hide all analysis states, show the picked panel
+  document.getElementById('state-landing').style.display = 'none';
+  document.getElementById('state-analyzing').style.display = 'none';
+  document.getElementById('state-result').style.display = 'none';
+  document.getElementById('state-layers').style.display = tab === 'layers' ? 'block' : 'none';
+  document.getElementById('state-about').style.display = tab === 'about' ? 'block' : 'none';
+
+  // Mobile bottom-sheet: expand so the panel is actually visible
+  const sidebar = document.getElementById('sidebar');
+  if (window.matchMedia('(max-width:768px)').matches) sidebar.classList.add('sheet-expanded');
 }
 
 function resetView() {
