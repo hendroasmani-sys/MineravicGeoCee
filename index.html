@@ -1875,12 +1875,30 @@ function showInfo() {
 // ─── CSV POLYGON UPLOAD ─────────────────────────────────────────────────────────
 // Expected format: one vertex per row, columns lat,lon (header optional,
 // auto-detected). Minimum 3 rows required to form a valid polygon.
+//
+// BUG FIX: Excel with an Indonesian regional locale exports CSV using ';' as
+// the column delimiter and ',' as the DECIMAL separator (e.g. "-2,5;116,0"
+// instead of the international "-2.5,116.0"). The old parser only understood
+// ',' as delimiter, so on ID-locale files it split on the decimal commas
+// instead of columns — e.g. "-2,5;116,0" became cells ["-2","5;116","0"],
+// silently producing garbage coordinates (lat=-2, lon=5) that then failed the
+// "inside Indonesia" bounds check downstream. Now auto-detects: if any line
+// contains ';', treat ';' as the delimiter and normalize ',' -> '.' within
+// each field before parsing.
 function parseCsvPolygon(text) {
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
   if (lines.length === 0) throw new Error('File CSV kosong.');
 
+  const useSemicolon = lines.some(l => l.includes(';'));
+  const delimiter = useSemicolon ? ';' : ',';
+
+  let rows = lines.map(l => l.split(delimiter).map(cell => {
+    let c = cell.trim().replace(/^"+|"+$/g, '').trim(); // strip Excel text-qualifier quotes if present
+    if (useSemicolon) c = c.replace(',', '.'); // ID-locale decimal comma -> '.'
+    return c;
+  }));
+
   // Detect & skip a header row (first cell isn't numeric)
-  let rows = lines.map(l => l.split(','));
   if (rows.length > 0 && isNaN(parseFloat(rows[0][0]))) rows = rows.slice(1);
 
   const points = [];
