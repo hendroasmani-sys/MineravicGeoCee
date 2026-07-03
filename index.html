@@ -1879,6 +1879,7 @@ function scoreGeometry(targetGeom, lat, lon) {
   // list is sorted nearest-first before anything downstream consumes it.
   let wiupOverlap = 0, wiupNearby = [];
   const wiupOverlapCandidates = [];
+  const wiupOverlapFeatures = []; // actual overlapping WIUP(s) — not just a count
   if (wiupData) {
     wiupData.features.forEach(f => {
       if (!f.geometry) return;
@@ -1895,7 +1896,7 @@ function scoreGeometry(targetGeom, lat, lon) {
     wiupOverlapCandidates.forEach(f => {
       let intersects = false;
       try { intersects = turf.booleanIntersects(targetGeom, f); } catch(e) { /* malformed geometry, skip */ }
-      if (intersects) wiupOverlap++;
+      if (intersects) { wiupOverlap++; wiupOverlapFeatures.push(f.properties); }
     });
   }
   let licScore;
@@ -1981,7 +1982,7 @@ function scoreGeometry(targetGeom, lat, lon) {
     geo: geoScore, lic: licScore, for: forScore,
     inf: infScore, iup: iupScore, total,
     nearestMineral, wiupNearby: wiupNearby.slice(0,5),
-    wiupOverlap, opProduction, eksplorasi,
+    wiupOverlap, wiupOverlapFeatures, opProduction, eksplorasi,
     geoOverlap, formationOverlap, forest: forestMeta, infDetail, commodity
   };
 }
@@ -2248,7 +2249,9 @@ function renderResult(lat, lon, locationName, s) {
 
     ${renderPillar('lic','Licence Status','ti-license','var(--green-dim)','var(--green)',s.lic,
       s.wiupOverlap > 0 ? `⚠ ${s.wiupOverlap} WIUP overlap terdeteksi` : s.wiupNearby.length === 0 ? 'Area bebas dari WIUP' : `${s.wiupNearby.length} WIUP dalam radius 10km`,
-      s.wiupNearby.length > 0 ? s.wiupNearby[0].nama_usaha || '-' : 'Tidak ada',
+      s.wiupOverlap > 0
+        ? (s.wiupOverlapFeatures[0]?.nama_usaha || '-')
+        : (s.wiupNearby.length > 0 ? s.wiupNearby[0].nama_usaha || '-' : 'Tidak ada'),
       s.lic>=75?{text:'Bersih',cls:'badge-green'}:s.lic>=55?{text:'Terbatas',cls:'badge-amber'}:{text:'Overlap',cls:'badge-red'}
     )}
 
@@ -2396,18 +2399,24 @@ async function fetchIA(lat, lon, scores) {
       lithologi: nm ? nm.LITHOLOGI : null, jenis: nm ? nm.JENISBAT : null,
       komoditas: nm ? nm.KOMODITAS : null
     },
-    wiup: {
-      jumlah: scores.wiupNearby.length,
-      status: scores.wiupOverlap > 0 ? 'Ada overlap WIUP' : 'Bebas dari WIUP aktif',
-      terdekat: scores.wiupNearby[0] ? scores.wiupNearby[0].nama_usaha : null,
-      // BUG FIX: previously there was NO real distance sent for the nearest WIUP at all —
-      // the AI had nothing but the generic `radius: 10` to go on, which is the likely
-      // reason it started describing WIUP as being "10km away" regardless of the actual
-      // distance. This is now a real, sorted, boundary-accurate number (0 if overlapping).
-      jarak_terdekat_km: scores.wiupNearby[0] ? Math.round(scores.wiupNearby[0].dist * 10) / 10 : null,
-      kegiatan: scores.wiupNearby[0] ? scores.wiupNearby[0].kegiatan : null,
-      komoditas: scores.wiupNearby[0] ? scores.wiupNearby[0].komoditas : null
-    },
+    wiup: (() => {
+      const overlapping = scores.wiupOverlap > 0 ? scores.wiupOverlapFeatures[0] : null;
+      // When there's a genuine overlap, report THAT WIUP's identity — not whichever WIUP
+      // happens to be nearest by centroid distance (a different, non-overlapping WIUP could
+      // easily be closer by that metric, and previously got reported instead, causing the AI
+      // to narrate a false connection like "the overlap is with WIUP X" when X never overlapped
+      // at all). jarak_terdekat_km is explicitly 0 here since "distance to boundary" is a
+      // meaningless/misleading number for a WIUP that's already intersecting the target area.
+      const primary = overlapping || scores.wiupNearby[0] || null;
+      return {
+        jumlah: scores.wiupNearby.length,
+        status: scores.wiupOverlap > 0 ? 'Ada overlap WIUP' : 'Bebas dari WIUP aktif',
+        terdekat: primary ? primary.nama_usaha : null,
+        jarak_terdekat_km: overlapping ? 0 : (scores.wiupNearby[0] ? Math.round(scores.wiupNearby[0].dist * 10) / 10 : null),
+        kegiatan: primary ? primary.kegiatan : null,
+        komoditas: primary ? primary.komoditas : null
+      };
+    })(),
     // Auto-deteksi komoditas 3-layer (WIUP -> Batubara point -> Geologi Mineral) yang
     // menentukan profil bobot Infrastructure dipakai. Dikirim sebagai string tunggal
     // (bukan objek) — lihat catatan bug infrastruktur/[object Object] di atas.
