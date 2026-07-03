@@ -1241,7 +1241,7 @@ function computeInfraScore(lat, lon, weightProfile, targetGeom) {
 // resolved to 'sumatera', Makassar (kalimantan/sulawesi overlap) to 'kalimantan'. Both were
 // then scored against the WRONG region's polygon file. Now returns ALL matching regions so
 // downstream loaders/scoring can check every plausible candidate and let the real polygon
-// intersection (turf.booleanIntersects) decide, same defensive philosophy as the margin
+// intersection (hasAreaOverlap) decide, same defensive philosophy as the margin
 // itself.
 function getForestRegions(lat, lon) {
   const matches = [];
@@ -1780,7 +1780,7 @@ function popupWIUP(p) {
 // plus a representative lat/lon (centroid) used for the region-based heuristics
 // (forest/infra) that don't have real boundary data to overlap against yet.
 //
-// WIUP & Geological pillars use REAL polygon intersection (turf.booleanIntersects)
+// WIUP & Geological pillars use REAL area-based polygon intersection (hasAreaOverlap)
 // instead of the old centroid-distance proximity guess — this was a known accuracy
 // gap flagged in the initial audit. To keep performance bounded on the large WIUP
 // dataset (~17MB / thousands of features), turf checks only run on candidates
@@ -1824,7 +1824,7 @@ function scoreGeometry(targetGeom, lat, lon) {
   // analysis is byte-for-byte unchanged) fixes the candidate pool; the actual reported
   // distances below are separately made boundary-accurate via distanceToGeometryKm().
   const R = 0.09 + geometryExtentDeg(targetGeom, lat, lon); // ~10km + polygon's own extent, in degrees
-  const CANDIDATE_R = R * 3; // envelope for turf.booleanIntersects candidates
+  const CANDIDATE_R = R * 3; // envelope for hasAreaOverlap candidates
 
   // Pillar 1: Geological Potential — 3-tier: (1) known mineral-occurrence overlap [strongest,
   // has KOMODITAS], (2) known-formation overlap from the full national geology dataset [we
@@ -1845,7 +1845,7 @@ function scoreGeometry(targetGeom, lat, lon) {
     geoOverlapCandidates.sort((a,b) => a.d - b.d);
     for (const {f} of geoOverlapCandidates) {
       let intersects = false;
-      try { intersects = turf.booleanIntersects(targetGeom, f); } catch(e) { /* malformed geometry, skip */ }
+      try { intersects = hasAreaOverlap(targetGeom, f); } catch(e) { /* malformed geometry, skip */ }
       if (intersects) { nearestMineral = f.properties; geoOverlap = true; break; }
     }
   }
@@ -1857,7 +1857,7 @@ function scoreGeometry(targetGeom, lat, lon) {
     for (const f of geologyFeats) {
       if (!f.geometry) continue;
       let intersects = false;
-      try { intersects = turf.booleanIntersects(targetGeom, f); } catch(e) { /* malformed geometry, skip */ }
+      try { intersects = hasAreaOverlap(targetGeom, f); } catch(e) { /* malformed geometry, skip */ }
       if (intersects) { formationOverlap = f.properties; break; }
     }
   }
@@ -1895,7 +1895,7 @@ function scoreGeometry(targetGeom, lat, lon) {
     wiupNearby.sort((a, b) => a.dist - b.dist);
     wiupOverlapCandidates.forEach(f => {
       let intersects = false;
-      try { intersects = turf.booleanIntersects(targetGeom, f); } catch(e) { /* malformed geometry, skip */ }
+      try { intersects = hasAreaOverlap(targetGeom, f); } catch(e) { /* malformed geometry, skip */ }
       if (intersects) { wiupOverlap++; wiupOverlapFeatures.push(f.properties); }
     });
   }
@@ -1931,7 +1931,7 @@ function scoreGeometry(targetGeom, lat, lon) {
     forestCandidates.sort((a,b) => a.d - b.d);
     for (const {f} of forestCandidates) {
       let intersects = false;
-      try { intersects = turf.booleanIntersects(targetGeom, f); } catch(e) { /* malformed geometry, skip */ }
+      try { intersects = hasAreaOverlap(targetGeom, f); } catch(e) { /* malformed geometry, skip */ }
       if (intersects) { forestHit = f.properties; break; }
     }
     if (forestHit) {
@@ -2019,6 +2019,28 @@ async function scoreArea(polygonLatLon) {
 // (TypeError deep in a forEach loop) instead of just being skipped. [0,0] (Gulf of
 // Guinea) is used as a safe sentinel — it's always >90° from any real Indonesia
 // coordinate, so it's automatically excluded by every distance/radius filter downstream.
+// Distinguishes genuine area overlap from mere boundary-touching. turf.booleanIntersects()
+// returns true for BOTH — two WIUP polygons that simply sit edge-to-edge with zero gap
+// (extremely common in mining concession maps, where blocks tile the map without overlap)
+// would incorrectly register as "overlap" under booleanIntersects, when they're actually
+// just adjacent. For licensing purposes these are fundamentally different: adjacency is
+// normal map topology, area overlap is a genuine claim conflict.
+// - Point vs Polygon (single map click): booleanIntersects is equivalent to point-in-polygon
+//   here — a point can't "touch" a boundary in the area sense, so no ambiguity, keep as-is.
+// - Polygon vs Polygon (CSV/area upload): compute the actual intersection geometry and only
+//   count it as overlap if the result has AREA (Polygon/MultiPolygon) — a shared-edge-only
+//   intersection degrades to a LineString/Point/GeometryCollection, which we correctly treat
+//   as "adjacent, not overlapping".
+function hasAreaOverlap(targetGeom, candidateFeature) {
+  if (targetGeom.geometry.type === 'Point') {
+    return turf.booleanIntersects(targetGeom, candidateFeature);
+  }
+  const inter = turf.intersect(targetGeom, candidateFeature);
+  if (!inter) return false;
+  const t = inter.geometry.type;
+  return t === 'Polygon' || t === 'MultiPolygon';
+}
+
 function getCentroid(coords, type) {
   if (!coords) return [0,0];
   if (type === 'Point') return coords;
