@@ -392,6 +392,50 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .loading-text{font-size:12px;color:var(--text3);margin-top:10px}
 
 /* ─── HERO LANDING OVERLAY ──────────────────────────────────────────── */
+/* Contact gate — shown after AI_FREE_LIMIT free AI interpretations are used up.
+   Same visual weight as hero-overlay but smaller/card-based since it's an
+   interruption mid-flow, not a first-visit landing screen. */
+#contact-gate-overlay{
+  position:fixed;inset:0;
+  background:rgba(10,12,16,0.85);
+  display:flex;align-items:center;justify-content:center;
+  z-index:6000;backdrop-filter:blur(6px);
+  padding:20px;
+}
+#contact-gate-overlay.hidden{display:none}
+.contact-gate-card{
+  background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-lg);
+  padding:28px;max-width:400px;width:100%;text-align:center;
+  box-shadow:var(--shadow);
+}
+.contact-gate-icon{
+  width:52px;height:52px;background:var(--brand-dim);border-radius:14px;
+  display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--brand);
+  margin:0 auto 14px;
+}
+.contact-gate-title{font-family:var(--font-head);font-size:18px;font-weight:600;color:var(--text);margin-bottom:6px}
+.contact-gate-sub{font-size:13px;color:var(--text3);line-height:1.6;margin-bottom:18px}
+.contact-gate-input{
+  width:100%;height:42px;background:var(--surface2);border:1px solid var(--border);
+  border-radius:8px;padding:0 14px;color:var(--text);font-size:13px;margin-bottom:10px;
+  font-family:inherit;box-sizing:border-box;
+}
+.contact-gate-input:focus{outline:none;border-color:var(--brand)}
+.contact-gate-submit{
+  width:100%;height:44px;background:var(--brand);color:#0A0C10;border:none;border-radius:8px;
+  font-family:var(--font-head);font-weight:600;font-size:13px;cursor:pointer;margin-top:4px;
+}
+.contact-gate-error{font-size:11px;color:var(--red);margin-top:8px;min-height:14px}
+.contact-gate-note{font-size:10.5px;color:var(--text3);margin-top:14px;line-height:1.5}
+
+/* Topbar personalization badge — hidden until a name has been captured */
+#user-badge{
+  display:none;align-items:center;gap:6px;
+  font-size:12px;color:var(--text2);
+  padding:6px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;
+  margin-left:10px;white-space:nowrap;
+}
+
 #hero-overlay{
   position:fixed;inset:0;
   background:radial-gradient(ellipse at top, rgba(197,160,89,0.08), transparent 60%), rgba(10,12,16,0.97);
@@ -587,6 +631,22 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   <input type="file" id="hero-file-input" accept=".csv" style="display:none">
 </div>
 
+<!-- Contact gate — appears after AI_FREE_LIMIT free AI interpretations. 5-pillar
+     scoring itself is never gated (it's local computation, zero API cost); only
+     the AI narrative call is gated here. -->
+<div id="contact-gate-overlay" class="hidden">
+  <div class="contact-gate-card">
+    <div class="contact-gate-icon"><i class="ti ti-sparkles"></i></div>
+    <div class="contact-gate-title">Lanjutkan dengan Interpretasi AI</div>
+    <div class="contact-gate-sub">3 interpretasi AI gratis Anda sudah terpakai. Skor 5-pillar tetap akurat &amp; gratis tanpa batas — masukkan nama &amp; kontak untuk lanjut dapat interpretasi AI.</div>
+    <input id="contact-gate-name" class="contact-gate-input" type="text" placeholder="Nama Anda" autocomplete="name">
+    <input id="contact-gate-contact" class="contact-gate-input" type="text" placeholder="WhatsApp atau Email" autocomplete="tel">
+    <button class="contact-gate-submit" onclick="submitContactGate()">Lanjutkan Analisis</button>
+    <div class="contact-gate-error" id="contact-gate-error"></div>
+    <div class="contact-gate-note">Data Anda tersimpan di perangkat ini saja, tidak dikirim ke server manapun.</div>
+  </div>
+</div>
+
 <div id="app">
   <!-- TOPBAR -->
   <div id="topbar">
@@ -595,6 +655,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       <span class="logo-text">Mineravix<span class="logo-pulse">·Pulse</span></span>
       <span class="logo-by">by GEOCEE</span>
     </a>
+    <span id="user-badge"><i class="ti ti-user-circle"></i> <span id="user-badge-name"></span></span>
     <div class="topbar-sep"></div>
     <div id="search-wrap">
       <i class="ti ti-search search-icon"></i>
@@ -2147,7 +2208,7 @@ async function analyzeLocation(lat, lon, locationName) {
 
   // Then fetch IA
   doneStep('step-ia');
-  fetchIA(lat, lon, scores);
+  fetchIAWithGate(lat, lon, scores);
 }
 
 // Polygon-based analysis (CSV upload). polygonLatLon = [[lat,lon], [lat,lon], ...]
@@ -2193,7 +2254,7 @@ async function analyzeArea(polygonLatLon, areaName) {
   renderResult(lat, lon, areaName, scores);
 
   doneStep('step-ia');
-  fetchIA(lat, lon, scores);
+  fetchIAWithGate(lat, lon, scores);
 }
 
 function animateStep(id, delay) {
@@ -2777,12 +2838,108 @@ document.getElementById('topbar-file-input').addEventListener('change', (e) => {
   e.target.value = ''; // allow re-uploading the same file name later
 });
 
+// ─── AI USAGE GATE ──────────────────────────────────────────────────────────
+// 5-pillar scoring is pure local computation (zero API cost) and is NEVER limited.
+// Only the AI narrative call (fetchIA, which hits the paid Anthropic API via the
+// Cloudflare Worker) is gated. This is a client-side soft gate — good enough to
+// stop casual/accidental repeat usage and to capture leads, but NOT a hard security
+// boundary: clearing localStorage or using incognito resets it. Real API-cost
+// protection would need server-side enforcement (Cloudflare Worker + KV, tracked by
+// a persistent client ID), which is a reasonable next step if abuse becomes a real
+// problem — flagged here rather than built now since it needs Hendro to set up a KV
+// namespace binding in the Cloudflare dashboard, out of scope for this quick v1.
+const AI_FREE_LIMIT = 3;
+let pendingIAArgs = null; // {lat, lon, scores} held while the contact gate is open
+
+function getAiUsageCount() {
+  try { return parseInt(localStorage.getItem('mineravix_ai_usage') || '0', 10); } catch(e) { return 0; }
+}
+function incrementAiUsageCount() {
+  try { localStorage.setItem('mineravix_ai_usage', String(getAiUsageCount() + 1)); } catch(e) { /* localStorage unavailable — gate just won't persist across reloads */ }
+}
+function getUserContact() {
+  try {
+    const name = localStorage.getItem('mineravix_user_name');
+    return name ? { name, contact: localStorage.getItem('mineravix_user_contact') || '' } : null;
+  } catch(e) { return null; }
+}
+function setUserContact(name, contact) {
+  try {
+    localStorage.setItem('mineravix_user_name', name);
+    localStorage.setItem('mineravix_user_contact', contact);
+  } catch(e) { /* localStorage unavailable — badge/gate won't persist, but current session still works */ }
+  updateUserBadge();
+}
+
+// Gated wrapper — replaces direct fetchIA() calls at both call sites (point-click
+// and CSV/area analysis). Once a name is on file, the user is "known" and never
+// gated again (no re-prompting every N uses — one contact capture unlocks it for good).
+function fetchIAWithGate(lat, lon, scores) {
+  const contact = getUserContact();
+  if (!contact && getAiUsageCount() >= AI_FREE_LIMIT) {
+    pendingIAArgs = { lat, lon, scores };
+    showIAGate();
+    document.getElementById('contact-gate-overlay').classList.remove('hidden');
+    return;
+  }
+  incrementAiUsageCount();
+  fetchIA(lat, lon, scores);
+}
+
+function submitContactGate() {
+  const name = document.getElementById('contact-gate-name').value.trim();
+  const contact = document.getElementById('contact-gate-contact').value.trim();
+  const errEl = document.getElementById('contact-gate-error');
+  if (!name || !contact) {
+    errEl.textContent = 'Nama dan kontak wajib diisi.';
+    return;
+  }
+  errEl.textContent = '';
+  setUserContact(name, contact);
+  document.getElementById('contact-gate-overlay').classList.add('hidden');
+  if (pendingIAArgs) {
+    incrementAiUsageCount();
+    fetchIA(pendingIAArgs.lat, pendingIAArgs.lon, pendingIAArgs.scores);
+    pendingIAArgs = null;
+  }
+}
+
+// Shown in place of the pillar "Menganalisis..." spinners when the free AI quota is
+// used up and no contact is on file yet — same visual pattern as showIAFallback(),
+// but framed as a CTA rather than an error, since nothing actually failed.
+function showIAGate() {
+  const msg = `<div class="ia-box" style="border-left-color:var(--brand)">
+    <div class="ia-tag"><i class="ti ti-lock" style="color:var(--brand);font-size:10px"></i> Kuota IA Gratis Habis</div>
+    <div class="ia-text">Interpretasi AI 3x gratis sudah terpakai. Skor 5-pillar di atas tetap akurat — isi nama &amp; kontak untuk lanjut dapat interpretasi AI.</div>
+  </div>`;
+  ['geo','lic','for','inf','iup'].forEach(key => {
+    const el = document.getElementById('ia-pillar-' + key);
+    if (el) el.outerHTML = msg;
+  });
+  const execEl = document.getElementById('ia-exec-summary');
+  if (execEl) execEl.innerHTML = msg;
+}
+
+function updateUserBadge() {
+  const contact = getUserContact();
+  const badgeEl = document.getElementById('user-badge');
+  const nameEl = document.getElementById('user-badge-name');
+  if (!badgeEl || !nameEl) return;
+  if (contact) {
+    nameEl.textContent = 'Halo, ' + contact.name.split(' ')[0];
+    badgeEl.style.display = 'flex';
+  } else {
+    badgeEl.style.display = 'none';
+  }
+}
+
 // ─── HERO LANDING OVERLAY ────────────────────────────────────────────────────
 // Shown once to first-time visitors as a focused "single action" entry point.
 // Skipped automatically for returning users who have completed an analysis
 // before (flag set in renderResult()), so it never becomes friction for
 // repeat/power users checking many locations per day.
 function maybeShowHero() {
+  updateUserBadge();
   let alreadyUsed = false;
   try { alreadyUsed = !!localStorage.getItem('mineravix_used'); } catch(e) { /* localStorage unavailable, default to showing hero */ }
   if (!alreadyUsed) {
