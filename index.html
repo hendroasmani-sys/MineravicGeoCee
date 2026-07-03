@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mineravix Pulse · by GEOCEE</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
 <meta name="description" content="Pulse-check any Indonesian mining ground in 30 seconds. Free mineral intelligence screening by PT. Citra Eksplor Energi.">
 
 <!-- Leaflet CSS -->
@@ -2662,8 +2663,10 @@ function runExample(lat, lon, name) {
   analyzeLocation(lat, lon, name);
 }
 
+// Routes the "Metodologi" topbar button to the existing About tab (methodology +
+// credentials already live there) instead of a jarring native browser alert().
 function showInfo() {
-  alert('Mineravix Pulse — Metodologi Scoring\n\nPulse Score™ terdiri dari 5 pillar:\n\n1. Geological Potential (30%) — Kedekatan dan kualitas formasi geologi\n2. Licence Status (25%) — Status WIUP dan overlay perizinan\n3. Forest Area Risk (20%) — Proximity kawasan hutan HL/HK/HP\n4. Infrastructure (10%) — Estimasi aksesibilitas lokasi\n5. Adjacent IUP Context (15%) — Konteks IUP aktif terdekat\n\nSemua analisis bersifat PRELIMINARY berdasarkan data publik ESDM/P3GL dan MODI 2024.\n\nVerifikasi oleh Senior Geologist diperlukan untuk laporan resmi.\n\nIr. Hendro Ismanto ST\nSenior Geologist · IAGI · Perhapi · 31 tahun pengalaman\nPT. Citra Eksplor Energi (GEOCEE)');
+  switchTab('about');
 }
 
 // ─── CSV POLYGON UPLOAD ─────────────────────────────────────────────────────────
