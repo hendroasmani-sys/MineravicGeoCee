@@ -346,7 +346,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   background:var(--surface2);border:1px solid var(--border);
   border-radius:var(--radius);padding:12px;margin-bottom:12px;
 }
-.exec-text{font-size:12px;color:var(--text2);line-height:1.7;font-style:italic}
 .exec-disclaimer{
   font-size:10px;color:var(--text3);margin-top:8px;
   padding-top:8px;border-top:1px solid var(--border);
@@ -495,9 +494,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .badge-green{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.2)}
 .badge-red{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.2)}
 .badge-amber{background:var(--amber-dim);color:var(--amber);border:1px solid rgba(245,158,11,.2)}
-.badge-blue{background:var(--blue-dim);color:var(--blue);border:1px solid rgba(59,130,246,.2)}
-.badge-purple{background:var(--purple-dim);color:var(--purple);border:1px solid rgba(139,92,246,.2)}
-.badge-gray{background:var(--surface3);color:var(--text3);border:1px solid var(--border)}
 
 /* ─── LAYERS / ABOUT SIDEBAR PANELS ──────────────────────────────── */
 .legend-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
@@ -515,8 +511,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .info-credential-icon{width:32px;height:32px;background:var(--brand-dim);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--brand);font-size:15px;flex-shrink:0}
 .info-credential-name{font-size:12px;font-weight:600;color:var(--text)}
 .info-credential-role{font-size:11px;color:var(--text3);margin-top:2px;line-height:1.5}
-
-.divider{height:1px;background:var(--border);margin:10px 0}
 
 /* Scrollbar */
 ::-webkit-scrollbar{width:4px;height:4px}
@@ -680,10 +674,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
           <div class="layer-chip-dot" style="background:#FB923C"></div>
           <span>Smelter</span>
         </div>
-        <div class="layer-chip" id="chip-jalan" onclick="toggleLayer('jalan')" title="Muncul bertahap per wilayah saat Anda menganalisis titik di sana">
-          <div class="layer-chip-dot" style="background:#22C55E"></div>
-          <span>Jalan</span>
-        </div>
       </div>
 
       <!-- Zoom -->
@@ -826,20 +816,13 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
               <div class="legend-desc">53 smelter (nikel/bauksit/tembaga/dll) — sumber MODI, Ditjen Minerba ESDM</div>
             </div>
           </div>
-          <div class="legend-row">
-            <div class="legend-dot" style="background:#22C55E"></div>
-            <div class="legend-info">
-              <div class="legend-name">Jalan</div>
-              <div class="legend-desc">Jaringan jalan RBI 1:250.000, digeneralisasi. Muncul bertahap per pulau saat Anda menganalisis titik di wilayah itu — aktifkan chip-nya dulu, lalu klik peta.</div>
-            </div>
-          </div>
           <div class="legend-note">
             <i class="ti ti-info-circle" style="font-size:11px;margin-right:4px"></i>
             Klik area/titik pada layer di peta untuk detail. Aktifkan/nonaktifkan layer lewat chip di atas peta.
           </div>
           <div class="legend-note">
             <i class="ti ti-trees" style="font-size:11px;margin-right:4px"></i>
-            Data kawasan hutan (KLHK) real saat ini mencakup <b>Kalimantan & Sumatera</b>, dengan kategori lengkap (APL, Hutan Produksi/Terbatas/Konversi, Hutan Lindung, Taman Nasional, dan kawasan konservasi lain). Region lain masih memakai estimasi heuristik.
+            Data kawasan hutan (KLHK) real saat ini mencakup <b>seluruh Indonesia kecuali Bali</b>, dengan kategori lengkap (APL, Hutan Produksi/Terbatas/Konversi, Hutan Lindung, Taman Nasional, dan kawasan konservasi lain). Bali memakai estimasi heuristik (di luar fokus area operasi).
           </div>
         </div>
 
@@ -888,9 +871,9 @@ const WORKER_URL = 'https://mineravix-proxy.citraeksplorenergi.workers.dev';
 const GITHUB_RAW = 'https://raw.githubusercontent.com/hendroasmani-sys/MineravicGeoCee/main';
 
 // ─── FOREST DATA (lazy-loaded per region) ──────────────────────────────────────
-// Real kawasan-hutan boundary data currently only covers Kalimantan & Sumatera
-// (~35MB combined). As of the v2 files, coverage includes the FULL category
-// spectrum per point — APL, Hutan Produksi/Terbatas/Konversi (HP/HPT), Hutan
+// Real kawasan-hutan boundary data now covers ALL of Indonesia except Bali (deemed
+// out of scope for mining — see FOREST_REGIONS below). Coverage includes the FULL
+// category spectrum per point — APL, Hutan Produksi/Terbatas/Konversi (HP/HPT), Hutan
 // Lindung, Taman Nasional, Cagar Alam, Suaka Margasatwa, Tahura, Taman Wisata
 // Alam (incl. marine variants), and water bodies — not just protected zones.
 // To avoid front-loading this on every page visit (like mineral/WIUP data),
@@ -909,6 +892,34 @@ const FOREST_REGIONS = {
     // Real data bounds: lat -5.98..5.91, lon 95.01..108.36 — widened with margin
     bbox: { lonMin:94.5, lonMax:109, latMin:-6.5, latMax:6.5 },
     url: GITHUB_RAW + '/output/webdata_HUTAN_Sumatera_v2.geojson'
+  },
+  // Added from Hendro's "Hutan_exclude_Kal_Sum_Bali" dataset — same KLHK source and
+  // `Keterangan` category vocabulary as Kalimantan/Sumatera v2 above (full-spectrum:
+  // APL, HP/HPT, protected/conservation, water bodies). Bboxes match GEOLOGY_REGIONS
+  // exactly for consistency across layers. Source files were EPSG:3857 (meters) at
+  // 100-380MB/region — reprojected to EPSG:4326 and simplified (~5-8%, topology-
+  // preserving) down to 20-44MB/region before upload; ~20% of source features were
+  // degenerate digitization slivers (near-zero area) that collapsed to null geometry
+  // during simplification and were stripped.
+  jawabali: {
+    bbox: { lonMin:105, lonMax:117, latMin:-9, latMax:-5.4 },
+    url: GITHUB_RAW + '/output/webdata_HUTAN_Jawa_v2.geojson'
+  },
+  sulawesi: {
+    bbox: { lonMin:118.5, lonMax:125.6, latMin:-6.5, latMax:2 },
+    url: GITHUB_RAW + '/output/webdata_HUTAN_Sulawesi_v2.geojson'
+  },
+  nusatenggara: {
+    bbox: { lonMin:115, lonMax:125.6, latMin:-11, latMax:-6.5 },
+    url: GITHUB_RAW + '/output/webdata_HUTAN_NusaTenggara_v2.geojson'
+  },
+  maluku: {
+    bbox: { lonMin:124, lonMax:135, latMin:-9, latMax:3 },
+    url: GITHUB_RAW + '/output/webdata_HUTAN_Maluku_v2.geojson'
+  },
+  papua: {
+    bbox: { lonMin:130, lonMax:141.5, latMin:-10, latMax:1 },
+    url: GITHUB_RAW + '/output/webdata_HUTAN_Papua_v2.geojson'
   }
 };
 let forestDataCache = {}; // regionKey -> GeoJSON data | 'error' | undefined (not attempted yet)
@@ -933,22 +944,6 @@ const GEOLOGY_REGIONS = {
 const GEOLOGY_FALLBACK_URL = GITHUB_RAW + '/output/geologi_lainnya.geojson';
 let geologyDataCache = {};      // regionKey -> GeoJSON data | 'error' | undefined
 let geologyFallbackCache = undefined; // 'lainnya' data | 'error' | undefined
-
-// Visual road lines, lazy-loaded per region — separate from the roads_distance_grid.json
-// used for Infrastructure scoring (that's a precomputed distance grid, not real geometry,
-// so it can't be rendered as lines). Same region-split pattern as GEOLOGY_REGIONS.
-const ROADS_REGIONS = {
-  sumatera:      { bbox: { lonMin:94.5,  lonMax:108,   latMin:-6.5, latMax:6.5  }, url: GITHUB_RAW + '/output/jalan_sumatera.geojson' },
-  jawabali:      { bbox: { lonMin:105,   lonMax:117,   latMin:-9,   latMax:-5.4 }, url: GITHUB_RAW + '/output/jalan_jawabali.geojson' },
-  kalimantan:    { bbox: { lonMin:108,   lonMax:120,   latMin:-5.5, latMax:5    }, url: GITHUB_RAW + '/output/jalan_kalimantan.geojson' },
-  sulawesi:      { bbox: { lonMin:118.5, lonMax:125.6, latMin:-6.5, latMax:2    }, url: GITHUB_RAW + '/output/jalan_sulawesi.geojson' },
-  nusatenggara:  { bbox: { lonMin:115,   lonMax:125.6, latMin:-11,  latMax:-6.5 }, url: GITHUB_RAW + '/output/jalan_nusatenggara.geojson' },
-  maluku:        { bbox: { lonMin:124,   lonMax:135,   latMin:-9,   latMax:3    }, url: GITHUB_RAW + '/output/jalan_maluku.geojson' },
-  papua:         { bbox: { lonMin:130,   lonMax:141.5, latMin:-10, latMax:1     }, url: GITHUB_RAW + '/output/jalan_papua.geojson' }
-};
-const ROADS_FALLBACK_URL = GITHUB_RAW + '/output/jalan_lainnya.geojson';
-let roadsDataCache = {};
-let roadsFallbackCache = undefined;
 
 // ─── INFRASTRUCTURE SCORING (real data) ────────────────────────────────────────
 // Precomputed national distance-grids (built offline via KD-tree, see project notes) —
@@ -1010,18 +1005,68 @@ function gridDistanceKm(gridIndex, lat, lon) {
   return v === undefined ? null : v;
 }
 
-// Haversine distance (km) to the nearest feature in a small point FeatureCollection
-// (PLTU/Terminal/Bandara/Smelter — all under 100 features, trivial to loop directly).
-function nearestPointKm(data, lat, lon) {
+// Distance (km) from a candidate point to the analyzed geometry. For a Point (single
+// map click / search) this is a plain point-to-point distance — identical to the old
+// behavior. For a Polygon (CSV area upload) it measures to the nearest edge of the
+// boundary instead of the centroid — otherwise "X km away" for a large/irregular
+// polygon would be measured from an arbitrary geometric center that can be nowhere
+// near the actual site boundary (this was the root cause behind AI reporting IUP
+// distances that didn't match the actual polygon shape).
+function distanceToGeometryKm(candidateLon, candidateLat, targetGeom) {
+  const pt = turf.point([candidateLon, candidateLat]);
+  if (!targetGeom || targetGeom.geometry.type === 'Point') {
+    return turf.distance(pt, targetGeom || pt, { units: 'kilometers' });
+  }
+  try {
+    const boundary = turf.polygonToLine(targetGeom);
+    return turf.pointToLineDistance(pt, boundary, { units: 'kilometers' });
+  } catch (e) {
+    // malformed polygon ring — fall back to centroid distance rather than crash
+    const c = turf.centroid(targetGeom).geometry.coordinates;
+    return turf.distance(pt, turf.point(c), { units: 'kilometers' });
+  }
+}
+
+// Sample points representing the analyzed geometry, used to query the precomputed
+// distance grids (roads/listrik) which only support single-point lookups. For a Point
+// this is just the point itself (unchanged behavior). For a Polygon, sampling the
+// boundary vertices + centroid and taking the minimum grid distance across all of them
+// approximates "distance to nearest edge" without needing a fully polygon-aware grid
+// (the grid's own resolution is ~5.5km, so vertex-level sampling is precise enough).
+function sampleGeometryPoints(targetGeom, lat, lon) {
+  if (!targetGeom || targetGeom.geometry.type === 'Point') return [[lat, lon]];
+  const ring = targetGeom.geometry.coordinates[0];
+  const pts = ring.map(([rlon, rlat]) => [rlat, rlon]);
+  pts.push([lat, lon]); // centroid too, cheap safety net
+  return pts;
+}
+
+// How far (in degrees) the analyzed geometry's own extent reaches beyond its centroid.
+// Zero for a Point (no change from prior behavior). For a Polygon, this is added to the
+// fixed ~10km candidate-search radius (R) elsewhere in scoreGeometry() — otherwise a
+// feature sitting right next to a large polygon's far edge could be many km outside a
+// radius measured from the centroid and get silently excluded from the candidate list
+// entirely, before boundary-distance logic even gets a chance to consider it.
+function geometryExtentDeg(targetGeom, lat, lon) {
+  if (!targetGeom || targetGeom.geometry.type === 'Point') return 0;
+  const ring = targetGeom.geometry.coordinates[0];
+  let maxD = 0;
+  ring.forEach(([rlon, rlat]) => {
+    const d = Math.sqrt((rlon-lon)**2 + (rlat-lat)**2);
+    if (d > maxD) maxD = d;
+  });
+  return maxD;
+}
+
+// Nearest feature (km) in a small point FeatureCollection (PLTU/Terminal/Bandara/Smelter
+// — all under 100 features, trivial to loop directly), measured against the analyzed
+// geometry itself so CSV-polygon inputs get boundary-accurate distances, not centroid-only.
+function nearestFeatureKm(data, targetGeom, lat, lon) {
   if (!data || !data.features || !data.features.length) return null;
-  const R = 6371;
-  const rad = Math.PI / 180;
   let best = null, bestDist = Infinity;
   for (const f of data.features) {
     const [flon, flat] = f.geometry.coordinates;
-    const dLat = (flat - lat) * rad, dLon = (flon - lon) * rad;
-    const a = Math.sin(dLat/2)**2 + Math.cos(lat*rad)*Math.cos(flat*rad)*Math.sin(dLon/2)**2;
-    const d = 2 * R * Math.asin(Math.sqrt(a));
+    const d = distanceToGeometryKm(flon, flat, targetGeom || turf.point([lon, lat]));
     if (d < bestDist) { bestDist = d; best = f.properties; }
   }
   return { feature: best, distKm: bestDist };
@@ -1035,22 +1080,132 @@ function distanceToScore(distKm, fullKm, zeroKm) {
   return Math.round(100 - (distKm - fullKm) / (zeroKm - fullKm) * 80);
 }
 
-// Averaged weights across the 3 commodity profiles discussed (batubara/emas/nikel) — a
-// reasonable universal default until per-commodity auto-detection (WIUP → geology fallback)
-// is wired up. Jalan 35 / Terminal 25 / Daya(listrik∪PLTU) 20 / Smelter 11.5 / Bandara 8.5.
-function computeInfraScore(lat, lon) {
+// ─── Commodity auto-detection (3-layer hybrid) ─────────────────────────────
+// Per-commodity infra weight profiles agreed with Hendro. "universal" is the
+// old averaged fallback, kept for points where no commodity can be resolved.
+const COMMODITY_INFRA_WEIGHTS = {
+  batubara:  { jalan: 0.35, terminal: 0.40, daya: 0.10, smelter: 0.05, bandara: 0.10 },
+  emas:      { jalan: 0.35, terminal: 0.10, daya: 0.40, smelter: 0.05, bandara: 0.10 },
+  nikel:     { jalan: 0.35, terminal: 0.25, daya: 0.10, smelter: 0.25, bandara: 0.05 },
+  universal: { jalan: 0.35, terminal: 0.25, daya: 0.20, smelter: 0.115, bandara: 0.085 }
+};
+
+// Maps a raw commodity string (WIUP `komoditas`, or first word of a geology
+// `KOMODITAS_FINAL` entry) to one of the 3 weight profiles above. Commodities
+// outside batubara/emas/nikel (timah, bauksit, pasir kuarsa, dst.) have no
+// dedicated profile yet, so this resolves to null — caller falls back to
+// 'universal' weights, but the raw name is still kept for display/AI context.
+function classifyCommodityProfile(rawName) {
+  const s = (rawName || '').toUpperCase();
+  if (!s) return null;
+  if (s.includes('BATUBARA') || s.includes('BATU BARA')) return 'batubara';
+  if (s.includes('NIKEL')) return 'nikel';
+  if (s.includes('EMAS')) return 'emas';
+  return null;
+}
+
+const COMMODITY_WIUP_RADIUS_DEG = 0.18;  // ~20km — layer 1 search radius
+const COMMODITY_COAL_RADIUS_KM  = 15;    // layer 2 (batubara point layer) search radius
+
+// Layer 1 (most reliable, ~99.9% populated): nearest WIUP polygon's `komoditas`
+// field within ~15-20km of the analyzed geometry's boundary. Takes the single nearest
+// polygon regardless of what commodity it turns out to be — classification happens one
+// level up. For a Polygon (CSV area) the search radius is widened by the geometry's own
+// extent so a WIUP near a far edge of a large polygon isn't missed just because it's
+// beyond a radius measured from the centroid.
+function detectCommodityFromWIUP(lat, lon, targetGeom) {
+  if (!wiupData) return null;
+  const searchRadiusDeg = COMMODITY_WIUP_RADIUS_DEG + geometryExtentDeg(targetGeom, lat, lon);
+  let best = null, bestDist = Infinity;
+  wiupData.features.forEach(f => {
+    if (!f.geometry || !f.properties || !f.properties.komoditas) return;
+    const centroid = getCentroid(f.geometry.coordinates, f.geometry.type);
+    const d = Math.sqrt((centroid[0]-lon)**2 + (centroid[1]-lat)**2);
+    if (d < searchRadiusDeg && d < bestDist) { bestDist = d; best = { komoditas: f.properties.komoditas, lon: centroid[0], lat: centroid[1] }; }
+  });
+  if (!best) return null;
+  const distKm = distanceToGeometryKm(best.lon, best.lat, targetGeom);
+  return { source: 'WIUP terdekat', rawName: best.komoditas, distKm: Math.round(distKm * 10) / 10 };
+}
+
+// Layer 2: proximity to the Batubara point layer (webdata_BATUBARA.json — pure
+// GeometryCollection points, no properties, so any hit here is 'batubara' by
+// definition). Only consulted when layer 1 found nothing. Measured against the
+// analyzed geometry itself (boundary-accurate for CSV polygons), radius widened by
+// the geometry's own extent for the same reason as layer 1.
+function detectCommodityFromCoalLayer(lat, lon, targetGeom) {
+  if (!coalData || !coalData.geometries || !coalData.geometries.length) return null;
+  const searchRadiusKm = COMMODITY_COAL_RADIUS_KM + geometryExtentDeg(targetGeom, lat, lon) * 111;
+  let bestDist = Infinity;
+  coalData.geometries.forEach(g => {
+    if (!g.coordinates) return;
+    const [flon, flat] = g.coordinates;
+    const d = distanceToGeometryKm(flon, flat, targetGeom);
+    if (d < bestDist) bestDist = d;
+  });
+  if (bestDist > searchRadiusKm) return null;
+  return { source: 'Batubara point layer', rawName: 'BATUBARA', distKm: Math.round(bestDist * 10) / 10 };
+}
+
+// Layer 3 (last resort): nearest catalogued mineral occurrence, first word of
+// KOMODITAS_FINAL (matches the naming convention already used in that field,
+// e.g. "Emas Primer Watu Asah" -> "Emas"). Reuses the `nearestMineral` result
+// scoreGeometry() already computed for the Geological Potential pillar —
+// no second scan of mineralData needed.
+function detectCommodityFromGeologyMineral(nearestMineral) {
+  if (!nearestMineral) return null;
+  const kf = nearestMineral.KOMODITAS_FINAL || nearestMineral.KOMODITAS || '';
+  const firstWord = kf.trim().split(/\s+/)[0];
+  if (!firstWord) return null;
+  return { source: 'Geologi Mineral (terdekat)', rawName: firstWord, distKm: null };
+}
+
+// Runs the full hybrid cascade: WIUP -> Batubara point layer -> Geologi Mineral
+// -> universal fallback. Returns which weight profile to use for Infrastructure
+// scoring plus a human-readable label for UI/AI context.
+function detectCommodity(lat, lon, nearestMineral, targetGeom) {
+  const hit = detectCommodityFromWIUP(lat, lon, targetGeom)
+    || detectCommodityFromCoalLayer(lat, lon, targetGeom)
+    || detectCommodityFromGeologyMineral(nearestMineral)
+    || null;
+
+  if (!hit) {
+    return { profile: 'universal', rawName: null, source: null, label: 'Tidak terdeteksi (bobot universal)' };
+  }
+
+  const profile = classifyCommodityProfile(hit.rawName);
+  const label = profile
+    ? `${hit.rawName} — ${hit.source}${hit.distKm !== null ? ' · ' + hit.distKm + ' km' : ''}`
+    : `${hit.rawName} — ${hit.source} (belum ada profil khusus, pakai bobot universal)`;
+
+  return { profile: profile || 'universal', rawName: hit.rawName, source: hit.source, label };
+}
+
+function computeInfraScore(lat, lon, weightProfile, targetGeom) {
+  const w = COMMODITY_INFRA_WEIGHTS[weightProfile] || COMMODITY_INFRA_WEIGHTS.universal;
+
   // Fallback to the old heuristic if the real grids failed to load (e.g. files not yet
   // uploaded to GitHub) — keeps the app functional rather than scoring everything at floor.
   if (roadsGridIndex === 'error' || listrikGridIndex === 'error' || roadsGridIndex === null) {
     return { score: estimateInfraScore(lat, lon), real: false, detail: null };
   }
 
-  const jalanKm = gridDistanceKm(roadsGridIndex, lat, lon);
-  const listrikKm = gridDistanceKm(listrikGridIndex, lat, lon);
-  const pltu = nearestPointKm(pltuData, lat, lon);
-  const terminal = nearestPointKm(terminalData, lat, lon);
-  const bandara = nearestPointKm(bandaraData, lat, lon);
-  const smelter = nearestPointKm(smelterData, lat, lon);
+  // For a Polygon (CSV area), sample the boundary + centroid and take the minimum grid
+  // distance across all samples — approximates "nearest point on the site boundary"
+  // instead of measuring only from the geometric center. For a Point (single click) this
+  // is unchanged: sampleGeometryPoints() just returns [[lat, lon]].
+  let jalanKm = null, listrikKm = null;
+  sampleGeometryPoints(targetGeom, lat, lon).forEach(([slat, slon]) => {
+    const j = gridDistanceKm(roadsGridIndex, slat, slon);
+    const l = gridDistanceKm(listrikGridIndex, slat, slon);
+    if (j !== null && (jalanKm === null || j < jalanKm)) jalanKm = j;
+    if (l !== null && (listrikKm === null || l < listrikKm)) listrikKm = l;
+  });
+
+  const pltu = nearestFeatureKm(pltuData, targetGeom, lat, lon);
+  const terminal = nearestFeatureKm(terminalData, targetGeom, lat, lon);
+  const bandara = nearestFeatureKm(bandaraData, targetGeom, lat, lon);
+  const smelter = nearestFeatureKm(smelterData, targetGeom, lat, lon);
 
   const jalanScore = distanceToScore(jalanKm, 2, 50);
   const listrikScore = distanceToScore(listrikKm, 3, 50);
@@ -1061,11 +1216,11 @@ function computeInfraScore(lat, lon) {
   const bandaraScore = bandara ? distanceToScore(bandara.distKm, 30, 300) : 20;
 
   const score = Math.round(
-    jalanScore*0.35 + terminalScore*0.25 + dayaScore*0.20 + smelterScore*0.115 + bandaraScore*0.085
+    jalanScore*w.jalan + terminalScore*w.terminal + dayaScore*w.daya + smelterScore*w.smelter + bandaraScore*w.bandara
   );
 
   return {
-    score, real: true,
+    score, real: true, weightProfile: weightProfile || 'universal',
     detail: {
       jalan_km: jalanKm, listrik_km: listrikKm,
       pltu_terdekat: pltu ? { nama: pltu.feature.name, km: Math.round(pltu.distKm*10)/10 } : null,
@@ -1076,28 +1231,41 @@ function computeInfraScore(lat, lon) {
   };
 }
 
-function getForestRegion(lat, lon) {
+// BUG FIX: bboxes are intentionally "widened with margin" per-region so a point near a
+// real-data edge still triggers a fetch attempt — but that margin means adjacent regions'
+// bboxes overlap by design (checked systematically: every adjacent island pair overlaps,
+// from 0.1° up to 10° in places). Returning only the FIRST match (old behavior) meant a
+// point in an overlap zone got silently assigned to whichever region happened to be
+// declared first in the object — e.g. Jakarta (in the sumatera/jawabali overlap) was being
+// resolved to 'sumatera', Makassar (kalimantan/sulawesi overlap) to 'kalimantan'. Both were
+// then scored against the WRONG region's polygon file. Now returns ALL matching regions so
+// downstream loaders/scoring can check every plausible candidate and let the real polygon
+// intersection (turf.booleanIntersects) decide, same defensive philosophy as the margin
+// itself.
+function getForestRegions(lat, lon) {
+  const matches = [];
   for (const [key, r] of Object.entries(FOREST_REGIONS)) {
-    if (lon >= r.bbox.lonMin && lon <= r.bbox.lonMax && lat >= r.bbox.latMin && lat <= r.bbox.latMax) return key;
+    if (lon >= r.bbox.lonMin && lon <= r.bbox.lonMax && lat >= r.bbox.latMin && lat <= r.bbox.latMax) matches.push(key);
   }
-  return null; // not covered by real data yet — heuristic fallback applies
+  return matches; // usually [one], can be [two] in overlap zones, [] if genuinely uncovered
 }
 
-function getGeologyRegion(lat, lon) {
+function getGeologyRegions(lat, lon) {
+  const matches = [];
   for (const [key, r] of Object.entries(GEOLOGY_REGIONS)) {
-    if (lon >= r.bbox.lonMin && lon <= r.bbox.lonMax && lat >= r.bbox.latMin && lat <= r.bbox.latMax) return key;
+    if (lon >= r.bbox.lonMin && lon <= r.bbox.lonMax && lat >= r.bbox.latMin && lat <= r.bbox.latMax) matches.push(key);
   }
-  return null;
+  return matches;
 }
 
 // Loads the matching region file (if any) AND the small 'lainnya' catch-all in parallel.
 // Both get merged when queried in getGeologyAt() below, so a point missed by the bbox cut
 // still has a chance to match against the fallback file.
 async function ensureGeologyDataLoaded(lat, lon) {
-  const region = getGeologyRegion(lat, lon);
+  const regions = getGeologyRegions(lat, lon);
   const tasks = [];
 
-  if (region) {
+  regions.forEach(region => {
     if (geologyDataCache[region] === undefined) {
       tasks.push((async () => {
         try {
@@ -1113,7 +1281,7 @@ async function ensureGeologyDataLoaded(lat, lon) {
     } else if (geologyDataCache[region] !== 'error') {
       renderGeologyRegion(region); // already cached from a previous point in this region — make sure it's rendered too
     }
-  }
+  });
 
   if (geologyFallbackCache === undefined) {
     tasks.push((async () => {
@@ -1138,83 +1306,47 @@ async function ensureGeologyDataLoaded(lat, lon) {
 // Returns the currently-cached geology FeatureCollections relevant to this point (region +
 // fallback), merged into one array of features. Empty array if nothing loaded/matched yet.
 function getLoadedGeologyFeatures(lat, lon) {
-  const region = getGeologyRegion(lat, lon);
+  const regions = getGeologyRegions(lat, lon);
   const feats = [];
-  if (region && geologyDataCache[region] && geologyDataCache[region] !== 'error') {
-    feats.push(...geologyDataCache[region].features);
-  }
+  regions.forEach(region => {
+    if (geologyDataCache[region] && geologyDataCache[region] !== 'error') {
+      feats.push(...geologyDataCache[region].features);
+    }
+  });
   if (geologyFallbackCache && geologyFallbackCache !== 'error') {
     feats.push(...geologyFallbackCache.features);
   }
   return feats;
 }
 
-function getRoadsRegion(lat, lon) {
-  for (const [key, r] of Object.entries(ROADS_REGIONS)) {
-    if (lon >= r.bbox.lonMin && lon <= r.bbox.lonMax && lat >= r.bbox.latMin && lat <= r.bbox.latMax) return key;
-  }
-  return null;
-}
-
-// Loads visual road lines for display only — scoring already has its own data via
-// roads_distance_grid.json / ensureInfraScoringReady() (unrelated to this). Only fetches
-// when the 'jalan' chip is active, since this is purely a display convenience layer.
-async function ensureRoadsDataLoaded(lat, lon) {
-  if (!layerVisible.jalan) return; // don't fetch ~20MB regional files if the user hasn't opted in
-  const region = getRoadsRegion(lat, lon);
-  const tasks = [];
-
-  if (region && roadsDataCache[region] === undefined) {
-    tasks.push((async () => {
-      try {
-        const res = await fetch(ROADS_REGIONS[region].url);
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        roadsDataCache[region] = await res.json();
-        renderRoadsRegion(region);
-      } catch (e) {
-        console.warn('Roads data load failed for region "' + region + '":', e);
-        roadsDataCache[region] = 'error';
-      }
-    })());
-  } else if (region && roadsDataCache[region] !== 'error') {
-    renderRoadsRegion(region);
-  }
-
-  if (roadsFallbackCache === undefined) {
-    tasks.push((async () => {
-      try {
-        const res = await fetch(ROADS_FALLBACK_URL);
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        roadsFallbackCache = await res.json();
-        renderRoadsRegion('lainnya', roadsFallbackCache);
-      } catch (e) {
-        console.warn('Roads fallback ("lainnya") load failed:', e);
-        roadsFallbackCache = 'error';
-      }
-    })());
-  } else if (roadsFallbackCache && roadsFallbackCache !== 'error') {
-    renderRoadsRegion('lainnya', roadsFallbackCache);
-  }
-
-  if (tasks.length) await Promise.all(tasks);
-}
-
 async function ensureForestDataLoaded(lat, lon) {
-  const region = getForestRegion(lat, lon);
-  if (!region) return null;
-  if (forestDataCache[region] && forestDataCache[region] !== 'error') return forestDataCache[region];
-  if (forestDataCache[region] === 'error') return null; // already failed once this session, don't hammer retry on every click
-  try {
-    const res = await fetch(FOREST_REGIONS[region].url);
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const data = await res.json();
-    forestDataCache[region] = data;
-    return data;
-  } catch (e) {
-    console.warn('Forest data load failed for region "' + region + '":', e);
-    forestDataCache[region] = 'error';
-    return null;
-  }
+  const regions = getForestRegions(lat, lon);
+  await Promise.all(regions.map(async region => {
+    if (forestDataCache[region] && forestDataCache[region] !== 'error') return; // already cached
+    if (forestDataCache[region] === 'error') return; // already failed once this session, don't hammer retry on every click
+    try {
+      const res = await fetch(FOREST_REGIONS[region].url);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      forestDataCache[region] = await res.json();
+    } catch (e) {
+      console.warn('Forest data load failed for region "' + region + '":', e);
+      forestDataCache[region] = 'error';
+    }
+  }));
+}
+
+// Merges cached forest features from every region matching this point (usually one, can be
+// two in bbox overlap zones — see getForestRegions() bug-fix note above) so scoring checks
+// every plausible candidate rather than whichever region happened to load first.
+function getLoadedForestFeatures(lat, lon) {
+  const regions = getForestRegions(lat, lon);
+  const feats = [];
+  regions.forEach(region => {
+    if (forestDataCache[region] && forestDataCache[region] !== 'error') {
+      feats.push(...forestDataCache[region].features);
+    }
+  });
+  return feats;
 }
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
@@ -1224,8 +1356,7 @@ let mineralLayer = null, wiupLayer = null, coalLayer = null;
 let geologyLayer = null; // renders currently-loaded region's formation polygons (separate from mineralData/mineralLayer)
 let pltuData = null, terminalData = null, bandaraData = null, smelterData = null;
 let pltuLayer = null, terminalLayer = null, bandaraLayer = null, smelterLayer = null;
-let roadsLayer = null; // renders currently-loaded region's road lines (visual only, separate from scoring's distance-grid)
-let layerVisible = {mineral:true, wiup:true, coal:true, geology:false, pltu:false, terminal:false, bandara:false, smelter:false, jalan:false};
+let layerVisible = {mineral:true, wiup:true, coal:true, geology:false, pltu:false, terminal:false, bandara:false, smelter:false};
 let currentResult = null;
 let lastAnalysisState = 'landing'; // tracks landing/analyzing/result so switching back to the Analysis tab restores the right view
 
@@ -1500,36 +1631,6 @@ function renderLayers() {
       onEachFeature: (f, l) => l.on('click', (e) => { L.DomEvent.stopPropagation(e); l.bindPopup(popupSmelter(f.properties)).openPopup(); })
     });
   }
-
-  // Roads (visual) layer — starts empty, filled in region-by-region like geologyLayer.
-  roadsLayer = L.layerGroup();
-}
-
-const roadsRenderedRegions = new Set();
-
-function popupJalan(p) {
-  const matLabel = p.material === 2 ? 'Beraspal' : 'Tidak diketahui';
-  return `<div style="font-size:12px">
-    <div style="font-weight:600;color:#22C55E;margin-bottom:4px;font-family:var(--font-head)">Ruas Jalan</div>
-    <div style="color:var(--text2)"><b>Material:</b> ${matLabel}</div>
-    <div style="color:var(--text3);font-size:10px;margin-top:4px">Sumber: Jalan Indonesia 1:250.000 (RBI, digeneralisasi)</div>
-  </div>`;
-}
-
-function renderRoadsRegion(regionKey, explicitData) {
-  if (!regionKey || roadsRenderedRegions.has(regionKey)) return;
-  const data = explicitData || roadsDataCache[regionKey];
-  if (!data || data === 'error') return;
-  const sub = L.geoJSON(data, {
-    style: () => ({ color:'#22C55E', weight:1, opacity:0.5 }),
-    onEachFeature: (f, l) => {
-      l.on('click', (e) => { L.DomEvent.stopPropagation(e); l.bindPopup(popupJalan(f.properties)).openPopup(); });
-      l.on('mouseover', () => l.setStyle({weight:2.5, opacity:0.9}));
-      l.on('mouseout', () => sub.resetStyle(l));
-    }
-  });
-  sub.addTo(roadsLayer);
-  roadsRenderedRegions.add(regionKey);
 }
 
 const geologyRenderedRegions = new Set(); // regions already added into geologyLayer, avoid re-adding on repeat visits
@@ -1644,7 +1745,7 @@ function toggleLayer(name) {
   layerVisible[name] = !layerVisible[name];
   const chip = document.getElementById('chip-' + name);
   chip.classList.toggle('active', layerVisible[name]);
-  const layer = {mineral:mineralLayer, wiup:wiupLayer, coal:coalLayer, geology:geologyLayer, pltu:pltuLayer, terminal:terminalLayer, bandara:bandaraLayer, smelter:smelterLayer, jalan:roadsLayer}[name];
+  const layer = {mineral:mineralLayer, wiup:wiupLayer, coal:coalLayer, geology:geologyLayer, pltu:pltuLayer, terminal:terminalLayer, bandara:bandaraLayer, smelter:smelterLayer}[name];
   if (!layer) return;
   if (layerVisible[name]) mapObj.addLayer(layer);
   else mapObj.removeLayer(layer);
@@ -1714,8 +1815,16 @@ function getForestCategoryRisk(keterangan) {
 }
 
 function scoreGeometry(targetGeom, lat, lon) {
-  const R = 0.09; // ~10km radius in degrees
-  const CANDIDATE_R = R * 3; // ~27km — envelope for turf.booleanIntersects candidates
+  // BUG FIX: R used to be a flat 0.09° (~10km) regardless of input shape. For a CSV
+  // polygon (area upload), that meant "nearby" candidate filtering was measured from
+  // the polygon's CENTROID — for a large or irregular polygon, a WIUP/mineral/forest
+  // feature sitting right next to a far edge could be well outside 10km of the centroid
+  // and get silently excluded before boundary-distance logic even got a chance to see
+  // it. Extending R by the geometry's own extent (0 for a Point, so single-click
+  // analysis is byte-for-byte unchanged) fixes the candidate pool; the actual reported
+  // distances below are separately made boundary-accurate via distanceToGeometryKm().
+  const R = 0.09 + geometryExtentDeg(targetGeom, lat, lon); // ~10km + polygon's own extent, in degrees
+  const CANDIDATE_R = R * 3; // envelope for turf.booleanIntersects candidates
 
   // Pillar 1: Geological Potential — 3-tier: (1) known mineral-occurrence overlap [strongest,
   // has KOMODITAS], (2) known-formation overlap from the full national geology dataset [we
@@ -1761,7 +1870,13 @@ function scoreGeometry(targetGeom, lat, lon) {
         ? Math.max(40, Math.min(95, Math.round(90 - (minDist/R)*30)))  // Tier 3: heuristic decay
         : 35;                         // no data at all reached this point
 
-  // Pillar 2: Licence Status — real overlap count (turf) + proximity list (for "nearby" context)
+  // Pillar 2: Licence Status — real overlap count (turf) + proximity list (for "nearby" context).
+  // BUG FIX: `dist` used to be a raw degree-distance from the centroid, unsorted (array
+  // order was just dataset iteration order, so "wiupNearby[0]" was NOT actually the
+  // nearest one — this was silently feeding the wrong "nearest WIUP" into both the UI
+  // and the AI payload). Now `dist` is a real km distance measured against the analyzed
+  // geometry's boundary (accurate for CSV polygons, unchanged for point-click), and the
+  // list is sorted nearest-first before anything downstream consumes it.
   let wiupOverlap = 0, wiupNearby = [];
   const wiupOverlapCandidates = [];
   if (wiupData) {
@@ -1770,9 +1885,13 @@ function scoreGeometry(targetGeom, lat, lon) {
       const c = f.geometry.coordinates;
       const centroid = getCentroid(c, f.geometry.type);
       const d = Math.sqrt((centroid[0]-lon)**2 + (centroid[1]-lat)**2);
-      if (d < R) wiupNearby.push({...f.properties, dist: d});
+      if (d < R) {
+        const distKm = distanceToGeometryKm(centroid[0], centroid[1], targetGeom);
+        wiupNearby.push({...f.properties, dist: distKm});
+      }
       if (d < CANDIDATE_R) wiupOverlapCandidates.push(f);
     });
+    wiupNearby.sort((a, b) => a.dist - b.dist);
     wiupOverlapCandidates.forEach(f => {
       let intersects = false;
       try { intersects = turf.booleanIntersects(targetGeom, f); } catch(e) { /* malformed geometry, skip */ }
@@ -1784,10 +1903,10 @@ function scoreGeometry(targetGeom, lat, lon) {
   else if (wiupNearby.length === 0) licScore = 82;
   else licScore = Math.max(50, Math.min(85, Math.round(85 - wiupNearby.length * 4)));
 
-  // Pillar 3: Forest Risk — real polygon-overlap for Kalimantan/Sumatera (once
-  // lazy-loaded), heuristic fallback everywhere else / before data has loaded.
-  // As of v2, real data covers the FULL category spectrum (APL, HP/HPT,
-  // protected/conservation, water bodies) for these two regions — see
+  // Pillar 3: Forest Risk — real polygon-overlap for all of Indonesia except Bali (once
+  // lazy-loaded per region), heuristic fallback only for Bali / before data has loaded.
+  // Real data covers the FULL category spectrum (APL, HP/HPT,
+  // protected/conservation, water bodies) for these regions — see
   // getForestCategoryRisk(). That changes what "no overlap" means: since APL
   // itself is now a mapped polygon category, a genuine "no overlap" at a point
   // inside the region's bbox is no longer the common "safely outside protected
@@ -1796,12 +1915,12 @@ function scoreGeometry(targetGeom, lat, lon) {
   // safety. Scored conservatively (60, down from the old 72) to reflect that
   // reduced confidence rather than implying "as good as APL".
   let forScore, forestMeta;
-  const forestRegion = getForestRegion(lat, lon);
-  const forestData = forestRegion ? forestDataCache[forestRegion] : null;
-  if (forestData && forestData !== 'error') {
+  const forestRegionsMatched = getForestRegions(lat, lon);
+  const hasRealForestData = forestRegionsMatched.some(r => forestDataCache[r] && forestDataCache[r] !== 'error');
+  if (hasRealForestData) {
     let forestHit = null;
     const forestCandidates = [];
-    forestData.features.forEach(f => {
+    getLoadedForestFeatures(lat, lon).forEach(f => {
       if (!f.geometry) return;
       const c = f.geometry.coordinates;
       const centroid = getCentroid(c, f.geometry.type);
@@ -1828,11 +1947,17 @@ function scoreGeometry(targetGeom, lat, lon) {
     forestMeta = { real:false };
   }
 
+  // Commodity auto-detection (3-layer hybrid: WIUP -> Batubara point layer ->
+  // Geologi Mineral -> universal fallback) — resolves which of the 3 agreed
+  // infra weight profiles (batubara/emas/nikel) applies at this point, instead
+  // of always averaging them.
+  const commodity = detectCommodity(lat, lon, nearestMineral, targetGeom);
+
   // Pillar 4: Infrastructure (proximity to coast/lowland heuristic)
   let infScore = estimateInfraScore(lat, lon);
   let infDetail = null;
   {
-    const infraResult = computeInfraScore(lat, lon);
+    const infraResult = computeInfraScore(lat, lon, commodity.profile, targetGeom);
     infScore = infraResult.score;
     infDetail = infraResult.detail;
   }
@@ -1857,13 +1982,13 @@ function scoreGeometry(targetGeom, lat, lon) {
     inf: infScore, iup: iupScore, total,
     nearestMineral, wiupNearby: wiupNearby.slice(0,5),
     wiupOverlap, opProduction, eksplorasi,
-    geoOverlap, formationOverlap, forest: forestMeta, infDetail
+    geoOverlap, formationOverlap, forest: forestMeta, infDetail, commodity
   };
 }
 
 // Point-based scoring (map click, search, quick examples) — unchanged call signature
 async function scoreLocation(lat, lon) {
-  await Promise.all([ensureForestDataLoaded(lat, lon), ensureGeologyDataLoaded(lat, lon), ensureRoadsDataLoaded(lat, lon), ensureInfraScoringDataLoaded()]);
+  await Promise.all([ensureForestDataLoaded(lat, lon), ensureGeologyDataLoaded(lat, lon), ensureInfraScoringDataLoaded()]);
   const targetGeom = turf.point([lon, lat]);
   return scoreGeometry(targetGeom, lat, lon);
 }
@@ -1880,7 +2005,7 @@ async function scoreArea(polygonLatLon) {
   const centroidPt = turf.centroid(targetGeom);
   const [centLon, centLat] = centroidPt.geometry.coordinates;
 
-  await Promise.all([ensureForestDataLoaded(centLat, centLon), ensureGeologyDataLoaded(centLat, centLon), ensureRoadsDataLoaded(centLat, centLon), ensureInfraScoringDataLoaded()]);
+  await Promise.all([ensureForestDataLoaded(centLat, centLon), ensureGeologyDataLoaded(centLat, centLon), ensureInfraScoringDataLoaded()]);
   const result = scoreGeometry(targetGeom, centLat, centLon);
   result.centroid = { lat: centLat, lon: centLon };
   return result;
@@ -1958,8 +2083,8 @@ async function analyzeLocation(lat, lon, locationName) {
 
   // Kick off forest data lazy-load in parallel with the earlier animation
   // steps, so it doesn't add extra wait time on top of the usual sequence
-  // (only matters the first time a user analyzes a Kalimantan/Sumatera point
-  // in a session — subsequent ones hit the in-memory cache instantly).
+  // (only matters the first time a user analyzes a point in a region with real
+  // forest data in a session — subsequent ones hit the in-memory cache instantly).
   const forestLoadPromise = ensureForestDataLoaded(lat, lon);
 
   // Run scoring with step animations
@@ -2131,14 +2256,11 @@ function renderResult(lat, lon, locationName, s) {
 
     ${(() => {
       const d = s.infDetail;
+      const profileLabel = {batubara:'Batubara', emas:'Emas', nikel:'Nikel', universal:'Universal'}[s.commodity.profile] || 'Universal';
       const line1 = d
         ? (d.jalan_km !== null ? `Jalan terdekat ${Math.round(d.jalan_km*10)/10} km` : 'Estimasi aksesibilitas lokasi')
         : 'Estimasi aksesibilitas lokasi';
-      const line2 = d
-        ? (d.smelter_terdekat ? `Smelter terdekat: ${d.smelter_terdekat.nama} (${d.smelter_terdekat.km} km)`
-           : d.terminal_terdekat ? `Terminal terdekat: ${d.terminal_terdekat.nama} (${d.terminal_terdekat.km} km)`
-           : (s.inf>=70?'Akses jalan tersedia':'Akses terbatas'))
-        : (s.inf>=70?'Akses jalan tersedia':'Akses terbatas');
+      const line2 = `Bobot: profil ${profileLabel}${s.commodity.rawName ? ' · Komoditas: ' + s.commodity.rawName : ''}`;
       return renderPillar('inf','Infrastructure','ti-road','var(--blue-dim)','var(--blue)',s.inf,
         line1, line2,
         s.inf>=70?{text:'Baik',cls:'badge-green'}:s.inf>=50?{text:'Cukup',cls:'badge-amber'}:{text:'Terbatas',cls:'badge-red'}
@@ -2214,10 +2336,11 @@ function renderPillar(key, name, icon, iconBg, iconColor, score, line1, line2, b
     <div class="pillar-bar-wrap">
       <div class="pillar-bar" style="width:${score}%;background:${barColor}"></div>
     </div>
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">
       <span class="pillar-status badge ${badge.cls}">${badge.text}</span>
       <span style="font-size:11px;color:var(--text3)">${line1}</span>
     </div>
+    ${line2 ? `<div style="font-size:10.5px;color:var(--text3);opacity:0.75;margin-bottom:8px">${line2}</div>` : '<div style="margin-bottom:8px"></div>'}
     <div id="ia-pillar-${key}" class="ia-box ia-loading">
       <i class="ti ti-loader spin" style="color:var(--brand)"></i>
       <span style="font-size:11px;color:var(--text3)">Menganalisis...</span>
@@ -2239,6 +2362,15 @@ async function fetchIA(lat, lon, scores) {
     // Sengaja gak isi nama wilayah dari field database (lihat catatan bug WILAYAH/NAMA di
     // atas) — biarkan Claude infer sepenuhnya dari koordinat lat/lon yang selalu akurat.
     wilayah: null,
+    // NOTE: `radius` below is a fixed general search-envelope value, NOT a measured
+    // distance to any specific feature — left as-is rather than removed/renamed because
+    // the Worker's system prompt (not visible from this file) may interpolate it directly
+    // and a key rename could silently break that. `wiup.jarak_terdekat_km` below is the
+    // actual real, sorted, boundary-accurate distance — Hendro should confirm the Worker
+    // prompt is written to prefer that field over `radius` when describing WIUP proximity
+    // (this ambiguity — the AI having no real WIUP distance number and likely falling back
+    // to reading `radius` as if it were one — is the suspected root cause of the "10km"
+    // report Hendro saw on a CSV-polygon analysis).
     radius: 10,
     scores: {
       geo: scores.geo, lic: scores.lic,
@@ -2260,9 +2392,18 @@ async function fetchIA(lat, lon, scores) {
       jumlah: scores.wiupNearby.length,
       status: scores.wiupOverlap > 0 ? 'Ada overlap WIUP' : 'Bebas dari WIUP aktif',
       terdekat: scores.wiupNearby[0] ? scores.wiupNearby[0].nama_usaha : null,
+      // BUG FIX: previously there was NO real distance sent for the nearest WIUP at all —
+      // the AI had nothing but the generic `radius: 10` to go on, which is the likely
+      // reason it started describing WIUP as being "10km away" regardless of the actual
+      // distance. This is now a real, sorted, boundary-accurate number (0 if overlapping).
+      jarak_terdekat_km: scores.wiupNearby[0] ? Math.round(scores.wiupNearby[0].dist * 10) / 10 : null,
       kegiatan: scores.wiupNearby[0] ? scores.wiupNearby[0].kegiatan : null,
       komoditas: scores.wiupNearby[0] ? scores.wiupNearby[0].komoditas : null
     },
+    // Auto-deteksi komoditas 3-layer (WIUP -> Batubara point -> Geologi Mineral) yang
+    // menentukan profil bobot Infrastructure dipakai. Dikirim sebagai string tunggal
+    // (bukan objek) — lihat catatan bug infrastruktur/[object Object] di atas.
+    komoditas_terdeteksi: scores.commodity.label,
     hutan: {
       status: scores.forest.real
         ? (scores.forest.overlap ? `Overlap ${scores.forest.kategori}` : 'Di luar kawasan lindung/konservasi terpetakan (data real KLHK)')
@@ -2298,11 +2439,23 @@ async function fetchIA(lat, lon, scores) {
       body: JSON.stringify(payload)
     });
 
-    if (!res.ok) throw new Error('Worker error ' + res.status);
+    if (!res.ok) {
+      // Try to read the error body to distinguish "out of credits" (Anthropic returns
+      // 400 invalid_request_error with a "credit balance is too low" message, sometimes
+      // via 429 too if the Worker translates it) from other server-side failures — showing
+      // "tambah kredit" for an unrelated 500/Worker bug wastes Hendro's time chasing the
+      // wrong fix.
+      let bodyText = '';
+      try { bodyText = await res.text(); } catch(_) {}
+      const isCreditIssue = /credit|balance|quota|insufficient/i.test(bodyText);
+      if (isCreditIssue) showIAFallback('credit');
+      else showIAFallback('server', res.status);
+      return;
+    }
     const data = await res.json();
 
     if (data.parseError) {
-      showIAFallback();
+      showIAFallback('parse');
       return;
     }
 
@@ -2335,14 +2488,33 @@ async function fetchIA(lat, lon, scores) {
 
   } catch(e) {
     console.warn('IA fetch failed:', e);
-    showIAFallback();
+    showIAFallback('network');
   }
 }
 
-function showIAFallback() {
-  const msg = `<div class="ia-box" style="border-left-color:var(--amber)">
-    <div class="ia-tag"><i class="ti ti-alert-triangle" style="color:var(--amber);font-size:10px"></i> IA Belum Aktif</div>
-    <div class="ia-text">Tambahkan kredit Anthropic API untuk mengaktifkan interpretasi otomatis GEOCEE AI. Semua data scoring di atas sudah akurat dari database ESDM.</div>
+function showIAFallback(reason, detail) {
+  const variants = {
+    credit: {
+      icon: 'ti-alert-triangle', color: 'var(--amber)', title: 'IA Belum Aktif',
+      text: 'Kredit Anthropic API habis. Tambahkan saldo di Claude Console (Settings → Billing) untuk mengaktifkan kembali interpretasi otomatis. Semua data scoring di atas sudah akurat dari database ESDM.'
+    },
+    network: {
+      icon: 'ti-plug-connected-x', color: 'var(--red)', title: 'IA Tidak Terhubung',
+      text: 'Tidak bisa menghubungi server IA (mineravix-proxy). Cek koneksi internet atau status Cloudflare Worker, lalu coba lagi. Semua data scoring di atas sudah akurat dari database ESDM.'
+    },
+    parse: {
+      icon: 'ti-bug', color: 'var(--amber)', title: 'IA Gagal Diproses',
+      text: 'IA merespons tapi hasilnya gagal diformat. Coba analisis ulang titik ini — kalau berulang, ini kemungkinan bug parsing di Worker, bukan soal kredit. Semua data scoring di atas sudah akurat dari database ESDM.'
+    },
+    server: {
+      icon: 'ti-server-off', color: 'var(--red)', title: 'IA Error (' + (detail || '—') + ')',
+      text: `Server IA merespons error (HTTP ${detail || '?'}). Kalau ini berulang, cek log Cloudflare Worker. Semua data scoring di atas sudah akurat dari database ESDM.`
+    }
+  };
+  const v = variants[reason] || variants.credit;
+  const msg = `<div class="ia-box" style="border-left-color:${v.color}">
+    <div class="ia-tag"><i class="ti ${v.icon}" style="color:${v.color};font-size:10px"></i> ${v.title}</div>
+    <div class="ia-text">${v.text}</div>
   </div>`;
   ['geo','lic','for','inf','iup'].forEach(key => {
     const el = document.getElementById('ia-pillar-' + key);
