@@ -2010,14 +2010,22 @@ async function scoreArea(polygonLatLon) {
   return result;
 }
 
+// Defensive against malformed/empty coordinate arrays — raw government GIS exports (and
+// simplification passes on them) can leave behind geometries like MultiPolygon with
+// coordinates:[] (ring collapsed to nothing but the geometry object itself wasn't nulled
+// out). A single such feature anywhere in a dataset used to crash the ENTIRE analysis
+// (TypeError deep in a forEach loop) instead of just being skipped. [0,0] (Gulf of
+// Guinea) is used as a safe sentinel — it's always >90° from any real Indonesia
+// coordinate, so it's automatically excluded by every distance/radius filter downstream.
 function getCentroid(coords, type) {
+  if (!coords) return [0,0];
   if (type === 'Point') return coords;
-  if (type === 'MultiPoint') return coords[0];
+  if (type === 'MultiPoint') return (coords[0] || [0,0]);
   let flat = [];
-  if (type === 'Polygon') flat = coords[0];
-  else if (type === 'MultiPolygon') flat = coords[0][0];
+  if (type === 'Polygon') flat = coords[0] || [];
+  else if (type === 'MultiPolygon') flat = (coords[0] && coords[0][0]) || [];
   else if (type === 'LineString') flat = coords;
-  if (!flat.length) return [0,0];
+  if (!flat || !flat.length) return [0,0];
   const x = flat.reduce((s,c)=>s+c[0],0)/flat.length;
   const y = flat.reduce((s,c)=>s+c[1],0)/flat.length;
   return [x,y];
