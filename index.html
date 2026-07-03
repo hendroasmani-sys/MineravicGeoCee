@@ -1300,7 +1300,6 @@ async function ensureGeologyDataLoaded(lat, lon) {
   }
 
   if (tasks.length) await Promise.all(tasks);
-  return region;
 }
 
 // Returns the currently-cached geology FeatureCollections relevant to this point (region +
