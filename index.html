@@ -2031,6 +2031,16 @@ async function scoreArea(polygonLatLon) {
 //   count it as overlap if the result has AREA (Polygon/MultiPolygon) — a shared-edge-only
 //   intersection degrades to a LineString/Point/GeometryCollection, which we correctly treat
 //   as "adjacent, not overlapping".
+// - MIN_OVERLAP_AREA_KM2: real-world case found in testing — a genuinely-shaped overlap
+//   (Polygon result, not just a touching line) can still be a pure digitization sliver, not
+//   a real claim conflict. Two officially-adjacent concessions digitized independently (WIUP
+//   government data vs. a user's own surveyed boundary) routinely have sub-hectare edge
+//   misalignments. Verified case: J Resources Bolaang Mongondow (302 km² WIUP) against a
+//   5.28 km² target area produced a 0.39 Ha (0.074% of target, 0.0013% of WIUP) intersection
+//   — a boundary-digitization artifact, not a real overlap. 1 hectare (0.01 km²) is used as
+//   the floor: WIUP concessions are virtually always hundreds+ hectares, so any genuine claim
+//   conflict will clear this by a wide margin, while sub-hectare slivers get filtered out.
+const MIN_OVERLAP_AREA_KM2 = 0.01; // 1 hectare
 function hasAreaOverlap(targetGeom, candidateFeature) {
   if (targetGeom.geometry.type === 'Point') {
     return turf.booleanIntersects(targetGeom, candidateFeature);
@@ -2038,7 +2048,9 @@ function hasAreaOverlap(targetGeom, candidateFeature) {
   const inter = turf.intersect(targetGeom, candidateFeature);
   if (!inter) return false;
   const t = inter.geometry.type;
-  return t === 'Polygon' || t === 'MultiPolygon';
+  if (t !== 'Polygon' && t !== 'MultiPolygon') return false;
+  const areaKm2 = turf.area(inter) / 1000000;
+  return areaKm2 >= MIN_OVERLAP_AREA_KM2;
 }
 
 function getCentroid(coords, type) {
