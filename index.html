@@ -10,14 +10,26 @@
      innerHTML sink is the PRIMARY defense, not this). What this still meaningfully locks
      down: no external scripts except the two pinned CDNs, no plugins/objects, no being
      iframed by other sites (clickjacking), connections only to the exact services the app
-     actually uses, and no form posts to foreign endpoints. -->
+     actually uses, and no form posts to foreign endpoints.
+
+     'unsafe-eval' is required — found via live testing: turf.js (loaded from unpkg) calls
+     eval() internally during its own initialization (common in older UMD-bundled libraries).
+     Without it, turf fails to load AT ALL and every turf.* call throws "is not a function",
+     which breaks the entire scoring engine (WIUP/geology/forest overlap all depend on it).
+     This does weaken eval-based XSS protection somewhat, but escapeHtml() sanitization at
+     every innerHTML sink remains the actual line of defense against injection either way —
+     CSP here is a backstop for accidental omissions, not the primary control.
+
+     connect-src includes unpkg.com/cdn.jsdelivr.net so the browser's automatic sourcemap
+     (.map file) fetches for those libraries don't get blocked — cosmetic-only (sourcemaps
+     are just for debugging), but avoids scary-looking blocked-request errors in console. -->
 <meta http-equiv="Content-Security-Policy" content="
   default-src 'self';
-  script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net;
+  script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net;
   style-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net https://fonts.googleapis.com;
   font-src https://fonts.gstatic.com https://cdn.jsdelivr.net;
   img-src 'self' data: blob: https://*.tile.openstreetmap.org https://*.tile.openstreetmap.fr https://*.tile.opentopomap.org https://*.basemaps.cartocdn.com https://server.arcgisonline.com https://unpkg.com;
-  connect-src 'self' https://mineravix-proxy.citraeksplorenergi.workers.dev https://raw.githubusercontent.com https://nominatim.openstreetmap.org;
+  connect-src 'self' https://mineravix-proxy.citraeksplorenergi.workers.dev https://raw.githubusercontent.com https://nominatim.openstreetmap.org https://unpkg.com https://cdn.jsdelivr.net;
   object-src 'none';
   base-uri 'self';
   form-action 'none';
