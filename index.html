@@ -4,6 +4,29 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mineravix Pulse · by GEOCEE</title>
+<!-- Content-Security-Policy: second line of defense. script-src needs 'unsafe-inline'
+     because the whole app is one inline <script> block (single-file architecture) — that
+     weakens CSP's XSS protection (which is why escapeHtml() sanitization above every
+     innerHTML sink is the PRIMARY defense, not this). What this still meaningfully locks
+     down: no external scripts except the two pinned CDNs, no plugins/objects, no being
+     iframed by other sites (clickjacking), connections only to the exact services the app
+     actually uses, and no form posts to foreign endpoints. -->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net;
+  style-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net https://fonts.googleapis.com;
+  font-src https://fonts.gstatic.com https://cdn.jsdelivr.net;
+  img-src 'self' data: blob: https://*.tile.openstreetmap.org https://*.tile.openstreetmap.fr https://*.tile.opentopomap.org https://*.basemaps.cartocdn.com https://server.arcgisonline.com https://unpkg.com;
+  connect-src 'self' https://mineravix-proxy.citraeksplorenergi.workers.dev https://raw.githubusercontent.com https://nominatim.openstreetmap.org;
+  object-src 'none';
+  base-uri 'self';
+  form-action 'none';
+">
+<!-- NOTE: frame-ancestors (clickjacking protection) intentionally NOT included above —
+     browsers ignore that directive when delivered via <meta> (it only works as an HTTP
+     header, which GitHub Pages doesn't let us set). If the app later moves behind
+     Cloudflare (e.g. custom domain mineravix.io proxied through CF), add
+     "X-Frame-Options: DENY" / CSP frame-ancestors there instead. -->
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <meta name="description" content="Pulse-check any Indonesian mining ground in 30 seconds. Free mineral intelligence screening by PT. Citra Eksplor Energi.">
 
@@ -930,6 +953,25 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 <script>
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const WORKER_URL = 'https://mineravix-proxy.citraeksplorenergi.workers.dev';
+
+// ─── SECURITY: HTML-escape for untrusted text ────────────────────────────────
+// Every piece of externally-sourced text that gets interpolated into an
+// innerHTML template MUST pass through this first. "Externally-sourced" means:
+// uploaded file names, geocoder results (Nominatim display_name), AI response
+// fields (interpretasi/ringkasan/rekomendasi — the model could be manipulated
+// into emitting markup), and any GeoJSON property values rendered to the page.
+// Without this, a crafted CSV filename like `<img src=x onerror=...>.csv` would
+// execute arbitrary JS in the browser of whoever uploads it (stored nowhere,
+// but still a real reflected-XSS vector when files are shared between people).
+function escapeHtml(v) {
+  if (v === null || v === undefined) return '';
+  return String(v)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 const GITHUB_RAW = 'https://raw.githubusercontent.com/hendroasmani-sys/MineravicGeoCee/main';
 
 // ─── FOREST DATA (lazy-loaded per region) ──────────────────────────────────────
@@ -1707,9 +1749,9 @@ function getGeologyColor(penyusun) {
 
 function popupGeology(p) {
   return `<div style="font-size:12px">
-    <div style="font-weight:600;color:var(--brand);margin-bottom:6px;font-family:var(--font-head)">${p.formasi || 'Formasi tidak diketahui'}</div>
-    <div style="color:var(--text3);font-size:10px;margin-bottom:4px">${p.sandi || ''} · ${p.nama || ''}</div>
-    <div style="color:var(--text2);margin-bottom:3px"><b>Litologi:</b> ${p.penyusun || '-'}</div>
+    <div style="font-weight:600;color:var(--brand);margin-bottom:6px;font-family:var(--font-head)">${escapeHtml(p.formasi || 'Formasi tidak diketahui')}</div>
+    <div style="color:var(--text3);font-size:10px;margin-bottom:4px">${escapeHtml(p.sandi || '')} · ${escapeHtml(p.nama || '')}</div>
+    <div style="color:var(--text2);margin-bottom:3px"><b>Litologi:</b> ${escapeHtml(p.penyusun || '-')}</div>
     <div style="color:var(--text3);font-size:10px">Sumber: Data Geologi Indonesia (regional, digeneralisasi)</div>
   </div>`;
 }
@@ -1755,42 +1797,42 @@ function getMineralColor(jenis) {
 
 function popupPltu(p) {
   return `<div style="font-size:12px">
-    <div style="font-weight:600;color:#EF4444;margin-bottom:6px;font-family:var(--font-head)">${p.name || 'PLTU'}</div>
-    <div style="color:var(--text2);margin-bottom:3px"><b>Kapasitas:</b> ${p.capacity_mw || '-'} MW${p.unit_count ? ' ('+p.unit_count+' unit)' : ''}</div>
-    <div style="color:var(--text2);margin-bottom:3px"><b>Status:</b> ${p.status || '-'}</div>
-    <div style="color:var(--text3);font-size:10px">Sumber: ${p.source || 'Global Energy Monitor'}</div>
+    <div style="font-weight:600;color:#EF4444;margin-bottom:6px;font-family:var(--font-head)">${escapeHtml(p.name || 'PLTU')}</div>
+    <div style="color:var(--text2);margin-bottom:3px"><b>Kapasitas:</b> ${escapeHtml(p.capacity_mw || '-')} MW${p.unit_count ? ' ('+escapeHtml(p.unit_count)+' unit)' : ''}</div>
+    <div style="color:var(--text2);margin-bottom:3px"><b>Status:</b> ${escapeHtml(p.status || '-')}</div>
+    <div style="color:var(--text3);font-size:10px">Sumber: ${escapeHtml(p.source || 'Global Energy Monitor')}</div>
   </div>`;
 }
 
 function popupTerminal(p) {
   return `<div style="font-size:12px">
-    <div style="font-weight:600;color:#0EA5E9;margin-bottom:6px;font-family:var(--font-head)">${p.name || 'Terminal Khusus Pertambangan'}</div>
-    <div style="color:var(--text2);margin-bottom:3px"><b>Status:</b> ${p.status || '-'}</div>
-    <div style="color:var(--text2);margin-bottom:3px"><b>Kapasitas:</b> ${p.capacity_mt || '-'} Mt · ${p.terminal_type || '-'}</div>
-    <div style="color:var(--text2);margin-bottom:3px"><b>Produk:</b> ${p.product_type || '-'}</div>
-    <div style="color:var(--text2);margin-bottom:3px"><b>Pemilik:</b> ${p.owner || '-'}</div>
-    <div style="color:var(--text3);font-size:10px">Sumber: ${p.source || 'Global Energy Monitor'}</div>
+    <div style="font-weight:600;color:#0EA5E9;margin-bottom:6px;font-family:var(--font-head)">${escapeHtml(p.name || 'Terminal Khusus Pertambangan')}</div>
+    <div style="color:var(--text2);margin-bottom:3px"><b>Status:</b> ${escapeHtml(p.status || '-')}</div>
+    <div style="color:var(--text2);margin-bottom:3px"><b>Kapasitas:</b> ${escapeHtml(p.capacity_mt || '-')} Mt · ${escapeHtml(p.terminal_type || '-')}</div>
+    <div style="color:var(--text2);margin-bottom:3px"><b>Produk:</b> ${escapeHtml(p.product_type || '-')}</div>
+    <div style="color:var(--text2);margin-bottom:3px"><b>Pemilik:</b> ${escapeHtml(p.owner || '-')}</div>
+    <div style="color:var(--text3);font-size:10px">Sumber: ${escapeHtml(p.source || 'Global Energy Monitor')}</div>
   </div>`;
 }
 
 function popupBandara(p) {
   return `<div style="font-size:12px">
-    <div style="font-weight:600;color:#EAB308;margin-bottom:6px;font-family:var(--font-head)">${p.name || 'Bandara'}</div>
-    <div style="color:var(--text3);font-size:10px;margin-bottom:4px">${p.iata_code || ''} · ${p.icao_code || ''} · ${p.municipality || ''}</div>
+    <div style="font-weight:600;color:#EAB308;margin-bottom:6px;font-family:var(--font-head)">${escapeHtml(p.name || 'Bandara')}</div>
+    <div style="color:var(--text3);font-size:10px;margin-bottom:4px">${escapeHtml(p.iata_code || '')} · ${escapeHtml(p.icao_code || '')} · ${escapeHtml(p.municipality || '')}</div>
     <div style="color:var(--text2);margin-bottom:3px"><b>Tipe:</b> ${p.type === 'large_airport' ? 'Bandara Besar' : 'Bandara Menengah'}</div>
     <div style="color:var(--text2);margin-bottom:3px"><b>Layanan Terjadwal:</b> ${p.scheduled_service === 'yes' ? 'Ya' : 'Tidak'}</div>
-    <div style="color:var(--text3);font-size:10px">Sumber: ${p.source || 'OurAirports'}</div>
+    <div style="color:var(--text3);font-size:10px">Sumber: ${escapeHtml(p.source || 'OurAirports')}</div>
   </div>`;
 }
 
 function popupSmelter(p) {
   return `<div style="font-size:12px">
-    <div style="font-weight:600;color:#FB923C;margin-bottom:6px;font-family:var(--font-head)">${p.nama_perusahaan || 'Smelter'}</div>
-    <div style="color:var(--text3);font-size:10px;margin-bottom:4px">${p.kabupaten_kota || ''} · ${p.provinsi || ''}</div>
-    <div style="color:var(--text2);margin-bottom:3px"><b>Komoditas:</b> ${(p.komoditas||'-').toUpperCase()}</div>
-    <div style="color:var(--text2);margin-bottom:3px"><b>Kapasitas Input:</b> ${p.kapasitas_input_ton ? p.kapasitas_input_ton.toLocaleString('id-ID')+' ton' : '-'}</div>
-    <div style="color:var(--text2);margin-bottom:3px"><b>Mulai Operasi:</b> ${p.tahun_mulai_operasi || '-'}</div>
-    <div style="color:var(--text3);font-size:10px">Sumber: ${p.source || 'MODI, Ditjen Minerba ESDM'}</div>
+    <div style="font-weight:600;color:#FB923C;margin-bottom:6px;font-family:var(--font-head)">${escapeHtml(p.nama_perusahaan || 'Smelter')}</div>
+    <div style="color:var(--text3);font-size:10px;margin-bottom:4px">${escapeHtml(p.kabupaten_kota || '')} · ${escapeHtml(p.provinsi || '')}</div>
+    <div style="color:var(--text2);margin-bottom:3px"><b>Komoditas:</b> ${escapeHtml((p.komoditas||'-').toUpperCase())}</div>
+    <div style="color:var(--text2);margin-bottom:3px"><b>Kapasitas Input:</b> ${p.kapasitas_input_ton ? escapeHtml(p.kapasitas_input_ton.toLocaleString('id-ID'))+' ton' : '-'}</div>
+    <div style="color:var(--text2);margin-bottom:3px"><b>Mulai Operasi:</b> ${escapeHtml(p.tahun_mulai_operasi || '-')}</div>
+    <div style="color:var(--text3);font-size:10px">Sumber: ${escapeHtml(p.source || 'MODI, Ditjen Minerba ESDM')}</div>
   </div>`;
 }
 
@@ -1815,23 +1857,23 @@ function toggleLayer(name) {
 // ─── POPUPS ───────────────────────────────────────────────────────────────────
 function popupMineral(p) {
   return `<div style="font-size:12px">
-    <div style="font-weight:600;color:var(--brand);margin-bottom:6px;font-family:var(--font-head)">${p.NAMAFOR||'Formasi tidak diketahui'}</div>
-    <div style="color:var(--text3);font-size:10px;margin-bottom:4px">${p.KODEFOR||''} · ${p.JENISBAT||''}</div>
-    <div style="color:var(--text2);margin-bottom:3px"><b>Litologi:</b> ${p.LITHOLOGI||'-'}</div>
-    <div style="color:var(--text2);margin-bottom:3px"><b>Komoditas:</b> ${p.KOMODITAS||'-'}</div>
-    <div style="color:var(--text3);font-size:10px">Sumber: ${p.SUMBERIN||'ESDM'}</div>
+    <div style="font-weight:600;color:var(--brand);margin-bottom:6px;font-family:var(--font-head)">${escapeHtml(p.NAMAFOR||'Formasi tidak diketahui')}</div>
+    <div style="color:var(--text3);font-size:10px;margin-bottom:4px">${escapeHtml(p.KODEFOR||'')} · ${escapeHtml(p.JENISBAT||'')}</div>
+    <div style="color:var(--text2);margin-bottom:3px"><b>Litologi:</b> ${escapeHtml(p.LITHOLOGI||'-')}</div>
+    <div style="color:var(--text2);margin-bottom:3px"><b>Komoditas:</b> ${escapeHtml(p.KOMODITAS||'-')}</div>
+    <div style="color:var(--text3);font-size:10px">Sumber: ${escapeHtml(p.SUMBERIN||'ESDM')}</div>
   </div>`;
 }
 
 function popupWIUP(p) {
   const color = getWIUPColor(p.kegiatan);
   return `<div style="font-size:12px">
-    <div style="font-weight:600;color:var(--text);margin-bottom:4px;font-family:var(--font-head)">${p.nama_usaha||'Tidak diketahui'}</div>
-    <div style="margin-bottom:3px"><span style="background:${color}22;color:${color};padding:1px 6px;border-radius:3px;font-size:10px;font-weight:500">${p.kegiatan||'-'}</span></div>
-    <div style="color:var(--text2);margin-top:6px;margin-bottom:2px"><b>Komoditas:</b> ${p.komoditas||'-'}</div>
-    <div style="color:var(--text2);margin-bottom:2px"><b>Lokasi:</b> ${p.lokasi||'-'}</div>
-    <div style="color:var(--text2);margin-bottom:2px"><b>Luas:</b> ${p.luas_sk ? p.luas_sk.toLocaleString('id') + ' Ha' : '-'}</div>
-    <div style="color:var(--text3);font-size:10px">Berlaku: ${p.tgl_berlak ? p.tgl_berlak.split('T')[0] : '-'} s/d ${p.tgl_akhir ? p.tgl_akhir.split('T')[0] : '-'}</div>
+    <div style="font-weight:600;color:var(--text);margin-bottom:4px;font-family:var(--font-head)">${escapeHtml(p.nama_usaha||'Tidak diketahui')}</div>
+    <div style="margin-bottom:3px"><span style="background:${color}22;color:${color};padding:1px 6px;border-radius:3px;font-size:10px;font-weight:500">${escapeHtml(p.kegiatan||'-')}</span></div>
+    <div style="color:var(--text2);margin-top:6px;margin-bottom:2px"><b>Komoditas:</b> ${escapeHtml(p.komoditas||'-')}</div>
+    <div style="color:var(--text2);margin-bottom:2px"><b>Lokasi:</b> ${escapeHtml(p.lokasi||'-')}</div>
+    <div style="color:var(--text2);margin-bottom:2px"><b>Luas:</b> ${p.luas_sk ? escapeHtml(p.luas_sk.toLocaleString('id')) + ' Ha' : '-'}</div>
+    <div style="color:var(--text3);font-size:10px">Berlaku: ${p.tgl_berlak ? escapeHtml(p.tgl_berlak.split('T')[0]) : '-'} s/d ${p.tgl_akhir ? escapeHtml(p.tgl_akhir.split('T')[0]) : '-'}</div>
   </div>`;
 }
 
@@ -2295,7 +2337,7 @@ function renderResult(lat, lon, locationName, s) {
   // criterion: "after 1x completed analysis", not just opening the page).
   try { localStorage.setItem('mineravix_used', '1'); } catch(e) { /* localStorage unavailable, non-fatal */ }
 
-  const loc = locationName || `${lat.toFixed(4)}°, ${lon.toFixed(4)}°`;
+  const loc = escapeHtml(locationName || `${lat.toFixed(4)}°, ${lon.toFixed(4)}°`);
   const verdict = s.total >= 75 ? {text:'PROCEED',cls:'badge-green'} :
                   s.total >= 55 ? {text:'MONITOR',cls:'badge-amber'} :
                                   {text:'AVOID',cls:'badge-red'};
@@ -2345,8 +2387,8 @@ function renderResult(lat, lon, locationName, s) {
     ${renderPillar('lic','Licence Status','ti-license','var(--green-dim)','var(--green)',s.lic,
       s.wiupOverlap > 0 ? `⚠ ${s.wiupOverlap} WIUP overlap terdeteksi` : s.wiupNearby.length === 0 ? 'Area bebas dari WIUP' : `${s.wiupNearby.length} WIUP dalam radius 10km`,
       s.wiupOverlap > 0
-        ? (s.wiupOverlapFeatures[0]?.nama_usaha || '-')
-        : (s.wiupNearby.length > 0 ? s.wiupNearby[0].nama_usaha || '-' : 'Tidak ada'),
+        ? escapeHtml(s.wiupOverlapFeatures[0]?.nama_usaha || '-')
+        : (s.wiupNearby.length > 0 ? escapeHtml(s.wiupNearby[0].nama_usaha || '-') : 'Tidak ada'),
       s.lic>=75?{text:'Bersih',cls:'badge-green'}:s.lic>=55?{text:'Terbatas',cls:'badge-amber'}:{text:'Overlap',cls:'badge-red'}
     )}
 
@@ -2366,7 +2408,7 @@ function renderResult(lat, lon, locationName, s) {
       const line1 = d
         ? (d.jalan_km !== null ? `Jalan terdekat ${Math.round(d.jalan_km*10)/10} km` : 'Estimasi aksesibilitas lokasi')
         : 'Estimasi aksesibilitas lokasi';
-      const line2 = `Bobot: profil ${profileLabel}${s.commodity.rawName ? ' · Komoditas: ' + s.commodity.rawName : ''}`;
+      const line2 = `Bobot: profil ${profileLabel}${s.commodity.rawName ? ' · Komoditas: ' + escapeHtml(s.commodity.rawName) : ''}`;
       return renderPillar('inf','Infrastructure','ti-road','var(--blue-dim)','var(--blue)',s.inf,
         line1, line2,
         s.inf>=70?{text:'Baik',cls:'badge-green'}:s.inf>=50?{text:'Cukup',cls:'badge-amber'}:{text:'Terbatas',cls:'badge-red'}
@@ -2579,7 +2621,7 @@ async function fetchIA(lat, lon, scores) {
         el.className = 'ia-box';
         el.innerHTML = `
           <div class="ia-tag"><i class="ti ti-sparkles" style="font-size:10px;color:var(--brand)"></i> Interpretasi IA — GEOCEE</div>
-          <div class="ia-text">${pillar.interpretasi}</div>
+          <div class="ia-text">${escapeHtml(pillar.interpretasi)}</div>
         `;
       }
     });
@@ -2588,10 +2630,10 @@ async function fetchIA(lat, lon, scores) {
     const execEl = document.getElementById('ia-exec-summary');
     if (execEl && data.ringkasan) {
       execEl.innerHTML = `
-        <div class="ia-text" style="font-style:italic">"${data.ringkasan}"</div>
+        <div class="ia-text" style="font-style:italic">"${escapeHtml(data.ringkasan)}"</div>
         <div class="exec-disclaimer">
           <span class="badge badge-${data.rekomendasi==='PROCEED'?'green':data.rekomendasi==='MONITOR'?'amber':'red'}" style="margin-right:6px">
-            ${data.rekomendasi}
+            ${escapeHtml(data.rekomendasi)}
           </span>
           Generated by GEOCEE AI · Claude · Unverified · Bukan rekomendasi investasi
         </div>
