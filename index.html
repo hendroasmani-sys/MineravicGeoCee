@@ -1940,6 +1940,10 @@ function scoreGeometry(targetGeom, lat, lon) {
   // distances below are separately made boundary-accurate via distanceToGeometryKm().
   const R = 0.09 + geometryExtentDeg(targetGeom, lat, lon); // ~10km + polygon's own extent, in degrees
   const CANDIDATE_R = R * 3; // envelope for hasAreaOverlap candidates
+  // Beyond this, a "nearest" match is geologically meaningless noise, not useful context —
+  // e.g. remote islands (Natuna, etc.) with zero survey coverage in the regional dataset
+  // would otherwise get matched to the least-far mainland formation, however distant.
+  const MAX_TIER3_DISTANCE_KM = 50;
 
   // Pillar 1: Geological Potential — 3-tier: (1) known mineral-occurrence overlap [strongest,
   // has KOMODITAS], (2) known-formation overlap from the full national geology dataset [we
@@ -1981,9 +1985,18 @@ function scoreGeometry(targetGeom, lat, lon) {
     ? 90                              // Tier 1: known documented mineral occurrence
     : formationOverlap
       ? 68                            // Tier 2: known geological formation, no catalogued occurrence yet
-      : nearestMineral
+      : (nearestMineral && minDist * 111 <= MAX_TIER3_DISTANCE_KM)
         ? Math.max(40, Math.min(95, Math.round(90 - (minDist/R)*30)))  // Tier 3: heuristic decay
-        : 35;                         // no data at all reached this point
+        : 35;                         // no data at all reached this point (or nearest match too far to be meaningful — see MAX_TIER3_DISTANCE_KM)
+
+  // Same distance cap applied to what actually gets DISPLAYED/sent to the AI — the geoScore
+  // ternary above already floors the score to 35 for an out-of-range match, but nearestMineral
+  // itself was still the far-away feature, so downstream code (UI label, AI payload) would
+  // still show its name as if it were locally relevant. Null it out here so "no data" is
+  // reported honestly instead of citing a formation hundreds of km away.
+  if (nearestMineral && minDist * 111 > MAX_TIER3_DISTANCE_KM) {
+    nearestMineral = null;
+  }
 
   // Pillar 2: Licence Status — real overlap count (turf) + proximity list (for "nearby" context).
   // BUG FIX: `dist` used to be a raw degree-distance from the centroid, unsorted (array
