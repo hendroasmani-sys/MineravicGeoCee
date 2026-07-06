@@ -2606,15 +2606,20 @@ async function fetchIA(lat, lon, scores) {
     });
 
     if (!res.ok) {
-      // Try to read the error body to distinguish "out of credits" (Anthropic returns
-      // 400 invalid_request_error with a "credit balance is too low" message, sometimes
-      // via 429 too if the Worker translates it) from other server-side failures — showing
-      // "tambah kredit" for an unrelated 500/Worker bug wastes Hendro's time chasing the
-      // wrong fix.
-      let bodyText = '';
-      try { bodyText = await res.text(); } catch(_) {}
-      const isCreditIssue = /credit|balance|quota|insufficient/i.test(bodyText);
-      if (isCreditIssue) showIAFallback('credit');
+      // Distinguish failure causes so the message actually points to the right fix:
+      // - origin_blocked: Worker's ALLOWED_ORIGINS rejected this domain (config issue,
+      //   not a credit/API problem — check worker.js, not console.anthropic.com)
+      // - anthropic_error: Anthropic itself rejected the request (bad/revoked API key,
+      //   no credit, rate limited — check console.anthropic.com)
+      // - credit: keyword-matched fallback for older Worker responses that don't yet
+      //   send a `reason` field
+      // - server: anything else
+      let bodyText = '', bodyJson = null;
+      try { bodyText = await res.text(); bodyJson = JSON.parse(bodyText); } catch(_) {}
+      const reason = bodyJson && bodyJson.reason;
+      if (reason === 'origin_blocked') showIAFallback('origin_blocked');
+      else if (reason === 'anthropic_error') showIAFallback('anthropic_error', res.status);
+      else if (/credit|balance|quota|insufficient/i.test(bodyText)) showIAFallback('credit');
       else showIAFallback('server', res.status);
       return;
     }
@@ -2675,6 +2680,14 @@ function showIAFallback(reason, detail) {
     server: {
       icon: 'ti-server-off', color: 'var(--red)', title: 'IA Error (' + (detail || '—') + ')',
       text: `Server IA merespons error (HTTP ${detail || '?'}). Kalau ini berulang, cek log Cloudflare Worker. Semua data scoring di atas sudah akurat dari database ESDM.`
+    },
+    origin_blocked: {
+      icon: 'ti-shield-x', color: 'var(--red)', title: 'Domain Diblokir Worker',
+      text: 'Worker menolak permintaan dari domain ini (proteksi keamanan ALLOWED_ORIGINS). Kalau Anda mengakses dari domain resmi Mineravix Pulse, coba hard refresh (Ctrl+Shift+R) — kalau tetap terjadi, cek daftar ALLOWED_ORIGINS di worker.js sudah termasuk domain ini. Semua data scoring di atas sudah akurat dari database ESDM.'
+    },
+    anthropic_error: {
+      icon: 'ti-key', color: 'var(--red)', title: 'IA Ditolak Anthropic (' + (detail || '—') + ')',
+      text: `Server IA terhubung, tapi Anthropic menolak permintaannya (HTTP ${detail || '?'}). Kemungkinan API key tidak valid/sudah di-revoke, saldo kredit habis, atau kena rate-limit — cek console.anthropic.com (Settings → Billing / API Keys). Ini BUKAN masalah domain/Worker. Semua data scoring di atas sudah akurat dari database ESDM.`
     }
   };
   const v = variants[reason] || variants.credit;
