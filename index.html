@@ -574,6 +574,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .badge-green{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.2)}
 .badge-red{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.2)}
 .badge-amber{background:var(--amber-dim);color:var(--amber);border:1px solid rgba(245,158,11,.2)}
+.badge-gray{background:var(--surface3);color:var(--text3);border:1px solid var(--border)}
 
 /* ─── LAYERS / ABOUT SIDEBAR PANELS ──────────────────────────────── */
 .legend-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
@@ -2389,7 +2390,7 @@ function renderResult(lat, lon, locationName, s) {
       // bukan selalu nearestMineral — sebelumnya bug ini bikin label "nyangkut" ke titik
       // mineral terdekat (dataset lama, 776 fitur, jarang) walau skornya udah dihitung dari
       // formationOverlap (dataset baru, 40.491 fitur, lebih rapat).
-      let geoLabel, geoSubLabel;
+      let geoLabel, geoSubLabel, noGeoData = false;
       if (s.geoOverlap && s.nearestMineral) {
         geoLabel = s.nearestMineral.NAMAFOR;
         geoSubLabel = s.nearestMineral.KOMODITAS || '-';
@@ -2400,12 +2401,20 @@ function renderResult(lat, lon, locationName, s) {
         geoLabel = s.nearestMineral.NAMAFOR + ' (terdekat)';
         geoSubLabel = s.nearestMineral.KOMODITAS || '-';
       } else {
-        geoLabel = 'Tidak ada formasi';
-        geoSubLabel = '-';
+        // Genuine data gap (e.g. Natuna, Anambas, Miangas — remote islands outside the
+        // national geology dataset's regional coverage), NOT a measured "low potential".
+        // "Tidak tahu" ≠ "buruk" — a score of 35 shown as a red "Rendah" badge previously
+        // implied confirmed-poor geology, when the honest situation is "never surveyed by
+        // this dataset". Distinguished visually (neutral gray badge) rather than folded
+        // into the same 0-100 scale as a real-but-weak match.
+        noGeoData = true;
+        geoLabel = 'Data geologi tidak tersedia';
+        geoSubLabel = 'Wilayah ini belum tercakup dataset survei regional manapun — bukan indikasi potensi rendah';
       }
       return renderPillar('geo','Geological Potential','ti-mountain','var(--brand-dim)','var(--brand)',s.geo,
         geoLabel, geoSubLabel,
-        s.geo>=75?{text:'Tinggi',cls:'badge-green'}:s.geo>=55?{text:'Sedang',cls:'badge-amber'}:{text:'Rendah',cls:'badge-red'}
+        noGeoData ? {text:'Data Tidak Tersedia', cls:'badge-gray'}
+          : s.geo>=75?{text:'Tinggi',cls:'badge-green'}:s.geo>=55?{text:'Sedang',cls:'badge-amber'}:{text:'Rendah',cls:'badge-red'}
       );
     })()}
 
@@ -2552,14 +2561,24 @@ async function fetchIA(lat, lon, scores) {
     },
     formasi: usingTier1 ? {
       nama: nm.NAMAFOR, kode: nm.KODEFOR, lithologi: nm.LITHOLOGI,
-      jenis: nm.JENISBAT, komoditas: nm.KOMODITAS
+      jenis: nm.JENISBAT, komoditas: nm.KOMODITAS, data_tersedia: true
     } : usingTier2 ? {
       nama: fo.formasi, kode: fo.sandi, lithologi: fo.penyusun,
-      jenis: null, komoditas: null // dataset formasi lengkap belum ada catatan komoditas per-polygon
+      jenis: null, komoditas: null, data_tersedia: true // dataset formasi lengkap belum ada catatan komoditas per-polygon
+    } : nm ? {
+      // Tier 3 valid: nearest known formation within MAX_TIER3_DISTANCE_KM (~50km) — real
+      // data, just not an overlap. Distinct from the genuinely-empty case below.
+      nama: nm.NAMAFOR, kode: nm.KODEFOR, lithologi: nm.LITHOLOGI,
+      jenis: nm.JENISBAT, komoditas: nm.KOMODITAS, data_tersedia: true
     } : {
-      nama: nm ? nm.NAMAFOR : null, kode: nm ? nm.KODEFOR : null,
-      lithologi: nm ? nm.LITHOLOGI : null, jenis: nm ? nm.JENISBAT : null,
-      komoditas: nm ? nm.KOMODITAS : null
+      // GROUND TRUTH: `data_tersedia: false` here means this area genuinely has zero
+      // geology data within any reasonable distance in any regional dataset (real cases:
+      // Natuna, Anambas, Miangas — remote outer islands outside the national geology
+      // survey's regional coverage). AI MUST frame this as "data tidak tersedia / perlu
+      // survei primer", NOT "potensi rendah" — those mean completely different things for
+      // an exploration decision.
+      nama: null, kode: null, lithologi: null, jenis: null, komoditas: null,
+      data_tersedia: false
     },
     wiup: (() => {
       const overlapping = scores.wiupOverlap > 0 ? scores.wiupOverlapFeatures[0] : null;
