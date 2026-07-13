@@ -469,7 +469,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   font-size:12px;color:var(--text2);
   padding:6px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;
   margin-left:10px;white-space:nowrap;
+  max-width:160px;overflow:hidden;text-overflow:ellipsis;
 }
+#user-badge-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 #hero-overlay{
   position:fixed;inset:0;
@@ -618,12 +620,19 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   #sidebar-drag-handle{display:flex}
   #search-wrap{max-width:100%;min-width:0}
   .logo-by{display:none}
+  #user-badge{max-width:90px;padding:5px 8px;font-size:11px}
   #topbar{padding:0 10px;gap:8px}
   .topbar-sep{display:none}
   .topbar-actions{gap:4px}
   .tb-btn{padding:0 8px}
   .tb-label{display:none}
   .hero-close-btn{top:14px;right:14px;width:32px;height:32px}
+}
+/* Very narrow phones (e.g. iPhone SE) — the name badge is a nice-to-have, the search
+   bar is core functionality. Hide the badge entirely rather than let it squeeze the
+   one thing every user actually needs to interact with. */
+@media(max-width:400px){
+  #user-badge{display:none !important}
 }
 </style>
 </head>
@@ -641,7 +650,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   <button class="hero-close-btn" onclick="skipHero()" title="Tutup, langsung ke peta"><i class="ti ti-x"></i></button>
   <div class="hero-badge"><span class="dot"></span> Tier 0 · Your Gateway to Straxio Intelligence</div>
   <h1 class="hero-title">Pulse-check lokasi tambang <span class="accent">Indonesia</span> dalam 30 detik.</h1>
-  <p class="hero-sub">Masukkan koordinat, nama wilayah, atau unggah batas area (CSV) untuk memulai analisis 5-pillar preliminary.</p>
+  <p class="hero-sub">Masukkan koordinat, nama wilayah, atau unggah batas area (CSV/KML/KMZ) untuk memulai analisis 5-pillar preliminary.</p>
 
   <div class="hero-input-box">
     <div class="hero-input-row">
@@ -664,7 +673,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   </div>
 
   <div class="hero-skip" onclick="skipHero()">Lewati, klik langsung di peta →</div>
-  <input type="file" id="hero-file-input" accept=".csv" style="display:none">
+  <input type="file" id="hero-file-input" accept=".csv,.kml,.kmz" style="display:none">
 </div>
 
 <!-- Contact gate — appears after AI_FREE_LIMIT free AI interpretations. 5-pillar
@@ -699,8 +708,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       <button id="search-btn" onclick="handleSearch()">Analisis</button>
     </div>
     <div class="topbar-actions">
-      <button class="tb-btn" onclick="document.getElementById('topbar-file-input').click()" title="Upload Area"><i class="ti ti-file-spreadsheet"></i> <span class="tb-label">Upload Area</span></button>
-      <input type="file" id="topbar-file-input" accept=".csv" style="display:none">
+      <button class="tb-btn" onclick="document.getElementById('topbar-file-input').click()" title="Upload Area (CSV/KML/KMZ)"><i class="ti ti-file-spreadsheet"></i> <span class="tb-label">Upload Area</span></button>
+      <input type="file" id="topbar-file-input" accept=".csv,.kml,.kmz" style="display:none">
       <button class="tb-btn" onclick="showInfo()" title="Metodologi"><i class="ti ti-info-circle"></i> <span class="tb-label">Metodologi</span></button>
       <button class="tb-btn primary" onclick="window.open('https://straxio.io','_blank')" title="Straxio Verified"><i class="ti ti-shield-check"></i> <span class="tb-label">Straxio Verified</span></button>
     </div>
@@ -962,6 +971,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <!-- Turf.js: real polygon intersection (replaces centroid-distance heuristic for overlap checks) -->
 <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+<script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
 
 <script>
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
@@ -1628,6 +1638,28 @@ async function loadAllData() {
   }
 }
 
+// Generic dismissible error toast — replaces native browser alert() everywhere in the
+// app. alert() blocks all JS execution and looks completely off-brand next to the
+// polished modals/banners built elsewhere (contact gate, IA fallback, data error
+// banner). Auto dismisses after `duration` ms unless the user closes it first.
+function showErrorToast(message, opts) {
+  opts = opts || {};
+  const existing = document.getElementById('error-toast');
+  if (existing) existing.remove();
+  const toast = document.createElement('div');
+  toast.id = 'error-toast';
+  toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9999;background:var(--surface);border:1px solid var(--red);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:10px;box-shadow:var(--shadow);font-size:12.5px;color:var(--text2);max-width:min(92vw,440px)';
+  toast.innerHTML = `
+    <i class="ti ti-alert-triangle" style="color:var(--red);flex-shrink:0;font-size:16px"></i>
+    <span style="flex:1;line-height:1.4">${message}</span>
+    <button style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:14px;flex-shrink:0;padding:2px" onclick="this.parentElement.remove()">✕</button>
+  `;
+  document.body.appendChild(toast);
+  if (!opts.persist) {
+    setTimeout(() => { if (toast.parentElement) toast.remove(); }, opts.duration || 6000);
+  }
+}
+
 function showDataErrorBanner() {
   if (document.getElementById('data-error-banner')) return;
   const banner = document.createElement('div');
@@ -2231,7 +2263,7 @@ function estimateInfraScore(lat, lon) {
 async function analyzeLocation(lat, lon, locationName) {
   // Validate bounds (Indonesia)
   if (lat < -11 || lat > 6 || lon < 95 || lon > 141) {
-    alert('Koordinat di luar wilayah Indonesia. Silakan klik area Indonesia di peta.');
+    showErrorToast('Koordinat di luar wilayah Indonesia. Silakan klik area Indonesia di peta.');
     return;
   }
 
@@ -2284,7 +2316,7 @@ async function analyzeArea(polygonLatLon, areaName) {
   // Validate bounds (Indonesia) — every vertex must be roughly within the country
   const outOfBounds = polygonLatLon.some(([lat,lon]) => lat < -11 || lat > 6 || lon < 95 || lon > 141);
   if (outOfBounds) {
-    alert('Beberapa titik pada poligon berada di luar wilayah Indonesia. Periksa kembali file CSV Anda.');
+    showErrorToast('Beberapa titik pada area berada di luar wilayah Indonesia. Periksa kembali file yang diupload.');
     return;
   }
 
@@ -2789,10 +2821,10 @@ function resetView() {
 }
 
 function locateMe() {
-  if (!navigator.geolocation) { alert('Geolokasi tidak didukung browser ini.'); return; }
+  if (!navigator.geolocation) { showErrorToast('Geolokasi tidak didukung browser ini.'); return; }
   navigator.geolocation.getCurrentPosition(
     (pos) => { mapObj.setView([pos.coords.latitude, pos.coords.longitude], 10); },
-    () => alert('Tidak dapat mengakses lokasi. Pastikan izin lokasi diaktifkan.')
+    () => showErrorToast('Tidak dapat mengakses lokasi. Pastikan izin lokasi diaktifkan.')
   );
 }
 
@@ -2855,10 +2887,10 @@ function handleSearch() {
       if (data.length) {
         analyzeLocation(parseFloat(data[0].lat), parseFloat(data[0].lon), data[0].display_name);
       } else {
-        alert('Lokasi tidak ditemukan. Coba masukkan koordinat langsung (contoh: -2.5, 116.0 atau 2°30\'00"S 116°00\'00"E)');
+        showErrorToast('Lokasi tidak ditemukan. Coba masukkan koordinat langsung (contoh: -2.5, 116.0).');
       }
     })
-    .catch(() => alert('Gagal menghubungi layanan pencarian lokasi. Cek koneksi internet, atau masukkan koordinat langsung.'));
+    .catch(() => showErrorToast('Gagal menghubungi layanan pencarian lokasi. Cek koneksi internet, atau masukkan koordinat langsung.'));
 }
 
 function runExample(lat, lon, name) {
@@ -2885,6 +2917,72 @@ function showInfo() {
 // "inside Indonesia" bounds check downstream. Now auto-detects: if any line
 // contains ';', treat ';' as the delimiter and normalize ',' -> '.' within
 // each field before parsing.
+// ─── AREA FILE HANDLING: CSV, KML, KMZ ─────────────────────────────────────────
+// KMZ is just a ZIP archive containing one KML (XML) file (+ optional icons/images).
+// KML coordinates are `lon,lat,altitude` triplets, space-separated between points —
+// note the lon,lat ORDER IS REVERSED from the CSV format (lat,lon) used elsewhere in
+// this app; parseKmlText() below converts to the same internal [lat,lon] convention
+// so downstream code (analyzeArea, scoreArea) doesn't need to know which format the
+// user originally uploaded.
+
+// Extracts the first <Polygon>'s coordinates from raw KML text. Per product decision:
+// if a file contains multiple shapes (multiple Placemarks/Polygons — e.g. someone drew
+// several claim boundaries in one Google Earth project), only the FIRST is used; the
+// rest are reported to the user as ignored rather than silently dropped.
+function parseKmlText(text) {
+  const parser = new DOMParser();
+  const xml = parser.parseFromString(text, 'application/xml');
+  if (xml.querySelector('parsererror')) {
+    throw new Error('File KML tidak valid atau rusak (gagal di-parse sebagai XML).');
+  }
+
+  const polygons = xml.getElementsByTagName('Polygon');
+  if (polygons.length === 0) {
+    throw new Error('Tidak ditemukan bentuk Polygon dalam file ini. Pastikan area digambar sebagai polygon tertutup (bukan garis atau titik) di Google Earth.');
+  }
+
+  const coordsEl = polygons[0].getElementsByTagName('coordinates')[0];
+  if (!coordsEl || !coordsEl.textContent.trim()) {
+    throw new Error('Polygon pertama dalam file KML tidak punya data koordinat.');
+  }
+
+  const tuples = coordsEl.textContent.trim().split(/\s+/).filter(s => s.length > 0);
+  const points = [];
+  for (const tuple of tuples) {
+    const parts = tuple.split(',');
+    if (parts.length < 2) continue;
+    const lon = parseFloat(parts[0]);
+    const lat = parseFloat(parts[1]);
+    if (isNaN(lat) || isNaN(lon)) continue;
+    points.push([lat, lon]); // normalize to [lat, lon] — same convention as parseCsvPolygon
+  }
+
+  if (points.length < 3) {
+    throw new Error(`Polygon KML butuh minimal 3 titik valid. Ditemukan ${points.length} titik.`);
+  }
+  return { points, shapeCount: polygons.length };
+}
+
+// KMZ = ZIP wrapper around a KML file. Finds doc.kml by convention, falls back to
+// the first *.kml entry found if that exact name isn't present (some export tools
+// use a different filename).
+async function parseKmzFile(file) {
+  if (typeof JSZip === 'undefined') {
+    throw new Error('Library pembaca KMZ gagal dimuat. Coba refresh halaman dan ulangi.');
+  }
+  const zip = await JSZip.loadAsync(file);
+  let kmlEntry = zip.file('doc.kml');
+  if (!kmlEntry) {
+    const kmlNames = Object.keys(zip.files).filter(n => n.toLowerCase().endsWith('.kml'));
+    if (kmlNames.length === 0) {
+      throw new Error('Tidak ditemukan file .kml di dalam KMZ ini — pastikan file diekspor dengan benar dari Google Earth.');
+    }
+    kmlEntry = zip.file(kmlNames[0]);
+  }
+  const text = await kmlEntry.async('text');
+  return parseKmlText(text);
+}
+
 function parseCsvPolygon(text) {
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
   if (lines.length === 0) throw new Error('File CSV kosong.');
@@ -2917,23 +3015,59 @@ function parseCsvPolygon(text) {
   return points;
 }
 
-function handleCsvFile(file) {
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    try {
-      const polygon = parseCsvPolygon(e.target.result);
+function handleAreaFile(file) {
+  const lower = file.name.toLowerCase();
+  const safeName = escapeHtml(file.name); // file.name is user-controlled — same XSS vector found in the security audit
+
+  if (lower.endsWith('.csv')) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const polygon = parseCsvPolygon(e.target.result);
+        hideHero();
+        analyzeArea(polygon, `Area Upload: ${file.name} (${polygon.length} titik)`);
+      } catch (err) {
+        showErrorToast(`Gagal membaca CSV "${safeName}": ${escapeHtml(err.message)}`);
+      }
+    };
+    reader.onerror = () => showErrorToast('Gagal membaca file. Coba lagi.');
+    reader.readAsText(file);
+
+  } else if (lower.endsWith('.kml')) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const { points, shapeCount } = parseKmlText(e.target.result);
+        hideHero();
+        analyzeArea(points, `Area Upload: ${file.name} (${points.length} titik)`);
+        if (shapeCount > 1) {
+          showErrorToast(`File KML ini punya ${shapeCount} bentuk — cuma yang pertama dipakai untuk analisis, sisanya diabaikan.`, {duration: 8000});
+        }
+      } catch (err) {
+        showErrorToast(`Gagal membaca KML "${safeName}": ${escapeHtml(err.message)}`);
+      }
+    };
+    reader.onerror = () => showErrorToast('Gagal membaca file. Coba lagi.');
+    reader.readAsText(file);
+
+  } else if (lower.endsWith('.kmz')) {
+    parseKmzFile(file).then(({ points, shapeCount }) => {
       hideHero();
-      analyzeArea(polygon, `Area Upload: ${file.name} (${polygon.length} titik)`);
-    } catch (err) {
-      alert('Gagal membaca CSV: ' + err.message);
-    }
-  };
-  reader.onerror = () => alert('Gagal membaca file. Coba lagi.');
-  reader.readAsText(file);
+      analyzeArea(points, `Area Upload: ${file.name} (${points.length} titik)`);
+      if (shapeCount > 1) {
+        showErrorToast(`File KMZ ini punya ${shapeCount} bentuk — cuma yang pertama dipakai untuk analisis, sisanya diabaikan.`, {duration: 8000});
+      }
+    }).catch(err => {
+      showErrorToast(`Gagal membaca KMZ "${safeName}": ${escapeHtml(err.message)}`);
+    });
+
+  } else {
+    showErrorToast(`Format file "${safeName}" tidak didukung. Gunakan .csv, .kml, atau .kmz.`);
+  }
 }
 
 document.getElementById('topbar-file-input').addEventListener('change', (e) => {
-  if (e.target.files && e.target.files[0]) handleCsvFile(e.target.files[0]);
+  if (e.target.files && e.target.files[0]) handleAreaFile(e.target.files[0]);
   e.target.value = ''; // allow re-uploading the same file name later
 });
 
@@ -3098,7 +3232,7 @@ document.getElementById('hero-upload-btn').addEventListener('click', () => {
   document.getElementById('hero-file-input').click();
 });
 document.getElementById('hero-file-input').addEventListener('change', (e) => {
-  if (e.target.files && e.target.files[0]) handleCsvFile(e.target.files[0]);
+  if (e.target.files && e.target.files[0]) handleAreaFile(e.target.files[0]);
   e.target.value = '';
 });
 
