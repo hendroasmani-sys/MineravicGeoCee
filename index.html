@@ -25,11 +25,11 @@
      are just for debugging), but avoids scary-looking blocked-request errors in console. -->
 <meta http-equiv="Content-Security-Policy" content="
   default-src 'self';
-  script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net;
+  script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net https://www.googletagmanager.com;
   style-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net https://fonts.googleapis.com;
   font-src https://fonts.gstatic.com https://cdn.jsdelivr.net;
   img-src 'self' data: blob: https://*.tile.openstreetmap.org https://*.tile.openstreetmap.fr https://*.tile.opentopomap.org https://*.basemaps.cartocdn.com https://server.arcgisonline.com https://unpkg.com;
-  connect-src 'self' https://mineravix-proxy.citraeksplorenergi.workers.dev https://raw.githubusercontent.com https://nominatim.openstreetmap.org https://unpkg.com https://cdn.jsdelivr.net;
+  connect-src 'self' https://mineravix-proxy.citraeksplorenergi.workers.dev https://raw.githubusercontent.com https://nominatim.openstreetmap.org https://unpkg.com https://cdn.jsdelivr.net https://www.google-analytics.com https://www.googletagmanager.com https://region1.google-analytics.com https://script.google.com;
   object-src 'none';
   base-uri 'self';
   form-action 'none';
@@ -40,6 +40,19 @@
      Cloudflare (e.g. custom domain mineravix.io proxied through CF), add
      "X-Frame-Options: DENY" / CSP frame-ancestors there instead. -->
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
+
+<!-- Google Analytics 4 — GANTI 'G-ML2QY48JCH' dengan Measurement ID asli Anda dari
+     GA4 property (Admin → Data Streams → pilih stream web Anda → Measurement ID).
+     Tanpa ini diganti, script akan gagal load diam-diam (trackEvent() sudah didesain
+     gak nge-crash app kalau gtag gak tersedia), jadi app tetap jalan normal, cuma
+     analytics-nya gak ngirim data. -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-ML2QY48JCH"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-ML2QY48JCH');
+</script>
 <meta name="description" content="Pulse-check any Indonesian mining ground in 30 seconds. Free mineral intelligence screening by PT. Citra Eksplor Energi.">
 
 <!-- Leaflet CSS -->
@@ -683,7 +696,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   <div class="contact-gate-card">
     <div class="contact-gate-icon"><i class="ti ti-sparkles"></i></div>
     <div class="contact-gate-title">Lanjutkan dengan Interpretasi AI</div>
-    <div class="contact-gate-sub">3 interpretasi AI gratis Anda sudah terpakai. Skor 5-pillar tetap akurat &amp; gratis tanpa batas — masukkan nama &amp; kontak untuk lanjut dapat interpretasi AI.</div>
+    <div class="contact-gate-sub"><span id="gate-limit-number">3</span> interpretasi AI gratis Anda sudah terpakai. Skor 5-pillar tetap akurat &amp; gratis tanpa batas — masukkan nama &amp; kontak untuk lanjut dapat interpretasi AI.</div>
     <input id="contact-gate-name" class="contact-gate-input" type="text" placeholder="Nama Anda" autocomplete="name">
     <input id="contact-gate-contact" class="contact-gate-input" type="text" placeholder="WhatsApp atau Email" autocomplete="tel">
     <button class="contact-gate-submit" onclick="submitContactGate()">Lanjutkan Analisis</button>
@@ -976,6 +989,14 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 <script>
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const WORKER_URL = 'https://mineravix-proxy.citraeksplorenergi.workers.dev';
+
+// GANTI dengan URL Web App hasil deploy Google Apps Script Anda (lihat file terpisah
+// google-apps-script-lead-webhook.gs yang menyertai file ini untuk kode & instruksi
+// deploy-nya). Formatnya: https://script.google.com/macros/s/AKfycb.../exec
+// Kosong/placeholder di bawah ini SENGAJA gak divalidasi ketat — kalau belum diisi,
+// pengiriman ke Sheet cuma gagal diam-diam (lihat sendLeadToSheet()), gak nge-block
+// alur utama (kontak tetap tersimpan lokal & AI tetap lanjut jalan).
+const GOOGLE_SHEET_WEBHOOK_URL = 'GANTI_DENGAN_URL_WEB_APP_ANDA';
 
 // ─── SECURITY: HTML-escape for untrusted text ────────────────────────────────
 // Every piece of externally-sourced text that gets interpolated into an
@@ -3081,7 +3102,12 @@ document.getElementById('topbar-file-input').addEventListener('change', (e) => {
 // a persistent client ID), which is a reasonable next step if abuse becomes a real
 // problem — flagged here rather than built now since it needs Hendro to set up a KV
 // namespace binding in the Cloudflare dashboard, out of scope for this quick v1.
-const AI_FREE_LIMIT = 3;
+// AI_FREE_LIMIT: changed from 3 to 2 per product decision — analytics on uses 1 shows
+// early interest, gate at use 2 (instead of 3) captures leads slightly earlier in the
+// funnel. Everything referencing this number (contact-gate-sub text, showIAGate()) reads
+// from this constant now instead of hardcoded text, so it won't drift out of sync again
+// if the threshold changes in the future.
+const AI_FREE_LIMIT = 2;
 let pendingIAArgs = null; // {lat, lon, scores} held while the contact gate is open
 
 function getAiUsageCount() {
@@ -3107,16 +3133,47 @@ function setUserContact(name, contact) {
 // Gated wrapper — replaces direct fetchIA() calls at both call sites (point-click
 // and CSV/area analysis). Once a name is on file, the user is "known" and never
 // gated again (no re-prompting every N uses — one contact capture unlocks it for good).
+// Safe wrapper around gtag() — analytics should never break core functionality if
+// GA4 script fails to load (ad-blocker, network issue, wrong Measurement ID, etc).
+function trackEvent(name, params) {
+  try {
+    if (typeof gtag === 'function') gtag('event', name, params || {});
+  } catch(e) { /* analytics failure must never block the actual feature */ }
+}
+
 function fetchIAWithGate(lat, lon, scores) {
   const contact = getUserContact();
   if (!contact && getAiUsageCount() >= AI_FREE_LIMIT) {
+    trackEvent('ai_gate_triggered', { usage_count: getAiUsageCount() + 1 });
     pendingIAArgs = { lat, lon, scores };
     showIAGate();
     document.getElementById('contact-gate-overlay').classList.remove('hidden');
     return;
   }
   incrementAiUsageCount();
+  trackEvent('ai_analysis_used', { usage_count: getAiUsageCount(), has_contact: !!contact });
   fetchIA(lat, lon, scores);
+}
+
+// Fire-and-forget POST ke Google Apps Script Web App (lihat google-apps-script-lead-webhook.gs).
+// mode:'no-cors' + Content-Type:'text/plain' sengaja dipakai supaya request ini jadi
+// "simple request" yang gak memicu CORS preflight (OPTIONS) — Apps Script Web App gak
+// selalu handle preflight dengan benar. Konsekuensinya: kita gak bisa baca respons balik
+// (gak masalah, kita cuma butuh "kirim", bukan "konfirmasi terkirim" di sisi user).
+async function sendLeadToSheet(name, contact) {
+  if (!GOOGLE_SHEET_WEBHOOK_URL || GOOGLE_SHEET_WEBHOOK_URL.startsWith('GANTI_')) return;
+  try {
+    await fetch(GOOGLE_SHEET_WEBHOOK_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        name, contact,
+        timestamp: new Date().toISOString(),
+        page: location.href
+      })
+    });
+  } catch(e) { /* lead logging must never block the user's actual analysis flow */ }
 }
 
 function submitContactGate() {
@@ -3129,6 +3186,8 @@ function submitContactGate() {
   }
   errEl.textContent = '';
   setUserContact(name, contact);
+  sendLeadToSheet(name, contact);
+  trackEvent('lead_captured', { usage_count: AI_FREE_LIMIT });
   document.getElementById('contact-gate-overlay').classList.add('hidden');
   if (pendingIAArgs) {
     incrementAiUsageCount();
@@ -3141,9 +3200,11 @@ function submitContactGate() {
 // used up and no contact is on file yet — same visual pattern as showIAFallback(),
 // but framed as a CTA rather than an error, since nothing actually failed.
 function showIAGate() {
+  const gateNumEl = document.getElementById('gate-limit-number');
+  if (gateNumEl) gateNumEl.textContent = AI_FREE_LIMIT;
   const msg = `<div class="ia-box" style="border-left-color:var(--brand)">
     <div class="ia-tag"><i class="ti ti-lock" style="color:var(--brand);font-size:10px"></i> Kuota IA Gratis Habis</div>
-    <div class="ia-text">Interpretasi AI 3x gratis sudah terpakai. Skor 5-pillar di atas tetap akurat — isi nama &amp; kontak untuk lanjut dapat interpretasi AI.</div>
+    <div class="ia-text">Interpretasi AI ${AI_FREE_LIMIT}x gratis sudah terpakai. Skor 5-pillar di atas tetap akurat — isi nama &amp; kontak untuk lanjut dapat interpretasi AI.</div>
   </div>`;
   ['geo','lic','for','inf','iup'].forEach(key => {
     const el = document.getElementById('ia-pillar-' + key);
