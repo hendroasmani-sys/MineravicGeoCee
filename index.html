@@ -701,8 +701,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
   <div class="hero-samples">
     <div class="hero-sample-chip" onclick="handleHeroSample(-2.5, 116.0, 'Kec. Satui, Kalimantan Selatan')"><i class="ti ti-map-pin" style="font-size:13px;color:var(--brand)"></i> Kec. Satui, Kalsel</div>
-    <div class="hero-sample-chip" onclick="handleHeroSample(0.5, 123.0, 'Sulawesi Utara — Nikel')"><i class="ti ti-map-pin" style="font-size:13px;color:var(--brand)"></i> Sulut — Nikel</div>
-    <div class="hero-sample-chip" onclick="handleHeroSample(-3.5, 136.0, 'Papua Tengah — Tembaga')"><i class="ti ti-map-pin" style="font-size:13px;color:var(--brand)"></i> Papua — Tembaga</div>
+    <div class="hero-sample-chip" onclick="handleHeroSample(0.5, 123.0, 'Sulawesi Utara (Nikel)')"><i class="ti ti-map-pin" style="font-size:13px;color:var(--brand)"></i> Sulut (Nikel)</div>
+    <div class="hero-sample-chip" onclick="handleHeroSample(-3.5, 136.0, 'Papua Tengah (Tembaga)')"><i class="ti ti-map-pin" style="font-size:13px;color:var(--brand)"></i> Papua (Tembaga)</div>
   </div>
 
   <div class="hero-skip" onclick="skipHero()">Lewati, klik langsung di peta →</div>
@@ -716,7 +716,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   <div class="contact-gate-card">
     <div class="contact-gate-icon"><i class="ti ti-sparkles"></i></div>
     <div class="contact-gate-title">Lanjutkan dengan Interpretasi AI</div>
-    <div class="contact-gate-sub"><span id="gate-limit-number">3</span> interpretasi AI gratis Anda sudah terpakai. Skor 5-pillar tetap akurat &amp; gratis tanpa batas — masukkan nama &amp; kontak untuk lanjut dapat interpretasi AI.</div>
+    <div class="contact-gate-sub"><span id="gate-limit-number">3</span> interpretasi AI gratis Anda sudah terpakai. Skor 5-pillar tetap akurat &amp; gratis tanpa batas. Masukkan nama &amp; kontak untuk lanjut dapat interpretasi AI.</div>
     <input id="contact-gate-name" class="contact-gate-input" type="text" placeholder="Nama Anda" autocomplete="name">
     <input id="contact-gate-contact" class="contact-gate-input" type="text" placeholder="WhatsApp atau Email" autocomplete="tel">
     <button class="contact-gate-submit" onclick="submitContactGate()">Lanjutkan Analisis</button>
@@ -851,14 +851,14 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
               <span class="qe-name">Kec. Satui, Kalimantan Selatan</span>
               <span class="qe-coords">-2.5, 116.0</span>
             </div>
-            <div class="qe-item" onclick="runExample(0.5, 123.0, 'Sulawesi Utara — Nikel')">
+            <div class="qe-item" onclick="runExample(0.5, 123.0, 'Sulawesi Utara (Nikel)')">
               <i class="ti ti-map-pin" style="color:var(--brand);font-size:14px"></i>
-              <span class="qe-name">Sulawesi Utara — Nikel</span>
+              <span class="qe-name">Sulawesi Utara (Nikel)</span>
               <span class="qe-coords">0.5, 123.0</span>
             </div>
-            <div class="qe-item" onclick="runExample(-3.5, 136.0, 'Papua Tengah — Tembaga')">
+            <div class="qe-item" onclick="runExample(-3.5, 136.0, 'Papua Tengah (Tembaga)')">
               <i class="ti ti-map-pin" style="color:var(--brand);font-size:14px"></i>
-              <span class="qe-name">Papua Tengah — Tembaga</span>
+              <span class="qe-name">Papua Tengah (Tembaga)</span>
               <span class="qe-coords">-3.5, 136.0</span>
             </div>
           </div>
@@ -905,56 +905,56 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
             <div class="legend-dot" style="background:#C5A059"></div>
             <div class="legend-info">
               <div class="legend-name">Geologi Mineral</div>
-              <div class="legend-desc">Formasi geologi & jenis batuan (Intrusive/Volcanic/Sedimentary/Metamorphic) — sumber ESDM/P3GL</div>
+              <div class="legend-desc">Formasi geologi & jenis batuan (Intrusive/Volcanic/Sedimentary/Metamorphic), sumber ESDM/P3GL</div>
             </div>
           </div>
           <div class="legend-row">
             <div class="legend-dot" style="background:#3B82F6"></div>
             <div class="legend-info">
               <div class="legend-name">WIUP 2024</div>
-              <div class="legend-desc">Wilayah Izin Usaha Pertambangan — garis putus-putus = Eksplorasi, solid = Operasi Produksi</div>
+              <div class="legend-desc">Wilayah Izin Usaha Pertambangan. Garis putus-putus = Eksplorasi, solid = Operasi Produksi</div>
             </div>
           </div>
           <div class="legend-row">
             <div class="legend-dot circle" style="background:#F59E0B"></div>
             <div class="legend-info">
               <div class="legend-name">Batubara</div>
-              <div class="legend-desc">Titik indikasi keterdapatan batubara — sumber MODI 2024</div>
+              <div class="legend-desc">Titik indikasi keterdapatan batubara, sumber MODI 2024</div>
             </div>
           </div>
           <div class="legend-row">
             <div class="legend-dot" style="background:#8B5CF6"></div>
             <div class="legend-info">
               <div class="legend-name">Formasi Geologi</div>
-              <div class="legend-desc">Cakupan penuh 40.491 formasi se-Indonesia (bukan cuma titik mineral terdokumentasi). Muncul bertahap per pulau saat Anda menganalisis titik di wilayah itu — aktifkan chip-nya dulu, lalu klik peta.</div>
+              <div class="legend-desc">Cakupan penuh 40.491 formasi se-Indonesia (bukan cuma titik mineral terdokumentasi). Muncul bertahap per pulau saat Anda menganalisis titik di wilayah itu. Aktifkan chip-nya dulu, lalu klik peta.</div>
             </div>
           </div>
           <div class="legend-row">
             <div class="legend-dot circle" style="background:#EF4444"></div>
             <div class="legend-info">
               <div class="legend-name">PLTU</div>
-              <div class="legend-desc">95 pembangkit listrik tenaga uap — sumber Global Energy Monitor</div>
+              <div class="legend-desc">95 pembangkit listrik tenaga uap, sumber Global Energy Monitor</div>
             </div>
           </div>
           <div class="legend-row">
             <div class="legend-dot circle" style="background:#0EA5E9"></div>
             <div class="legend-info">
               <div class="legend-name">Terminal Khusus</div>
-              <div class="legend-desc">57 terminal batubara (ekspor/domestik) — sumber Global Energy Monitor</div>
+              <div class="legend-desc">57 terminal batubara (ekspor/domestik), sumber Global Energy Monitor</div>
             </div>
           </div>
           <div class="legend-row">
             <div class="legend-dot circle" style="background:#FACC15"></div>
             <div class="legend-info">
               <div class="legend-name">Bandara</div>
-              <div class="legend-desc">83 bandara besar & menengah — sumber OurAirports</div>
+              <div class="legend-desc">83 bandara besar & menengah, sumber OurAirports</div>
             </div>
           </div>
           <div class="legend-row">
             <div class="legend-dot circle" style="background:#FB923C"></div>
             <div class="legend-info">
               <div class="legend-name">Smelter</div>
-              <div class="legend-desc">53 smelter (nikel/bauksit/tembaga/dll) — sumber MODI, Ditjen Minerba ESDM</div>
+              <div class="legend-desc">53 smelter (nikel/bauksit/tembaga/dll), sumber MODI, Ditjen Minerba ESDM</div>
             </div>
           </div>
           <div class="legend-note">
@@ -1344,8 +1344,8 @@ function detectCommodity(lat, lon, nearestMineral, targetGeom) {
 
   const profile = classifyCommodityProfile(hit.rawName);
   const label = profile
-    ? `${hit.rawName} — ${hit.source}${hit.distKm !== null ? ' · ' + hit.distKm + ' km' : ''}`
-    : `${hit.rawName} — ${hit.source} (belum ada profil khusus, pakai bobot universal)`;
+    ? `${hit.rawName}: ${hit.source}${hit.distKm !== null ? ' · ' + hit.distKm + ' km' : ''}`
+    : `${hit.rawName}: ${hit.source} (belum ada profil khusus, pakai bobot universal)`;
 
   return { profile: profile || 'universal', rawName: hit.rawName, source: hit.source, label };
 }
@@ -2487,7 +2487,7 @@ function renderResult(lat, lon, locationName, s) {
         // into the same 0-100 scale as a real-but-weak match.
         noGeoData = true;
         geoLabel = 'Data geologi tidak tersedia';
-        geoSubLabel = 'Wilayah ini belum tercakup dataset survei regional manapun — bukan indikasi potensi rendah';
+        geoSubLabel = 'Wilayah ini belum tercakup dataset survei regional manapun. Ini bukan indikasi potensi rendah';
       }
       return renderPillar('geo','Geological Potential','ti-mountain','var(--brand-dim)','var(--brand)',s.geo,
         geoLabel, geoSubLabel,
@@ -2545,7 +2545,7 @@ function renderResult(lat, lon, locationName, s) {
     <!-- Straxio CTA -->
     <div class="straxio-cta">
       <div class="cta-headline"><i class="ti ti-shield-check" style="color:var(--brand)"></i> Upgrade ke Verified Report</div>
-      <div class="cta-sub">Hasil ini bersifat PRELIMINARY. Dapatkan laporan terverifikasi dari Ir. Hendro Ismanto ST — Senior Geologist, 31 tahun pengalaman, IAGI · Perhapi — untuk keputusan investasi.</div>
+      <div class="cta-sub">Hasil ini bersifat PRELIMINARY. Dapatkan laporan terverifikasi dari Ir. Hendro Ismanto ST, Senior Geologist, 31 tahun pengalaman, IAGI · Perhapi, untuk keputusan investasi.</div>
       <button class="cta-btn" onclick="window.open('https://straxio.io','_blank')">
         <i class="ti ti-external-link"></i> Order Snapshot · Rp 3,5jt
       </button>
@@ -2747,7 +2747,7 @@ async function fetchIA(lat, lon, scores) {
       if (el && pillar) {
         el.className = 'ia-box';
         el.innerHTML = `
-          <div class="ia-tag"><i class="ti ti-sparkles" style="font-size:10px;color:var(--brand)"></i> Interpretasi IA — GEOCEE</div>
+          <div class="ia-tag"><i class="ti ti-sparkles" style="font-size:10px;color:var(--brand)"></i> Interpretasi IA · GEOCEE</div>
           <div class="ia-text">${escapeHtml(pillar.interpretasi)}</div>
         `;
       }
@@ -2785,19 +2785,19 @@ function showIAFallback(reason, detail) {
     },
     parse: {
       icon: 'ti-bug', color: 'var(--amber)', title: 'IA Gagal Diproses',
-      text: 'IA merespons tapi hasilnya gagal diformat. Coba analisis ulang titik ini — kalau berulang, ini kemungkinan bug parsing di Worker, bukan soal kredit. Semua data scoring di atas sudah akurat dari database ESDM.'
+      text: 'IA merespons tapi hasilnya gagal diformat. Coba analisis ulang titik ini. Kalau berulang, ini kemungkinan bug parsing di Worker, bukan soal kredit. Semua data scoring di atas sudah akurat dari database ESDM.'
     },
     server: {
-      icon: 'ti-server-off', color: 'var(--red)', title: 'IA Error (' + (detail || '—') + ')',
+      icon: 'ti-server-off', color: 'var(--red)', title: 'IA Error (' + (detail || '-') + ')',
       text: `Server IA merespons error (HTTP ${detail || '?'}). Kalau ini berulang, cek log Cloudflare Worker. Semua data scoring di atas sudah akurat dari database ESDM.`
     },
     origin_blocked: {
       icon: 'ti-shield-x', color: 'var(--red)', title: 'Domain Diblokir Worker',
-      text: 'Worker menolak permintaan dari domain ini (proteksi keamanan ALLOWED_ORIGINS). Kalau Anda mengakses dari domain resmi Mineravix Pulse, coba hard refresh (Ctrl+Shift+R) — kalau tetap terjadi, cek daftar ALLOWED_ORIGINS di worker.js sudah termasuk domain ini. Semua data scoring di atas sudah akurat dari database ESDM.'
+      text: 'Worker menolak permintaan dari domain ini (proteksi keamanan ALLOWED_ORIGINS). Kalau Anda mengakses dari domain resmi Mineravix Pulse, coba hard refresh (Ctrl+Shift+R). Kalau tetap terjadi, cek daftar ALLOWED_ORIGINS di worker.js sudah termasuk domain ini. Semua data scoring di atas sudah akurat dari database ESDM.'
     },
     anthropic_error: {
-      icon: 'ti-key', color: 'var(--red)', title: 'IA Ditolak Anthropic (' + (detail || '—') + ')',
-      text: `Server IA terhubung, tapi Anthropic menolak permintaannya (HTTP ${detail || '?'}). Kemungkinan API key tidak valid/sudah di-revoke, saldo kredit habis, atau kena rate-limit — cek console.anthropic.com (Settings → Billing / API Keys). Ini BUKAN masalah domain/Worker. Semua data scoring di atas sudah akurat dari database ESDM.`
+      icon: 'ti-key', color: 'var(--red)', title: 'IA Ditolak Anthropic (' + (detail || '-') + ')',
+      text: `Server IA terhubung, tapi Anthropic menolak permintaannya (HTTP ${detail || '?'}). Kemungkinan API key tidak valid/sudah di-revoke, saldo kredit habis, atau kena rate-limit. Cek console.anthropic.com (Settings → Billing / API Keys). Ini BUKAN masalah domain/Worker. Semua data scoring di atas sudah akurat dari database ESDM.`
     }
   };
   const v = variants[reason] || variants.credit;
@@ -3097,7 +3097,7 @@ async function parseKmzFile(file) {
   if (!kmlEntry) {
     const kmlNames = Object.keys(zip.files).filter(n => n.toLowerCase().endsWith('.kml'));
     if (kmlNames.length === 0) {
-      throw new Error('Tidak ditemukan file .kml di dalam KMZ ini — pastikan file diekspor dengan benar dari Google Earth.');
+      throw new Error('Tidak ditemukan file .kml di dalam KMZ ini. Pastikan file diekspor dengan benar dari Google Earth.');
     }
     kmlEntry = zip.file(kmlNames[0]);
   }
@@ -3163,7 +3163,7 @@ function handleAreaFile(file) {
         hideHero();
         analyzeArea(points, `Area Upload: ${file.name} (${points.length} titik)`);
         if (shapeCount > 1) {
-          showErrorToast(`File KML ini punya ${shapeCount} bentuk — cuma yang pertama dipakai untuk analisis, sisanya diabaikan.`, {duration: 8000});
+          showErrorToast(`File KML ini punya ${shapeCount} bentuk. Hanya yang pertama dipakai untuk analisis, sisanya diabaikan.`, {duration: 8000});
         }
       } catch (err) {
         showErrorToast(`Gagal membaca KML "${safeName}": ${escapeHtml(err.message)}`);
@@ -3177,7 +3177,7 @@ function handleAreaFile(file) {
       hideHero();
       analyzeArea(points, `Area Upload: ${file.name} (${points.length} titik)`);
       if (shapeCount > 1) {
-        showErrorToast(`File KMZ ini punya ${shapeCount} bentuk — cuma yang pertama dipakai untuk analisis, sisanya diabaikan.`, {duration: 8000});
+        showErrorToast(`File KMZ ini punya ${shapeCount} bentuk. Hanya yang pertama dipakai untuk analisis, sisanya diabaikan.`, {duration: 8000});
       }
     }).catch(err => {
       showErrorToast(`Gagal membaca KMZ "${safeName}": ${escapeHtml(err.message)}`);
@@ -3305,7 +3305,7 @@ function showIAGate() {
   if (gateNumEl) gateNumEl.textContent = AI_FREE_LIMIT;
   const msg = `<div class="ia-box" style="border-left-color:var(--brand)">
     <div class="ia-tag"><i class="ti ti-lock" style="color:var(--brand);font-size:10px"></i> Kuota IA Gratis Habis</div>
-    <div class="ia-text">Interpretasi AI ${AI_FREE_LIMIT}x gratis sudah terpakai. Skor 5-pillar di atas tetap akurat — isi nama &amp; kontak untuk lanjut dapat interpretasi AI.</div>
+    <div class="ia-text">Interpretasi AI ${AI_FREE_LIMIT}x gratis sudah terpakai. Skor 5-pillar di atas tetap akurat. Isi nama &amp; kontak untuk lanjut dapat interpretasi AI.</div>
   </div>`;
   ['geo','lic','for','inf','iup'].forEach(key => {
     const el = document.getElementById('ia-pillar-' + key);
