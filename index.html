@@ -304,6 +304,24 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .qe-name{font-size:12px;color:var(--text2)}
 .qe-item:hover .qe-name{color:var(--text)}
 
+/* IUP name search results dropdown — muncul di bawah search-wrap kalau input cocok
+   dengan nama perusahaan pemegang IUP (bukan lokasi/koordinat). Styling dibuat konsisten
+   dengan .qe-item (quick examples) yang sudah ada, supaya tidak terasa seperti komponen asing. */
+.iup-search-results{
+  position:absolute;top:calc(100% + 6px);left:0;right:0;
+  background:var(--surface);border:1px solid var(--border2);border-radius:10px;
+  box-shadow:var(--shadow);max-height:280px;overflow-y:auto;z-index:500;
+}
+.iup-search-results.hidden{display:none}
+.iup-result-item{
+  display:flex;flex-direction:column;gap:2px;
+  padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--border);
+}
+.iup-result-item:last-child{border-bottom:none}
+.iup-result-item:hover{background:var(--brand-dim)}
+.iup-result-name{font-size:12.5px;color:var(--text);font-weight:500}
+.iup-result-meta{font-size:10.5px;color:var(--text3)}
+
 /* ─── ANALYZING STATE ───────────────────────────────────────── */
 #state-analyzing{display:none;padding:20px 0}
 .analyzing-steps{display:flex;flex-direction:column;gap:8px}
@@ -721,6 +739,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       <i class="ti ti-search search-icon"></i>
       <input id="search-input" type="text" placeholder="Cari lokasi, koordinat, atau nama wilayah..."/>
       <button id="search-btn" onclick="handleSearch()">Analisis</button>
+      <div id="iup-search-results" class="iup-search-results hidden"></div>
     </div>
     <div class="topbar-actions">
       <button class="tb-btn" onclick="document.getElementById('topbar-file-input').click()" title="Upload Area (CSV/KML/KMZ)"><i class="ti ti-file-spreadsheet"></i> <span class="tb-label">Upload Area</span></button>
@@ -2416,7 +2435,11 @@ function renderResult(lat, lon, locationName, s) {
   // Mark that the user has completed at least one real analysis — this is the
   // signal used to skip the hero landing overlay on future visits (agreed
   // criterion: "after 1x completed analysis", not just opening the page).
-  try { localStorage.setItem('mineravix_used', '1'); } catch(e) { /* localStorage unavailable, non-fatal */ }
+  // sessionStorage (bukan localStorage) — sengaja, sesuai keputusan: hero muncul lagi
+  // tiap kali browser dibuka ulang (sesi baru), bukan cuma sekali seumur hidup. Beda dari
+  // status kontak (mineravix_user_name/contact) yang TETAP permanen di localStorage — dua
+  // "ingatan" ini independen: hero reset tiap sesi, tapi status "sudah kasih kontak" tidak.
+  try { sessionStorage.setItem('mineravix_used', '1'); } catch(e) { /* sessionStorage unavailable, non-fatal */ }
 
   const loc = escapeHtml(locationName || `${lat.toFixed(4)}°, ${lon.toFixed(4)}°`);
   const verdict = s.total >= 75 ? {text:'PROCEED',cls:'badge-green'} :
@@ -2894,15 +2917,91 @@ function parseCoordinateInput(val) {
   return null;
 }
 
+// ─── PENCARIAN IUP BY NAMA PERUSAHAAN (gaya MODI/MOMI ESDM) ────────────────────
+// Beda dari pencarian lokasi/koordinat di bawah — ini navigasi ke sekitar IUP tertentu,
+// BUKAN analisis langsung IUP itu (analisis tetap harus diklik manual di peta setelah
+// lompat ke lokasinya). Keputusan produk: hindari kesan "cek status izin resmi" karena
+// data ini snapshot, bukan real-time — lihat diskusi SOP.
+function normalizeIupSearchTerm(s) {
+  return (s || '').toUpperCase().replace(/\bPT\.?\b|\bCV\.?\b/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function searchIupByName(query) {
+  if (!wiupData || !wiupData.features) return [];
+  const q = normalizeIupSearchTerm(query);
+  if (q.length < 3) return []; // hindari match kebanyakan noise dari query terlalu pendek
+  const seen = new Set();
+  const results = [];
+  for (const f of wiupData.features) {
+    const nama = f.properties.nama_usaha || '';
+    const namaNorm = normalizeIupSearchTerm(nama);
+    if (namaNorm.includes(q)) {
+      const key = namaNorm + '|' + (f.properties.sk_iup || '');
+      if (seen.has(key)) continue; // 1 perusahaan bisa punya banyak blok/fitur poligon
+      seen.add(key);
+      let centroid;
+      try {
+        centroid = turf.centroid(f).geometry.coordinates; // [lon, lat]
+      } catch(e) { continue; }
+      results.push({
+        nama: `${f.properties.badan_usah || ''} ${nama}`.trim(),
+        komoditas: f.properties.komoditas || '-',
+        lokasi: f.properties.nama_kab || f.properties.nama_prov || '',
+        lat: centroid[1], lon: centroid[0]
+      });
+      if (results.length >= 8) break; // batasi biar dropdown gak kepanjangan
+    }
+  }
+  return results;
+}
+
+function renderIupSearchResults(results) {
+  const box = document.getElementById('iup-search-results');
+  if (!results.length) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+  box.innerHTML = results.map(r => `
+    <div class="iup-result-item" onclick="jumpToIupResult(${r.lat}, ${r.lon}, '${escapeHtml(r.nama).replace(/'/g,"\\'")}')">
+      <div class="iup-result-name">${escapeHtml(r.nama)}</div>
+      <div class="iup-result-meta">${escapeHtml(r.komoditas)} · ${escapeHtml(r.lokasi)}</div>
+    </div>
+  `).join('');
+  box.classList.remove('hidden');
+}
+
+function jumpToIupResult(lat, lon, nama) {
+  document.getElementById('iup-search-results').classList.add('hidden');
+  document.getElementById('search-input').value = nama;
+  hideHero();
+  map.setView([lat, lon], 13);
+  // Sengaja TIDAK memanggil analyzeLocation() di sini — ini cuma navigasi ke sekitar
+  // IUP tersebut. Analisis titik tetap dipicu manual oleh user lewat klik peta,
+  // sesuai keputusan produk (bukan cek status izin IUP itu sendiri).
+}
+
+// Dismiss dropdown kalau user klik di luar area search
+document.addEventListener('click', (e) => {
+  const box = document.getElementById('iup-search-results');
+  const wrap = document.getElementById('search-wrap');
+  if (wrap && !wrap.contains(e.target)) box.classList.add('hidden');
+});
+
 function handleSearch() {
   const val = document.getElementById('search-input').value.trim();
   if (!val) return;
   // Try parse as coordinates (decimal or DMS)
   const parsed = parseCoordinateInput(val);
   if (parsed) {
+    document.getElementById('iup-search-results').classList.add('hidden');
     analyzeLocation(parsed.lat, parsed.lon);
     return;
   }
+  // Cek dulu apakah cocok nama IUP — kalau ketemu, tampilkan sebagai pilihan navigasi
+  // (bukan langsung analisis), baru kalau tidak ada yang cocok lanjut ke geocoding lokasi.
+  const iupResults = searchIupByName(val);
+  if (iupResults.length) {
+    renderIupSearchResults(iupResults);
+    return;
+  }
+  document.getElementById('iup-search-results').classList.add('hidden');
   // Geocode via Nominatim
   fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(val)},Indonesia&format=json&limit=1`)
     .then(r=>r.json())
@@ -3237,7 +3336,7 @@ function updateUserBadge() {
 function maybeShowHero() {
   updateUserBadge();
   let alreadyUsed = false;
-  try { alreadyUsed = !!localStorage.getItem('mineravix_used'); } catch(e) { /* localStorage unavailable, default to showing hero */ }
+  try { alreadyUsed = !!sessionStorage.getItem('mineravix_used'); } catch(e) { /* sessionStorage unavailable, default to showing hero */ }
   if (!alreadyUsed) {
     document.getElementById('hero-overlay').classList.remove('hidden');
     document.getElementById('hero-search-input').focus();
