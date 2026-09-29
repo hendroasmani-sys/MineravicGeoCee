@@ -1,0 +1,7 @@
+name = "mineravix-proxy"
+main = "src/index.js"
+compatibility_date = "2026-07-01"
+
+# Secrets are NOT stored here. Set them with:
+#   npx wrangler secret put CLAUDE_API_KEY
+# Local dev reads them from .dev.vars (gitignored; see .dev.vars.example).
