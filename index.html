@@ -2669,7 +2669,9 @@ async function fetchIA(lat, lon, scores) {
       const primary = overlapping || scores.wiupNearby[0] || null;
       return {
         jumlah: scores.wiupNearby.length,
-        status: scores.wiupOverlap > 0 ? 'Ada overlap WIUP' : 'Bebas dari WIUP aktif',
+        // No overlap in the currently loaded dataset is not proof of legal freedom.
+      // This status only describes the app's dataset result and requires official verification.
+      status: scores.wiupOverlap > 0 ? 'Ada overlap WIUP' : 'Tidak ditemukan overlap pada data aplikasi; status hukum belum terverifikasi',
         terdekat: primary ? primary.nama_usaha : null,
         jarak_terdekat_km: overlapping ? 0 : (scores.wiupNearby[0] ? Math.round(scores.wiupNearby[0].dist * 10) / 10 : null),
         kegiatan: primary ? primary.kegiatan : null,
@@ -2777,27 +2779,27 @@ function showIAFallback(reason, detail) {
   const variants = {
     credit: {
       icon: 'ti-alert-triangle', color: 'var(--amber)', title: 'IA Belum Aktif',
-      text: 'Kredit Anthropic API habis. Tambahkan saldo di Claude Console (Settings → Billing) untuk mengaktifkan kembali interpretasi otomatis. Semua data scoring di atas sudah akurat dari database ESDM.'
+      text: 'Kredit Anthropic API habis. Tambahkan saldo di Claude Console (Settings → Billing) untuk mengaktifkan kembali interpretasi otomatis. Hasil scoring merupakan indikasi awal berdasarkan data yang tersedia; kelengkapan dan ketepatan sumber perlu diverifikasi.'
     },
     network: {
       icon: 'ti-plug-connected-x', color: 'var(--red)', title: 'IA Tidak Terhubung',
-      text: 'Tidak bisa menghubungi server IA (mineravix-proxy). Cek koneksi internet atau status Cloudflare Worker, lalu coba lagi. Semua data scoring di atas sudah akurat dari database ESDM.'
+      text: 'Tidak bisa menghubungi server IA (mineravix-proxy). Cek koneksi internet atau status Cloudflare Worker, lalu coba lagi. Hasil scoring merupakan indikasi awal berdasarkan data yang tersedia; kelengkapan dan ketepatan sumber perlu diverifikasi.'
     },
     parse: {
       icon: 'ti-bug', color: 'var(--amber)', title: 'IA Gagal Diproses',
-      text: 'IA merespons tapi hasilnya gagal diformat. Coba analisis ulang titik ini. Kalau berulang, ini kemungkinan bug parsing di Worker, bukan soal kredit. Semua data scoring di atas sudah akurat dari database ESDM.'
+      text: 'IA merespons tapi hasilnya gagal diformat. Coba analisis ulang titik ini. Kalau berulang, ini kemungkinan bug parsing di Worker, bukan soal kredit. Hasil scoring merupakan indikasi awal berdasarkan data yang tersedia; kelengkapan dan ketepatan sumber perlu diverifikasi.'
     },
     server: {
       icon: 'ti-server-off', color: 'var(--red)', title: 'IA Error (' + (detail || '-') + ')',
-      text: `Server IA merespons error (HTTP ${detail || '?'}). Kalau ini berulang, cek log Cloudflare Worker. Semua data scoring di atas sudah akurat dari database ESDM.`
+      text: `Server IA merespons error (HTTP ${detail || '?'}). Kalau ini berulang, cek log Cloudflare Worker. Hasil scoring merupakan indikasi awal berdasarkan data yang tersedia; kelengkapan dan ketepatan sumber perlu diverifikasi.`
     },
     origin_blocked: {
       icon: 'ti-shield-x', color: 'var(--red)', title: 'Domain Diblokir Worker',
-      text: 'Worker menolak permintaan dari domain ini (proteksi keamanan ALLOWED_ORIGINS). Kalau Anda mengakses dari domain resmi Mineravix Pulse, coba hard refresh (Ctrl+Shift+R). Kalau tetap terjadi, cek daftar ALLOWED_ORIGINS di worker.js sudah termasuk domain ini. Semua data scoring di atas sudah akurat dari database ESDM.'
+      text: 'Worker menolak permintaan dari domain ini (proteksi keamanan ALLOWED_ORIGINS). Kalau Anda mengakses dari domain resmi Mineravix Pulse, coba hard refresh (Ctrl+Shift+R). Kalau tetap terjadi, cek daftar ALLOWED_ORIGINS di worker.js sudah termasuk domain ini. Hasil scoring merupakan indikasi awal berdasarkan data yang tersedia; kelengkapan dan ketepatan sumber perlu diverifikasi.'
     },
     anthropic_error: {
       icon: 'ti-key', color: 'var(--red)', title: 'IA Ditolak Anthropic (' + (detail || '-') + ')',
-      text: `Server IA terhubung, tapi Anthropic menolak permintaannya (HTTP ${detail || '?'}). Kemungkinan API key tidak valid/sudah di-revoke, saldo kredit habis, atau kena rate-limit. Cek console.anthropic.com (Settings → Billing / API Keys). Ini BUKAN masalah domain/Worker. Semua data scoring di atas sudah akurat dari database ESDM.`
+      text: `Server IA terhubung, tapi Anthropic menolak permintaannya (HTTP ${detail || '?'}). Kemungkinan API key tidak valid/sudah di-revoke, saldo kredit habis, atau kena rate-limit. Cek console.anthropic.com (Settings → Billing / API Keys). Ini BUKAN masalah domain/Worker. Hasil scoring merupakan indikasi awal berdasarkan data yang tersedia; kelengkapan dan ketepatan sumber perlu diverifikasi.`
     }
   };
   const v = variants[reason] || variants.credit;
@@ -3305,7 +3307,7 @@ function showIAGate() {
   if (gateNumEl) gateNumEl.textContent = AI_FREE_LIMIT;
   const msg = `<div class="ia-box" style="border-left-color:var(--brand)">
     <div class="ia-tag"><i class="ti ti-lock" style="color:var(--brand);font-size:10px"></i> Kuota IA Gratis Habis</div>
-    <div class="ia-text">Interpretasi AI ${AI_FREE_LIMIT}x gratis sudah terpakai. Skor 5-pillar di atas tetap akurat. Isi nama &amp; kontak untuk lanjut dapat interpretasi AI.</div>
+    <div class="ia-text">Interpretasi AI ${AI_FREE_LIMIT}x gratis sudah terpakai. Skor 5-pillar di atas merupakan indikasi awal dan tetap perlu diverifikasi terhadap sumber data. Isi nama &amp; kontak untuk lanjut dapat interpretasi AI.</div>
   </div>`;
   ['geo','lic','for','inf','iup'].forEach(key => {
     const el = document.getElementById('ia-pillar-' + key);
