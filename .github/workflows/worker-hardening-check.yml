@@ -1,0 +1,23 @@
+name: Worker hardening checks
+on:
+  pull_request:
+    paths:
+      - "worker/**"
+      - "index.html"
+      - ".github/workflows/worker-hardening-check.yml"
+  push:
+    branches:
+      - "hardening/strx-contract-validation-2026-10"
+jobs:
+  source-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Worker syntax and secret checks
+        working-directory: worker
+        run: bash scripts/check.sh
+      - name: Contract safety checks
+        run: bash worker/scripts/source-contract-check.sh
