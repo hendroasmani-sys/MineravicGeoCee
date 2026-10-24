@@ -56,13 +56,9 @@ export default {
     // just makes the rejection debuggable/visible instead of a silent black hole.
     const origin = resolveOrigin(request);
     if (!origin) {
-      const requestOrigin = request.headers.get("Origin") || "";
       return new Response(JSON.stringify({ error: "Forbidden", reason: "origin_blocked" }), {
         status: 403,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": requestOrigin || "null",
-        },
+        headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
       });
     }
 
@@ -99,15 +95,13 @@ export default {
       });
     }
 
-    // Validasi field wajib
-    const required = ["lat", "lon", "scores", "formasi", "wiup", "hutan"];
-    for (const field of required) {
-      if (body[field] === undefined) {
-        return new Response(
-          JSON.stringify({ error: `Missing field: ${field}` }),
-          { status: 400, headers: corsHeaders(origin) }
-        );
-      }
+    // Contract validation: reject malformed payloads before constructing prompts or
+    // spending provider quota. This validates shape/ranges, not the truth of source data.
+    const invalid = validatePayload(body);
+    if (invalid) {
+      return new Response(JSON.stringify({ error: "Invalid request", reason: invalid }), {
+        status: 400, headers: corsHeaders(origin),
+      });
     }
 
     // Bangun prompt untuk Claude
@@ -149,7 +143,9 @@ export default {
     }
 
     if (!anthropicRes.ok) {
-      const errText = await anthropicRes.text();
+      // Do not expose provider response bodies, request IDs, or diagnostic details.
+      await anthropicRes.text().catch(() => "");
+
       // Distinguishes "Anthropic rejected the request" (bad/revoked API key, no credit,
       // rate limited, etc — needs Hendro to check console.anthropic.com) from the
       // origin_blocked case above (needs checking ALLOWED_ORIGINS) — both can surface
@@ -157,13 +153,20 @@ export default {
       // client-side error message needs to tell them apart rather than showing "IA ERROR
       // (403)" for both indistinguishably.
       return new Response(
-        JSON.stringify({ error: "API error", reason: "anthropic_error", detail: errText }),
-        { status: anthropicRes.status, headers: corsHeaders(origin) }
+        JSON.stringify({ error: "Upstream AI service error", reason: "anthropic_error" }),
+        { status: 502, headers: corsHeaders(origin) }
       );
     }
 
-    const data = await anthropicRes.json();
-    const rawText = data.content?.[0]?.text ?? "";
+    let data;
+    try {
+      data = await anthropicRes.json();
+    } catch {
+      return new Response(JSON.stringify({ error: "Invalid upstream response", reason: "invalid_upstream_json" }), {
+        status: 502, headers: corsHeaders(origin),
+      });
+    }
+    const rawText = typeof data?.content?.[0]?.text === "string" ? data.content[0].text : "";
     // "max_tokens" here means Claude's response got cut off mid-generation before it
     // could finish the JSON — a real, distinct failure mode from "malformed JSON",
     // worth telling apart so troubleshooting doesn't chase the wrong cause.
@@ -184,14 +187,18 @@ try {
   // Carry real diagnostic info instead of a bare flag — visible in the browser's
   // Network tab (Response body) even without Cloudflare log access, so a repeat
   // failure can be root-caused directly instead of guessed at.
-  parsed = {
-    raw: rawText.slice(0, 500),
-    parseError: true,
-    wasTruncated,
-    stopReason: data.stop_reason || null,
-    parseErrorMessage: err.message
-  };
+  return new Response(JSON.stringify({
+    error: "Invalid AI response",
+    reason: wasTruncated ? "response_truncated" : "invalid_model_json",
+  }), { status: 502, headers: corsHeaders(origin) });
 }
+
+    const outputError = validateModelOutput(parsed);
+    if (outputError) {
+      return new Response(JSON.stringify({ error: "Invalid AI response schema", reason: outputError }), {
+        status: 502, headers: corsHeaders(origin),
+      });
+    }
 
     return new Response(JSON.stringify(parsed), {
       status: 200,
@@ -204,6 +211,35 @@ try {
   },
 };
 
+
+// Validate the incoming contract before any paid upstream call.
+function validatePayload(d) {
+  if (!d || typeof d !== "object" || Array.isArray(d)) return "body_not_object";
+  for (const key of ["lat", "lon", "scores", "formasi", "wiup", "hutan"]) {
+    if (d[key] === null || d[key] === undefined || typeof d[key] !== "object" || Array.isArray(d[key]) && key !== "scores") return "invalid_" + key;
+  }
+  if (!Number.isFinite(d.lat) || d.lat < -90 || d.lat > 90) return "invalid_lat";
+  if (!Number.isFinite(d.lon) || d.lon < -180 || d.lon > 180) return "invalid_lon";
+  for (const key of ["geo", "lic", "for", "inf", "iup", "total"]) {
+    if (!Number.isFinite(d.scores[key]) || d.scores[key] < 0 || d.scores[key] > 100) return "invalid_score_" + key;
+  }
+  if (typeof d.wiup.status !== "string" || !d.wiup.status.trim()) return "missing_wiup_status";
+  if (typeof d.formasi.data_tersedia !== "boolean") return "missing_geology_availability";
+  return null;
+}
+
+function validateModelOutput(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return "not_object";
+  for (const key of ["pillar_geo", "pillar_lic", "pillar_for", "pillar_inf", "pillar_iup"]) {
+    const p = value[key];
+    if (!p || typeof p !== "object" || !Number.isFinite(p.score) ||
+        typeof p.status !== "string" || typeof p.interpretasi !== "string") return "invalid_" + key;
+  }
+  if (typeof value.ringkasan !== "string" || !value.ringkasan.trim()) return "invalid_ringkasan";
+  if (!["PROCEED", "MONITOR", "AVOID"].includes(value.rekomendasi)) return "invalid_rekomendasi";
+  return null;
+}
+
 // ─── System Prompt untuk Claude ───────────────────────────────────────────────
 const SYSTEM_PROMPT = `Kamu adalah GEOCEE AI — asisten analisis geologi dan pertambangan untuk Mineravix Pulse, platform milik PT. Citra Eksplor Energi (GEOCEE).
 
@@ -212,8 +248,9 @@ Tugasmu: menganalisis data 5-pillar dari koordinat yang diberikan dan menghasilk
 Kamu adalah "suara geologist" — bukan chatbot. Kamu hanya menganalisis data yang diberikan, tidak menjawab pertanyaan umum.
 
 ATURAN MUTLAK — KONSISTENSI DATA:
-Semua nilai dalam data (status, jumlah, jarak, kategori) sudah dihitung secara programatik dari database resmi (ESDM/P3GL/KLHK/WIUP 2024) dan 100% akurat pada saat analisis dijalankan. Tugasmu HANYA menjelaskan dan memberi konteks atas data tersebut — BUKAN menyimpulkan ulang, menebak, atau mengoreksi status berdasarkan sinyal lain (misal nama WIUP, jarak, atau komoditas).
+Nilai yang diterima berasal dari data dan perhitungan aplikasi, tetapi kelengkapan, ketepatan, kebaruan, dan cakupan sumber tidak dijamin. Jangan menyatakan hasil sebagai terverifikasi atau 100% akurat. Jelaskan hanya hal yang didukung data; tandai data yang hilang/tidak diketahui sebagai belum tersedia dan jangan mengarang fakta.
 - JANGAN PERNAH menulis interpretasi yang bertentangan dengan field "Status area" yang diberikan. Jika "Status area: Ada overlap WIUP", interpretasi WAJIB menyatakan ada overlap — dilarang keras memakai frasa seperti "bebas dari WIUP", "tidak ada overlap", atau "status bersih" untuk kondisi ini.
+- Status WIUP yang kosong, tidak diketahui, atau tidak diverifikasi BUKAN bukti bahwa area bebas. Nyatakan status belum dapat dipastikan.
 - Jika "Status area: Bebas dari WIUP aktif", interpretasi WAJIB menyatakan area bebas — dilarang menyiratkan ada overlap.
 - Sebelum menulis pillar_lic, ulangi dalam kepalamu: apa isi persis field "Status area" di atas? Interpretasimu harus konsisten kata demi kata dengan itu.
 
@@ -242,6 +279,7 @@ PULSE SCORE 5-PILLAR:
 Total Score: ${d.scores.total}/100
 
 DATA GEOLOGI (dari ESDM/P3GL):
+- Ketersediaan data geologi: ${d.formasi.data_tersedia === false ? "TIDAK TERSEDIA" : "status ketersediaan tidak diketahui; jangan mengasumsikan data lengkap"}
 - Nama Formasi: ${d.formasi.nama ?? "Tidak teridentifikasi"}
 - Kode Formasi: ${d.formasi.kode ?? "-"}
 - Litologi: ${d.formasi.lithologi ?? "Tidak diketahui"}
@@ -250,7 +288,7 @@ DATA GEOLOGI (dari ESDM/P3GL):
 
 DATA WIUP (radius pencarian ${radiusKm}km — CATATAN: ini radius pencarian kandidat, BUKAN jarak WIUP terdekat; jarak sebenarnya ada di field "Jarak WIUP terdekat" di bawah):
 - Jumlah WIUP ditemukan dalam radius: ${d.wiup.jumlah ?? 0}
-- Status area (GROUND TRUTH — jangan dikontradiksi): ${d.wiup.status ?? "Bebas (tidak ada WIUP overlap)"}
+- Status area (jika tidak tersedia, nyatakan belum diketahui): ${d.wiup.status ?? "BELUM DIKETAHUI — data tidak cukup untuk menyimpulkan bebas atau overlap"}
 - WIUP terdekat: ${d.wiup.terdekat ?? "Tidak ada"}
 - Jarak WIUP terdekat: ${d.wiup.jarak_terdekat_km != null ? d.wiup.jarak_terdekat_km + " km" : "Tidak ada data jarak"}
 - Kegiatan terdekat: ${d.wiup.kegiatan ?? "-"}
@@ -270,7 +308,7 @@ Kembalikan HANYA JSON berikut, tidak ada teks lain:
     "label": "Geological Potential",
     "score": ${d.scores.geo},
     "status": "SATU KATA: Tinggi/Sedang/Rendah/Sangat Rendah",
-    "interpretasi": "3-4 kalimat interpretasi geologi profesional dalam Bahasa Indonesia. Sebut nama formasi, litologi, jenis batuan, dan implikasi komoditas. Sertakan konteks Cekungan atau regional jika relevan."
+    "interpretasi": "3-4 kalimat interpretasi geologi profesional. Jika data geologi tidak tersedia atau tidak memadai, katakan potensi geologi belum dapat dinilai secara memadai; jangan mengarang formasi, litologi, atau komoditas."
   },
   "pillar_lic": {
     "label": "Licence Status",
@@ -288,7 +326,7 @@ Kembalikan HANYA JSON berikut, tidak ada teks lain:
     "label": "Infrastructure",
     "score": ${d.scores.inf},
     "status": "SATU KATA: Baik/Cukup/Terbatas/Kritis",
-    "interpretasi": "3-4 kalimat tentang aksesibilitas dan infrastruktur. Estimasi jarak ke jalan utama, pelabuhan, atau fasilitas logistik. Implikasi capex infrastruktur untuk operasi tambang skala menengah."
+    "interpretasi": "3-4 kalimat tentang aksesibilitas berdasarkan data yang tersedia. Jangan memperkirakan jarak jalan, pelabuhan, atau fasilitas jika pengukuran tidak diberikan; tandai data yang tidak tersedia."
   },
   "pillar_iup": {
     "label": "Adjacent IUP Context",
@@ -297,7 +335,7 @@ Kembalikan HANYA JSON berikut, tidak ada teks lain:
     "interpretasi": "3-4 kalimat tentang konteks IUP yang berdekatan. Apakah formasi yang sama sudah terbukti produktif di IUP terdekat? Sebutkan nama perusahaan dan komoditas sebagai analog. Apa yang bisa dipelajari dari IUP tetangga?"
   },
   "ringkasan": "Satu paragraf (5-6 kalimat) ringkasan eksekutif yang mengintegrasikan semua 5 pillar. Mulai dengan potensi terkuat, sebutkan risiko utama, dan berikan rekomendasi next step yang spesifik (bukan generik). Gunakan bahasa profesional yang bisa dimengerti investor non-teknis. Ringkasan ini juga WAJIB konsisten dengan field 'Status area' WIUP — jangan menyebut area 'bersih'/'bebas' jika Status area menyatakan ada overlap.",
-  "rekomendasi": "SATU dari tiga pilihan: PROCEED / MONITOR / AVOID — berdasarkan skor total dan kombinasi pillar. Tambahkan satu kalimat alasan singkat.",
+  "rekomendasi": "SATU ENUM SAJA: PROCEED atau MONITOR atau AVOID. Tidak boleh menambahkan kalimat atau teks lain.",
   "generated_at": "${new Date().toISOString()}"
 }`;
 }
