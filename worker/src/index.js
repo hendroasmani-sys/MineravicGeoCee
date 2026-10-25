@@ -8,10 +8,10 @@
  *
  * DEPLOY (from worker/, see README.md):
  *   bash scripts/check.sh
- *   npx wrangler secret put CLAUDE_API_KEY   # first time / key rotation only
+ *   npx wrangler secret put ANTHROPIC_API_KEY   # first time / key rotation only
  *   npx wrangler deploy
  *
- * The Anthropic key lives ONLY as the Cloudflare secret CLAUDE_API_KEY.
+ * The Anthropic key lives ONLY as the Cloudflare secret ANTHROPIC_API_KEY.
  * Never hardcode it here and never commit .dev.vars.
  */
 
@@ -107,10 +107,10 @@ export default {
     // Bangun prompt untuk Claude
     const prompt = buildPrompt(body);
 
-    // API key comes only from the Cloudflare secret CLAUDE_API_KEY. Fail closed
+    // API key comes only from the Cloudflare secret ANTHROPIC_API_KEY. Fail closed
     // (readable 500 with CORS headers) if it is missing, instead of sending an
     // unauthenticated request to Anthropic.
-    const apiKey = env.CLAUDE_API_KEY;
+    const apiKey = env.ANTHROPIC_API_KEY;
     if (!apiKey) {
       return new Response(
         JSON.stringify({ error: "Server misconfigured", reason: "missing_api_key" }),
