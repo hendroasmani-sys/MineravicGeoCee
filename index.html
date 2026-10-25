@@ -2497,11 +2497,11 @@ function renderResult(lat, lon, locationName, s) {
     })()}
 
     ${renderPillar('lic','Licence Status','ti-license','var(--green-dim)','var(--green)',s.lic,
-      s.wiupOverlap > 0 ? `⚠ ${s.wiupOverlap} WIUP overlap terdeteksi` : s.wiupNearby.length === 0 ? 'Area bebas dari WIUP' : `${s.wiupNearby.length} WIUP dalam radius 10km`,
+      s.wiupOverlap > 0 ? `⚠ ${s.wiupOverlap} WIUP overlap terdeteksi` : s.wiupNearby.length === 0 ? 'Tidak ditemukan overlap pada data aplikasi; status hukum belum terverifikasi' : `${s.wiupNearby.length} WIUP dalam radius 10km`,
       s.wiupOverlap > 0
         ? escapeHtml(s.wiupOverlapFeatures[0]?.nama_usaha || '-')
         : (s.wiupNearby.length > 0 ? escapeHtml(s.wiupNearby[0].nama_usaha || '-') : 'Tidak ada'),
-      s.lic>=75?{text:'Bersih',cls:'badge-green'}:s.lic>=55?{text:'Terbatas',cls:'badge-amber'}:{text:'Overlap',cls:'badge-red'}
+      s.lic>=75?{text:'Skor tinggi',cls:'badge-green'}:s.lic>=55?{text:'Skor menengah',cls:'badge-amber'}:{text:'Skor rendah',cls:'badge-red'}
     )}
 
     ${renderPillar('for','Forest Area Risk','ti-trees','var(--red-dim)','var(--red)',s.for,
@@ -2731,13 +2731,18 @@ async function fetchIA(lat, lon, scores) {
       const reason = bodyJson && bodyJson.reason;
       if (reason === 'origin_blocked') showIAFallback('origin_blocked');
       else if (reason === 'anthropic_error') showIAFallback('anthropic_error', res.status);
+      else if (reason === 'invalid_model_json' || reason === 'invalid_upstream_json' || reason === 'response_truncated' || (typeof reason === 'string' && reason.startsWith('invalid_'))) showIAFallback('parse');
       else if (/credit|balance|quota|insufficient/i.test(bodyText)) showIAFallback('credit');
       else showIAFallback('server', res.status);
       return;
     }
-    const data = await res.json();
+    let data;
+    try { data = await res.json(); } catch (_) { showIAFallback('parse'); return; }
 
-    if (data.parseError) {
+    // Frontend/Worker contract check: never render partial or malformed AI output.
+    const pillarKeys = ['pillar_geo','pillar_lic','pillar_for','pillar_inf','pillar_iup'];
+    const validPillars = pillarKeys.every(key => data[key] && typeof data[key].interpretasi === 'string' && data[key].interpretasi.trim());
+    if (!validPillars || typeof data.ringkasan !== 'string' || !data.ringkasan.trim() || !['PROCEED','MONITOR','AVOID'].includes(data.rekomendasi)) {
       showIAFallback('parse');
       return;
     }
