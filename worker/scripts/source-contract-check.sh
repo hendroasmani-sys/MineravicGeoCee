@@ -7,6 +7,8 @@ check() {
   local label="$1"; shift
   if "$@"; then printf 'PASS: %s\n' "$label"; else printf 'FAIL: %s\n' "$label"; fail=1; fi
 }
+check "Worker uses existing Cloudflare secret name" grep -q 'env.ANTHROPIC_API_KEY' "$f"
+check "legacy secret name is absent from Worker runtime" bash -c '! grep -q "env.CLAUDE_API_KEY" "$1"' _ "$f"
 check "payload validator is present" grep -q 'function validatePayload' "$f"
 check "payload validation precedes provider call" bash -c '[[ "$(grep -n "validatePayload(body)" "$1" | cut -d: -f1)" -lt "$(grep -n "api.anthropic.com/v1/messages" "$1" | cut -d: -f1)" ]]' _ "$f"
 check "origin reflection removed" bash -c '! grep -q "Access-Control-Allow-Origin.*requestOrigin" "$1"' _ "$f"
